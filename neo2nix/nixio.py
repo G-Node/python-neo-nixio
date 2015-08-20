@@ -1,5 +1,5 @@
 from neo.core import objectlist, objectnames, class_by_name
-from neo.core import Block, Event, Epoch, Segment
+from neo.core import Block, Event, Epoch, Segment, AnalogSignal
 from neo.io.baseio import BaseIO
 
 from neo2nix.proxy import ProxyList
@@ -49,6 +49,7 @@ class NixIO(BaseIO):
     _default_meta_attr_names = ('description', 'file_origin')
     _block_meta_attrs = ('file_datetime', 'rec_datetime', 'index')
     _segment_meta_attrs = ('file_datetime', 'rec_datetime', 'index')
+    _analogsignal_meta_attrs = ('channel_index',)
 
     def __init__(self, filename, readonly=False):
         """
@@ -78,7 +79,6 @@ class NixIO(BaseIO):
     # helpers
     # -------------------------------------------
 
-
     @staticmethod
     def _get_or_create_section(entity_with_sec, name, s_type):
         try:
@@ -92,6 +92,23 @@ class NixIO(BaseIO):
             return nix_file.blocks[block_id]
         except KeyError:
             raise NameError('Block with this id %s does not exist' % block_id)
+
+    @staticmethod
+    def _write_metadata(section, dict_to_store):
+        for attr_name, value in dict_to_store.items():
+            if value:
+                if not type(value) in (list, tuple):
+                    value = (value,)
+                values = [nix.Value(x) for x in value]
+
+                try:
+                    p = section.props[attr_name]
+                except KeyError:
+                    p = section.create_property(attr_name, values)
+
+                if not p.values == values:
+                    p.values = values
+
 
     def _read_multiple(self, nix_file, parent_id, obj_type):
         """
@@ -136,11 +153,7 @@ class NixIO(BaseIO):
 
     def _read_segment(self, nix_file, block_id, seg_id):
         nix_block = self._get_block(nix_file, block_id)
-
-        try:
-            nix_tag = nix_block.tags[seg_id]
-        except KeyError:
-            raise NameError("Segment with this id %s does not exist" % seg_id)
+        nix_tag = nix_block.tags[seg_id]
 
         seg = Segment(name=nix_tag.name)
 
@@ -157,6 +170,33 @@ class NixIO(BaseIO):
         # TODO add more setters for relations
 
         return seg
+
+    def _read_analogsignal(self, nix_file, block_id, array_id):
+        nix_block = self._get_block(nix_file, block_id)
+        nix_da = nix_block.data_arrays[array_id]
+
+        params = {
+            'name': nix_da.name,
+            'signal': nix_da[:],  # TODO think about lazy data loading
+            'units': nix_da.unit,
+            'dtype': nix_da.dtype,
+            'sampling_period': nix_da.dimensions[0].sampling_interval
+        }
+        signal = AnalogSignal(**params)
+
+        # fetch t_start from metadata
+
+        if nix_da.metadata is not None:
+            meta_attrs = NixIO._default_meta_attr_names + NixIO._analogsignal_meta_attrs
+            for attr_name in meta_attrs:
+                try:
+                    setattr(signal, attr_name, nix_da.metadata[attr_name])
+                except KeyError:
+                    pass  # attr is not present
+
+        # TODO: fetch annotations
+
+        return signal
 
     # -------------------------------------------
     # internal O methods
@@ -175,26 +215,15 @@ class NixIO(BaseIO):
         except KeyError:
             nix_block = nix_file.create_block(block.name, 'neo_block')
 
-        # root metadata section for block
-        nix_block.metadata = NixIO._get_or_create_section(nix_file, block.name, 'neo_block')
+        # prepare metadata to store
+        metadata = dict(block.annotations)
 
         meta_attrs = NixIO._default_meta_attr_names + NixIO._block_meta_attrs
         for attr_name in meta_attrs:
-            value = getattr(block, attr_name, None)
-            if value:
-                if not type(value) in (list, tuple):
-                    value = (value,)
-                values = [nix.Value(x) for x in value]
+            metadata[attr_name] = getattr(block, attr_name, None)
 
-                try:
-                    p = nix_block.metadata.props[attr_name]
-                except KeyError:
-                    p = nix_block.metadata.create_property(attr_name, values)
-
-                if not p.values == values:
-                    p.values = values
-
-        # TODO: serialize annotations
+        nix_block.metadata = NixIO._get_or_create_section(nix_file, block.name, 'neo_block')
+        NixIO._write_metadata(nix_block.metadata, metadata)
 
         if recursive:
             for segment in block.segments:
@@ -215,26 +244,53 @@ class NixIO(BaseIO):
         except KeyError:
             nix_tag = nix_block.create_tag(segment.name, 'neo_segment', [0.0])
 
-        # root metadata section for block
-        nix_tag.metadata = NixIO._get_or_create_section(nix_block.metadata, segment.name, 'neo_block')
+        # prepare metadata to store
+        metadata = dict(segment.annotations)
 
-        meta_attrs = NixIO._default_meta_attr_names + NixIO._block_meta_attrs
+        meta_attrs = NixIO._default_meta_attr_names + NixIO._segment_meta_attrs
         for attr_name in meta_attrs:
-            value = getattr(segment, attr_name, None)
-            if value:
-                if not type(value) in (list, tuple):
-                    value = (value,)
-                values = [nix.Value(x) for x in value]
+            metadata[attr_name] = getattr(segment, attr_name, None)
 
-                try:
-                    p = nix_tag.metadata.props[attr_name]
-                except KeyError:
-                    p = nix_tag.metadata.create_property(attr_name, values)
+        nix_tag.metadata = NixIO._get_or_create_section(nix_block.metadata, segment.name, 'neo_segment')
+        NixIO._write_metadata(nix_tag.metadata, metadata)
 
-                if not p.values == values:
-                    p.values = values
+        # TODO: serialize relations
 
-        # TODO: serialize annotations
+    def _write_analogsignal(self, nix_file, block_id, signal):
+        """
+        Writes the given Neo AnalogSignal to the NIX file.
+
+        :param nix_file:    an open file where to save Block
+        :param block_id:    an id of the block in NIX file where to save segment
+        """
+        nix_block = self._get_block(nix_file, block_id)
+
+        try:
+            nix_array = nix_block.data_arrays[signal.name]
+        except KeyError:
+            args = (signal.name, 'neo_analogsignal', signal.dtype, (0,))
+            nix_array = nix_block.create_data_array(*args)
+
+        nix_array[:] = signal
+        nix_array.unit = signal.units.dimensionality.string
+
+        if not nix_array.dimensions:
+            nix_array.append_sampled_dimension(signal.sampling_rate.item())
+        nix_array.dimensions[0].unit = signal.sampling_rate.units.dimensionality.string
+
+        # prepare metadata to store
+        metadata = dict(signal.annotations)
+
+        meta_attrs = NixIO._default_meta_attr_names + NixIO._analogsignal_meta_attrs
+        for attr_name in meta_attrs:
+            metadata[attr_name] = getattr(signal, attr_name, None)
+
+        # special t_start serialization
+        metadata['t_start'] = nix.Value(signal.t_start.item())
+        metadata['t_start__unit'] = nix.Value(signal.t_start.units.dimensionality.string)
+
+        nix_array.metadata = NixIO._get_or_create_section(nix_block.metadata, signal.name, 'neo_analogsignal')
+        NixIO._write_metadata(nix_array.metadata, metadata)
 
     # -------------------------------------------
     # I/O methods
@@ -242,16 +298,14 @@ class NixIO(BaseIO):
 
     @file_transaction
     def read_multiple(self, parent_id, obj_type):
-        b = self._read_multiple(self.f, parent_id, obj_type)
-        return b
+        return self._read_multiple(self.f, parent_id, obj_type)
 
     def read_all_blocks(self):
         return self.read_multiple('whatever', 'block')
 
     @file_transaction
     def read_block(self, block_id):
-        b = self._read_block(self.f, block_id)
-        return b
+        return self._read_block(self.f, block_id)
 
     @file_transaction
     def write_block(self, block, recursive=True):
