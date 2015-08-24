@@ -3,6 +3,8 @@ from neo.core import Block, Event, Epoch, Segment, AnalogSignal
 from neo.io.baseio import BaseIO
 
 from neo2nix.proxy import ProxyList
+
+import quantities as pq
 import nix
 import os
 
@@ -151,6 +153,11 @@ class NixIO(BaseIO):
             tags = filter(lambda x: x.type == 'neo_segment', nix_file.blocks[parent_id].tags)
             return [self._read_segment(nix_file, parent_id, tag.name) for tag in tags]
 
+        elif obj_type == 'analogsignal':
+            nix_arrays = nix_file.blocks[parent_id].data_arrays
+            signals = filter(lambda x: x.type == 'neo_analogsignal', nix_arrays)
+            return [self._read_analogsignal(nix_file, parent_id, da.name) for da in signals]
+
     # -------------------------------------------
     # internal I methods
     # -------------------------------------------
@@ -190,6 +197,8 @@ class NixIO(BaseIO):
 
         # TODO: fetch annotations
 
+        setattr(seg, 'analogsignals', ProxyList(self, 'analogsignal', nix_block.name))  # FIXME WRONG
+
         # TODO add more setters for relations
 
         return seg
@@ -203,8 +212,15 @@ class NixIO(BaseIO):
             'signal': nix_da[:],  # TODO think about lazy data loading
             'units': nix_da.unit,
             'dtype': nix_da.dtype,
-            'sampling_period': nix_da.dimensions[0].sampling_interval
         }
+
+        s_dim = nix_da.dimensions[0]
+        sampling = s_dim.sampling_interval * getattr(pq, s_dim.unit)
+        if 'hz' in s_dim.unit.lower():
+            params['sampling_rate'] = sampling
+        else:
+            params['sampling_period'] = sampling
+
         signal = AnalogSignal(**params)
 
         # fetch t_start from metadata
@@ -250,8 +266,16 @@ class NixIO(BaseIO):
         NixHelp.write_metadata(nix_block.metadata, metadata)
 
         if recursive:
+            existing = filter(lambda x: x.type == 'neo_segment', nix_block.tags)
+            to_remove = set([x.name for x in existing]) - set([x.name for x in block.segments])
+
             for segment in block.segments:
                 self._write_segment(nix_file, nix_block.name, segment, recursive=recursive)
+
+            for name in to_remove:
+                del nix_block.tags[name]
+
+        return nix_block
 
     def _write_segment(self, nix_file, block_id, segment, recursive=True):
         """
@@ -276,10 +300,26 @@ class NixIO(BaseIO):
             if getattr(segment, attr_name, None) is not None:
                 metadata[attr_name] = getattr(segment, attr_name, None)
 
-        nix_tag.metadata = NixHelp.get_or_create_section(nix_block.metadata, segment.name, 'neo_segment')
+        sec_name = '<segment> ' + segment.name
+        nix_tag.metadata = NixHelp.get_or_create_section(nix_block.metadata, sec_name, 'neo_segment')
         NixHelp.write_metadata(nix_tag.metadata, metadata)
 
-        # TODO: serialize relations
+        if recursive:
+            existing = list(filter(lambda x: x.type == 'neo_analogsignal', nix_tag.references))
+            to_remove = set([x.name for x in existing]) - set([x.name for x in segment.analogsignals])
+            to_append = set([x.name for x in segment.analogsignals]) - set([x.name for x in existing])
+
+            for signal in segment.analogsignals:
+                self._write_analogsignal(nix_file, nix_block.name, signal)
+
+            for da in nix_tag.references:
+                if da.name in to_remove:
+                    del nix_tag.references[da.name]
+
+            for name in to_append:
+                nix_tag.references.append(nix_block.data_arrays[name])
+
+        return nix_tag
 
     def _write_analogsignal(self, nix_file, block_id, signal):
         """
@@ -292,11 +332,14 @@ class NixIO(BaseIO):
 
         try:
             nix_array = nix_block.data_arrays[signal.name]
+
+            # TODO update data?
+
         except KeyError:
             args = (signal.name, 'neo_analogsignal', signal.dtype, (0,))
             nix_array = nix_block.create_data_array(*args)
+            nix_array.append(signal)
 
-        nix_array[:] = signal
         nix_array.unit = signal.units.dimensionality.string
 
         if not nix_array.dimensions:
@@ -312,11 +355,14 @@ class NixIO(BaseIO):
                 metadata[attr_name] = getattr(signal, attr_name, None)
 
         # special t_start serialization
-        metadata['t_start'] = nix.Value(signal.t_start.item())
-        metadata['t_start__unit'] = nix.Value(signal.t_start.units.dimensionality.string)
+        metadata['t_start'] = signal.t_start.item()
+        metadata['t_start__unit'] = signal.t_start.units.dimensionality.string
 
-        nix_array.metadata = NixHelp.get_or_create_section(nix_block.metadata, signal.name, 'neo_analogsignal')
+        sec_name = '<signal> ' + signal.name
+        nix_array.metadata = NixHelp.get_or_create_section(nix_block.metadata, sec_name, 'neo_analogsignal')
         NixHelp.write_metadata(nix_array.metadata, metadata)
+
+        return nix_array
 
     # -------------------------------------------
     # I/O methods

@@ -1,6 +1,5 @@
 
 
-
 class ProxyList(object):
     """ An enhanced list that can load its members on demand. Behaves exactly
     like a regular list for members that are Neo objects.
@@ -20,8 +19,18 @@ class ProxyList(object):
     @property
     def _data(self):
         if self._cache is None:
-            args = (self._parent_id, self._child_type)
-            self._cache = self._io.read_multiple(*args)
+            should_close = False
+
+            if self._io.f is None or not self._io.f.is_open():
+                self._io.f = self._io._open()
+                should_close = True
+
+            args = (self._io.f, self._parent_id, self._child_type)
+            self._cache = self._io._read_multiple(*args)
+
+            if should_close:
+                self._io.f.close()
+
         return self._cache
 
     def __getitem__(self, index):
