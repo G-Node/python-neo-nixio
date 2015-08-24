@@ -25,6 +25,62 @@ def file_transaction(method):
     return wrapped
 
 
+class NixHelp:
+
+    @staticmethod
+    def get_or_create_section(entity_with_sec, name, s_type):
+        try:
+            return entity_with_sec.sections[name]
+        except KeyError:
+            return entity_with_sec.create_section(name, s_type)
+
+    @staticmethod
+    def get_block(nix_file, block_id):
+        try:
+            return nix_file.blocks[block_id]
+        except KeyError:
+            raise NameError('Block with this id %s does not exist' % block_id)
+
+    @staticmethod
+    def read_attributes(nix_section, attr_names):  # pure
+        result = {}
+
+        for attr_name in attr_names:
+            if attr_name in nix_section:
+                result[attr_name] = nix_section[attr_name]
+
+        return result
+
+    @staticmethod
+    def read_annotations(nix_section, exclude_attrs):  # pure
+        result = {}
+
+        for prop in nix_section.props:
+            key = prop.name
+            value = nix_section[key]
+
+            if key not in exclude_attrs:
+                result[key] = value
+
+        return result
+
+    @staticmethod
+    def write_metadata(nix_section, dict_to_store):
+        for attr_name, value in dict_to_store.items():
+            if value:
+                if not type(value) in (list, tuple):
+                    value = (value,)
+                values = [nix.Value(x) for x in value]
+
+                try:
+                    p = nix_section.props[attr_name]
+                except KeyError:
+                    p = nix_section.create_property(attr_name, values)
+
+                if not p.values == values:
+                    p.values = values
+
+
 class NixIO(BaseIO):
     """
     This I/O can read/write Neo objects into HDF5 format using NIX library.
@@ -79,37 +135,6 @@ class NixIO(BaseIO):
     # helpers
     # -------------------------------------------
 
-    @staticmethod
-    def _get_or_create_section(entity_with_sec, name, s_type):
-        try:
-            return entity_with_sec.sections[name]
-        except KeyError:
-            return entity_with_sec.create_section(name, s_type)
-
-    @staticmethod
-    def _get_block(nix_file, block_id):
-        try:
-            return nix_file.blocks[block_id]
-        except KeyError:
-            raise NameError('Block with this id %s does not exist' % block_id)
-
-    @staticmethod
-    def _write_metadata(section, dict_to_store):
-        for attr_name, value in dict_to_store.items():
-            if value:
-                if not type(value) in (list, tuple):
-                    value = (value,)
-                values = [nix.Value(x) for x in value]
-
-                try:
-                    p = section.props[attr_name]
-                except KeyError:
-                    p = section.create_property(attr_name, values)
-
-                if not p.values == values:
-                    p.values = values
-
-
     def _read_multiple(self, nix_file, parent_id, obj_type):
         """
         Reads multiple objects of the same type from a given parent (parent_id).
@@ -131,28 +156,26 @@ class NixIO(BaseIO):
     # -------------------------------------------
 
     def _read_block(self, nix_file, block_id):
-        nix_block = self._get_block(nix_file, block_id)
+        nix_block = NixHelp.get_block(nix_file, block_id)
 
         b = Block(name=nix_block.name)
 
-        if nix_block.metadata is not None:
-            meta_attrs = NixIO._default_meta_attr_names + NixIO._block_meta_attrs
-            for attr_name in meta_attrs:
-                try:
-                    setattr(b, attr_name, nix_block.metadata[attr_name])
-                except KeyError:
-                    pass  # attr is not present
+        nix_section = nix_block.metadata
+        direct_attrs = NixIO._default_meta_attr_names + NixIO._block_meta_attrs
+
+        for key, value in NixHelp.read_attributes(nix_section, direct_attrs).items():
+            setattr(b, key, value)
+
+        b.annotations = NixHelp.read_annotations(nix_section, direct_attrs)
 
         setattr(b, 'segments', ProxyList(self, 'segment', nix_block.name))
-
-        # TODO: fetch annotations
 
         # TODO add more setters for relations
 
         return b
 
     def _read_segment(self, nix_file, block_id, seg_id):
-        nix_block = self._get_block(nix_file, block_id)
+        nix_block = NixHelp.get_block(nix_file, block_id)
         nix_tag = nix_block.tags[seg_id]
 
         seg = Segment(name=nix_tag.name)
@@ -172,7 +195,7 @@ class NixIO(BaseIO):
         return seg
 
     def _read_analogsignal(self, nix_file, block_id, array_id):
-        nix_block = self._get_block(nix_file, block_id)
+        nix_block = NixHelp.get_block(nix_file, block_id)
         nix_da = nix_block.data_arrays[array_id]
 
         params = {
@@ -220,10 +243,11 @@ class NixIO(BaseIO):
 
         meta_attrs = NixIO._default_meta_attr_names + NixIO._block_meta_attrs
         for attr_name in meta_attrs:
-            metadata[attr_name] = getattr(block, attr_name, None)
+            if getattr(block, attr_name, None) is not None:
+                metadata[attr_name] = getattr(block, attr_name, None)
 
-        nix_block.metadata = NixIO._get_or_create_section(nix_file, block.name, 'neo_block')
-        NixIO._write_metadata(nix_block.metadata, metadata)
+        nix_block.metadata = NixHelp.get_or_create_section(nix_file, block.name, 'neo_block')
+        NixHelp.write_metadata(nix_block.metadata, metadata)
 
         if recursive:
             for segment in block.segments:
@@ -237,7 +261,7 @@ class NixIO(BaseIO):
         :param block_id:    an id of the block in NIX file where to save segment
         :param recursive:   write all segment contents recursively
         """
-        nix_block = self._get_block(nix_file, block_id)
+        nix_block = NixHelp.get_block(nix_file, block_id)
 
         try:
             nix_tag = nix_block.tags[segment.name]
@@ -249,10 +273,11 @@ class NixIO(BaseIO):
 
         meta_attrs = NixIO._default_meta_attr_names + NixIO._segment_meta_attrs
         for attr_name in meta_attrs:
-            metadata[attr_name] = getattr(segment, attr_name, None)
+            if getattr(segment, attr_name, None) is not None:
+                metadata[attr_name] = getattr(segment, attr_name, None)
 
-        nix_tag.metadata = NixIO._get_or_create_section(nix_block.metadata, segment.name, 'neo_segment')
-        NixIO._write_metadata(nix_tag.metadata, metadata)
+        nix_tag.metadata = NixHelp.get_or_create_section(nix_block.metadata, segment.name, 'neo_segment')
+        NixHelp.write_metadata(nix_tag.metadata, metadata)
 
         # TODO: serialize relations
 
@@ -263,7 +288,7 @@ class NixIO(BaseIO):
         :param nix_file:    an open file where to save Block
         :param block_id:    an id of the block in NIX file where to save segment
         """
-        nix_block = self._get_block(nix_file, block_id)
+        nix_block = NixHelp.get_block(nix_file, block_id)
 
         try:
             nix_array = nix_block.data_arrays[signal.name]
@@ -283,14 +308,15 @@ class NixIO(BaseIO):
 
         meta_attrs = NixIO._default_meta_attr_names + NixIO._analogsignal_meta_attrs
         for attr_name in meta_attrs:
-            metadata[attr_name] = getattr(signal, attr_name, None)
+            if getattr(signal, attr_name, None) is not None:
+                metadata[attr_name] = getattr(signal, attr_name, None)
 
         # special t_start serialization
         metadata['t_start'] = nix.Value(signal.t_start.item())
         metadata['t_start__unit'] = nix.Value(signal.t_start.units.dimensionality.string)
 
-        nix_array.metadata = NixIO._get_or_create_section(nix_block.metadata, signal.name, 'neo_analogsignal')
-        NixIO._write_metadata(nix_array.metadata, metadata)
+        nix_array.metadata = NixHelp.get_or_create_section(nix_block.metadata, signal.name, 'neo_analogsignal')
+        NixHelp.write_metadata(nix_array.metadata, metadata)
 
     # -------------------------------------------
     # I/O methods

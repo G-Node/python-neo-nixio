@@ -29,6 +29,15 @@ class TestBlock(unittest.TestCase):
             v_new = getattr(b1, attr_name)
             assert v_new == v_old, "%s != %s" % (str(v_old), str(v_new))
 
+    def test_annotations(self):
+        annotations = self.io.read_block(self.neob.name).annotations
+
+        assert type(annotations) == dict
+        assert type(annotations['string']) == str
+        assert type(annotations['int']) == int
+        assert type(annotations['float']) == float
+        assert type(annotations['bool']) == bool
+
     def test_change_name(self):
         b1 = self.io.read_block(self.neob.name)
 
