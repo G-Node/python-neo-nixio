@@ -164,26 +164,33 @@ class NixIO(BaseIO):
     # helpers
     # -------------------------------------------
 
-    def _read_multiple(self, nix_file, parent_id, obj_type):
+    def _read_multiple(self, nix_file, block_id, parent_id, obj_type):
         """
         Reads multiple objects of the same type from a given parent (parent_id).
 
         :param nix_file:    opened NIX file
+        :param block_id:    block id from where to read
         :param parent_id:   source object id
         :param obj_type:    a type of object to fetch, like 'segment' or 'event'
         :return:            a list of fetched objects
         """
+        results = []
+
+        # TODO some refactoring here (group all NIX DAs and all Sources)
+
         if obj_type == 'block':
-            return [self._read_block(nix_file, b.name) for b in nix_file.blocks]
+            results = [self._read_block(nix_file, b.name) for b in nix_file.blocks]
 
         elif obj_type == 'segment':
-            tags = filter(lambda x: x.type == 'neo_segment', nix_file.blocks[parent_id].tags)
-            return [self._read_segment(nix_file, parent_id, tag.name) for tag in tags]
+            tags = filter(lambda x: x.type == 'neo_segment', nix_file.blocks[block_id].tags)
+            results = [self._read_segment(nix_file, block_id, tag.name) for tag in tags]
 
         elif obj_type == 'analogsignal':
-            nix_arrays = nix_file.blocks[parent_id].data_arrays
-            signals = filter(lambda x: x.type == 'neo_analogsignal', nix_arrays)
-            return [self._read_analogsignal(nix_file, parent_id, da.name) for da in signals]
+            nix_tag = nix_file.blocks[block_id].tags[parent_id]
+            signals = filter(lambda x: x.type == 'neo_analogsignal', nix_tag.references)
+            results = [self._read_analogsignal(nix_file, block_id, da.name) for da in signals]
+
+        return results
 
     # -------------------------------------------
     # internal I methods
@@ -202,7 +209,7 @@ class NixIO(BaseIO):
 
         b.annotations = NixHelp.read_annotations(nix_section, direct_attrs)
 
-        setattr(b, 'segments', ProxyList(self, 'segment', nix_block.name))
+        setattr(b, 'segments', ProxyList(self, nix_block.name, nix_block.name, 'segment'))
 
         # TODO add more setters for relations
 
@@ -224,7 +231,7 @@ class NixIO(BaseIO):
 
         # TODO: fetch annotations
 
-        setattr(seg, 'analogsignals', ProxyList(self, 'analogsignal', nix_block.name))  # FIXME WRONG
+        setattr(seg, 'analogsignals', ProxyList(self, nix_block.name, nix_tag.name, 'analogsignal'))
 
         # TODO add more setters for relations
 
@@ -401,7 +408,7 @@ class NixIO(BaseIO):
 
     @file_transaction
     def read_all_blocks(self):
-        return self._read_multiple(self.f, 'whatever', 'block')
+        return self._read_multiple(self.f, 'whatever', 'whatever', 'block')
 
     @file_transaction
     def read_block(self, block_id):

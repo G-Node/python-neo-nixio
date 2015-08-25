@@ -5,15 +5,16 @@ class ProxyList(object):
     like a regular list for members that are Neo objects.
     """
 
-    def __init__(self, io, child_type, parent_id):
+    def __init__(self, io, block_id, parent_id, child_type):
         """
         :param io:          IO instance that can load items
         :param child_type:  a type of the children, like 'segment' or 'event'
         :param parent_id:   id of the parent object
         """
         self._io = io
-        self._child_type = child_type
+        self._block_id = block_id
         self._parent_id = parent_id
+        self._child_type = child_type
         self._cache = None
 
     @property
@@ -25,7 +26,7 @@ class ProxyList(object):
                 self._io.f = self._io._open()
                 should_close = True
 
-            args = (self._io.f, self._parent_id, self._child_type)
+            args = (self._io.f, self._block_id, self._parent_id, self._child_type)
             self._cache = self._io._read_multiple(*args)
 
             if should_close:
