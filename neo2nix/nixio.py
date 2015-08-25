@@ -30,11 +30,18 @@ def file_transaction(method):
 class NixHelp:
 
     @staticmethod
-    def get_or_create_section(entity_with_sec, name, s_type):
+    def get_or_create_section(root_section, group_name, name):
         try:
-            return entity_with_sec.sections[name]
+            group_sec = root_section.sections[group_name + 's']
         except KeyError:
-            return entity_with_sec.create_section(name, s_type)
+            group_sec = root_section.create_section(group_name + 's', group_name)
+
+        try:
+            target_sec = group_sec.sections[name]
+        except KeyError:
+            target_sec = group_sec.create_section(name, group_name)
+
+        return target_sec
 
     @staticmethod
     def get_block(nix_file, block_id):
@@ -282,7 +289,11 @@ class NixIO(BaseIO):
             if getattr(block, attr_name, None) is not None:
                 metadata[attr_name] = getattr(block, attr_name, None)
 
-        nix_block.metadata = NixHelp.get_or_create_section(nix_file, block.name, 'neo_block')
+        try:
+            nix_block.metadata = nix_file.sections[block.name]
+        except KeyError:
+            nix_block.metadata = nix_file.create_section(block.name, 'block')
+
         NixHelp.write_metadata(nix_block.metadata, metadata)
 
         if recursive:
@@ -320,8 +331,7 @@ class NixIO(BaseIO):
             if getattr(segment, attr_name, None) is not None:
                 metadata[attr_name] = getattr(segment, attr_name, None)
 
-        sec_name = '<segment> ' + segment.name
-        nix_tag.metadata = NixHelp.get_or_create_section(nix_block.metadata, sec_name, 'neo_segment')
+        nix_tag.metadata = NixHelp.get_or_create_section(nix_block.metadata, 'segment', segment.name)
         NixHelp.write_metadata(nix_tag.metadata, metadata)
 
         if recursive:
@@ -380,8 +390,7 @@ class NixIO(BaseIO):
         metadata['t_start'] = signal.t_start.item()
         metadata['t_start__unit'] = signal.t_start.units.dimensionality.string
 
-        sec_name = '<signal> ' + obj_name
-        nix_array.metadata = NixHelp.get_or_create_section(nix_block.metadata, sec_name, 'neo_analogsignal')
+        nix_array.metadata = NixHelp.get_or_create_section(nix_block.metadata, 'analogsignal', obj_name)
         NixHelp.write_metadata(nix_array.metadata, metadata)
 
         return nix_array
