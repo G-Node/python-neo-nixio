@@ -11,7 +11,7 @@ import os
 
 def file_transaction(method):
     """
-    A decorator that opens the file before and closes after a given method
+    A decorator that opens the file before and closes after a given I/O method
     execution.
 
     :param method: a method to execute between opening and closing a file.
@@ -42,6 +42,26 @@ class NixHelp:
             return nix_file.blocks[block_id]
         except KeyError:
             raise NameError('Block with this id %s does not exist' % block_id)
+
+    @staticmethod
+    def get_obj_nix_name(obj, parent_id, obj_type):  # pure
+        cases = {  # TODO these can be different
+            'analogsignal': lambda x: "%s @@ %s" % (x.name, parent_id),
+            'spiketrain': lambda x: "%s @@ %s" % (x.name, parent_id),
+            'event': lambda x: "%s @@ %s" % (x.name, parent_id),
+            'epoch': lambda x: "%s @@ %s" % (x.name, parent_id)
+        }
+        return cases[obj_type](obj)
+
+    @staticmethod
+    def get_obj_neo_name(nix_name, obj_type):  # pure
+        cases = {  # TODO these can be different
+           'analogsignal': lambda x: x.split('@@')[0][:-1],
+           'spiketrain': lambda x: x.split('@@')[0][:-1],
+           'event': lambda x: x.split('@@')[0][:-1],
+           'epoch': lambda x: x.split('@@')[0][:-1]
+        }
+        return cases[obj_type](nix_name)
 
     @staticmethod
     def read_attributes(nix_section, attr_names):  # pure
@@ -208,7 +228,7 @@ class NixIO(BaseIO):
         nix_da = nix_block.data_arrays[array_id]
 
         params = {
-            'name': nix_da.name,
+            'name': NixHelp.get_obj_neo_name(nix_da.name, 'analogsignal'),
             'signal': nix_da[:],  # TODO think about lazy data loading
             'units': nix_da.unit,
             'dtype': nix_da.dtype,
@@ -305,12 +325,13 @@ class NixIO(BaseIO):
         NixHelp.write_metadata(nix_tag.metadata, metadata)
 
         if recursive:
+            convert = lambda x: NixHelp.get_obj_nix_name(x, nix_tag.name, 'analogsignal')
             existing = list(filter(lambda x: x.type == 'neo_analogsignal', nix_tag.references))
-            to_remove = set([x.name for x in existing]) - set([x.name for x in segment.analogsignals])
-            to_append = set([x.name for x in segment.analogsignals]) - set([x.name for x in existing])
+            to_remove = set([x.name for x in existing]) - set([convert(x) for x in segment.analogsignals])
+            to_append = set([convert(x) for x in segment.analogsignals]) - set([x.name for x in existing])
 
             for signal in segment.analogsignals:
-                self._write_analogsignal(nix_file, nix_block.name, signal)
+                self._write_analogsignal(nix_file, nix_block.name, nix_tag.name, signal)
 
             for da in nix_tag.references:
                 if da.name in to_remove:
@@ -321,7 +342,7 @@ class NixIO(BaseIO):
 
         return nix_tag
 
-    def _write_analogsignal(self, nix_file, block_id, signal):
+    def _write_analogsignal(self, nix_file, block_id, tag_id, signal):
         """
         Writes the given Neo AnalogSignal to the NIX file.
 
@@ -329,14 +350,15 @@ class NixIO(BaseIO):
         :param block_id:    an id of the block in NIX file where to save segment
         """
         nix_block = NixHelp.get_block(nix_file, block_id)
+        obj_name = NixHelp.get_obj_nix_name(signal, tag_id, 'analogsignal')
 
         try:
-            nix_array = nix_block.data_arrays[signal.name]
+            nix_array = nix_block.data_arrays[obj_name]
 
             # TODO update data?
 
         except KeyError:
-            args = (signal.name, 'neo_analogsignal', signal.dtype, (0,))
+            args = (obj_name, 'neo_analogsignal', signal.dtype, (0,))
             nix_array = nix_block.create_data_array(*args)
             nix_array.append(signal)
 
@@ -358,7 +380,7 @@ class NixIO(BaseIO):
         metadata['t_start'] = signal.t_start.item()
         metadata['t_start__unit'] = signal.t_start.units.dimensionality.string
 
-        sec_name = '<signal> ' + signal.name
+        sec_name = '<signal> ' + obj_name
         nix_array.metadata = NixHelp.get_or_create_section(nix_block.metadata, sec_name, 'neo_analogsignal')
         NixHelp.write_metadata(nix_array.metadata, metadata)
 
@@ -369,11 +391,8 @@ class NixIO(BaseIO):
     # -------------------------------------------
 
     @file_transaction
-    def read_multiple(self, parent_id, obj_type):
-        return self._read_multiple(self.f, parent_id, obj_type)
-
     def read_all_blocks(self):
-        return self.read_multiple('whatever', 'block')
+        return self._read_multiple(self.f, 'whatever', 'block')
 
     @file_transaction
     def read_block(self, block_id):
