@@ -350,9 +350,13 @@ class NixIO(BaseIO):
             for signal in segment.analogsignals:
                 self._write_analogsignal(nix_file, nix_block.name, nix_tag.name, signal)
 
-            for da in nix_tag.references:
-                if da.name in to_remove:
-                    del nix_tag.references[da.name]
+            names = [da.name for da in nix_tag.references if da.name in to_remove]
+            for da_name in names:
+                del nix_tag.references[da_name]
+
+                # FIXME really delete unused arrays?
+
+                del nix_block.data_arrays[da_name]
 
             for name in to_append:
                 nix_tag.references.append(nix_block.data_arrays[name])
