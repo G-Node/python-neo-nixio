@@ -2,8 +2,6 @@ from neo.core import objectlist, objectnames, class_by_name
 from neo.core import Block, Event, Epoch, Segment, AnalogSignal
 from neo.io.baseio import BaseIO
 
-from neo2nix.proxy import ProxyList
-
 import quantities as pq
 import nix
 import os
@@ -19,8 +17,10 @@ def file_transaction(method):
     """
     def wrapped(*args, **kwargs):
         instance = args[0]
-        instance.f = instance._open()
+        instance.f.open()
+
         result = method(*args, **kwargs)
+        
         instance.f.close()
         return result
 
@@ -29,6 +29,13 @@ def file_transaction(method):
 
 class NixHelp:
 
+    # specific to the NIX I/O
+
+    default_meta_attr_names = ('description', 'file_origin')
+    block_meta_attrs = ('file_datetime', 'rec_datetime', 'index')
+    segment_meta_attrs = ('file_datetime', 'rec_datetime', 'index')
+    analogsignal_meta_attrs = ('channel_index',)
+    
     @staticmethod
     def get_or_create_section(root_section, group_name, name):
         try:
@@ -110,6 +117,223 @@ class NixHelp:
                     p.values = values
 
 
+class Reader:
+
+    # -------------------------------------------
+    # read multiple
+    # -------------------------------------------
+
+    @staticmethod
+    def read_multiple(fh, block_id, parent_id, obj_type):
+        """
+        Reads multiple objects of the same type from a given parent (parent_id).
+
+        :param fh:          handler with opened NIX file
+        :param block_id:    block id from where to read
+        :param parent_id:   source object id
+        :param obj_type:    a type of object to fetch, like 'segment' or 'event'
+        :return:            a list of fetched objects
+        """
+        nix_file = fh.handle
+        results = []
+
+        # TODO some refactoring here (group all NIX DAs and all Sources)
+
+        if obj_type == 'block':
+            results = [Reader.read_block(fh, b.name) for b in nix_file.blocks]
+
+        elif obj_type == 'segment':
+            tags = filter(lambda x: x.type == 'neo_segment', nix_file.blocks[block_id].tags)
+            results = [Reader.read_segment(fh, block_id, tag.name) for tag in tags]
+
+        elif obj_type == 'analogsignal':
+            nix_tag = nix_file.blocks[block_id].tags[parent_id]
+            signals = filter(lambda x: x.type == 'neo_analogsignal', nix_tag.references)
+            results = [Reader.read_analogsignal(fh, block_id, da.name) for da in signals]
+
+        return results
+
+    # -------------------------------------------
+    # read single
+    # -------------------------------------------
+
+    @staticmethod
+    def read_block(fh, block_id):
+        nix_block = NixHelp.get_block(fh.handle, block_id)
+
+        b = Block(name=nix_block.name)
+
+        nix_section = nix_block.metadata
+        direct_attrs = NixHelp.default_meta_attr_names + NixHelp.block_meta_attrs
+
+        for key, value in NixHelp.read_attributes(nix_section, direct_attrs).items():
+            setattr(b, key, value)
+
+        b.annotations = NixHelp.read_annotations(nix_section, direct_attrs)
+
+        setattr(b, 'segments', ProxyList(fh, nix_block.name, nix_block.name, 'segment'))
+
+        # TODO add more setters for relations
+
+        return b
+
+    @staticmethod
+    def read_segment(fh, block_id, seg_id):
+        nix_block = NixHelp.get_block(fh.handle, block_id)
+        nix_tag = nix_block.tags[seg_id]
+
+        seg = Segment(name=nix_tag.name)
+
+        if nix_tag.metadata is not None:
+            meta_attrs = NixHelp.default_meta_attr_names + NixHelp.segment_meta_attrs
+            for attr_name in meta_attrs:
+                try:
+                    setattr(seg, attr_name, nix_tag.metadata[attr_name])
+                except KeyError:
+                    pass  # attr is not present
+
+        # TODO: fetch annotations
+
+        setattr(seg, 'analogsignals', ProxyList(fh, nix_block.name, nix_tag.name, 'analogsignal'))
+
+        # TODO add more setters for relations
+
+        return seg
+
+    @staticmethod
+    def read_analogsignal(fh, block_id, array_id):
+        nix_block = NixHelp.get_block(fh.handle, block_id)
+        nix_da = nix_block.data_arrays[array_id]
+
+        params = {
+            'name': NixHelp.get_obj_neo_name(nix_da.name, 'analogsignal'),
+            'signal': nix_da[:],  # TODO think about lazy data loading
+            'units': nix_da.unit,
+            'dtype': nix_da.dtype,
+            }
+
+        s_dim = nix_da.dimensions[0]
+        sampling = s_dim.sampling_interval * getattr(pq, s_dim.unit)
+        if 'hz' in s_dim.unit.lower():
+            params['sampling_rate'] = sampling
+        else:
+            params['sampling_period'] = sampling
+
+        signal = AnalogSignal(**params)
+
+        # fetch t_start from metadata
+
+        if nix_da.metadata is not None:
+            meta_attrs = NixHelp.default_meta_attr_names + NixHelp.analogsignal_meta_attrs
+            for attr_name in meta_attrs:
+                try:
+                    setattr(signal, attr_name, nix_da.metadata[attr_name])
+                except KeyError:
+                    pass  # attr is not present
+
+        # TODO: fetch annotations
+
+        return signal
+
+
+class ProxyList(object):
+    """ An enhanced list that can load its members on demand. Behaves exactly
+    like a regular list for members that are Neo objects.
+    """
+
+    def __init__(self, fh, block_id, parent_id, child_type):
+        """
+        :param io:          IO instance that can load items
+        :param child_type:  a type of the children, like 'segment' or 'event'
+        :param parent_id:   id of the parent object
+        """
+        self._fh = fh
+        self._block_id = block_id
+        self._parent_id = parent_id
+        self._child_type = child_type
+        self._cache = None
+
+    @property
+    def _data(self):
+        if self._cache is None:
+            should_close = False
+
+            if self._fh.handle is None or not self._fh.handle.is_open():
+                self._fh.open()
+                should_close = True
+
+            args = (self._fh, self._block_id, self._parent_id, self._child_type)
+            self._cache = Reader.read_multiple(*args)
+
+            if should_close:
+                self._fh.close()
+
+        return self._cache
+
+    def __getitem__(self, index):
+        return self._data.__getitem__(index)
+
+    def __delitem__(self, index):
+        self._data.__delitem__(index)
+
+    def __len__(self):
+        return self._data.__len__()
+
+    def __setitem__(self, index, value):
+        self._data.__setitem__(index, value)
+
+    def insert(self, index, value):
+        self._data.insert(index, value)
+
+    def append(self, value):
+        self._data.append(value)
+
+    def reverse(self):
+        self._data.reverse()
+
+    def extend(self, values):
+        self._data.extend(values)
+
+    def remove(self, value):
+        self._data.remove(value)
+
+    def __str__(self):
+        return '<' + self.__class__.__name__ + '>' + self._data.__str__()
+
+    def __repr__(self):
+        return '<' + self.__class__.__name__ + '>' + self._data.__repr__()
+
+
+class FileHandler(object):
+
+    def __init__(self, filename, readonly=False):
+        """
+        Initialize new IO instance.
+
+        If the file does not exist, it will be created.
+        This I/O works in a detached mode.
+
+        :param filename: full path to the file (like '/tmp/foo.h5')
+        """
+        self.filename = filename
+        self.readonly = readonly
+        self.handle = None  # future NIX file handle
+
+    def open(self):
+        if os.path.exists(self.filename):
+            if self.readonly:
+                filemode = nix.FileMode.ReadOnly
+            else:
+                filemode = nix.FileMode.ReadWrite
+        else:
+            filemode = nix.FileMode.Overwrite
+
+        self.handle = nix.File.open(self.filename, filemode)
+
+    def close(self):
+        self.handle.close()
+    
+
 class NixIO(BaseIO):
     """
     This I/O can read/write Neo objects into HDF5 format using NIX library.
@@ -129,13 +353,6 @@ class NixIO(BaseIO):
     extensions = ['h5']
     mode = 'file'
 
-    # specific to the IO
-
-    _default_meta_attr_names = ('description', 'file_origin')
-    _block_meta_attrs = ('file_datetime', 'rec_datetime', 'index')
-    _segment_meta_attrs = ('file_datetime', 'rec_datetime', 'index')
-    _analogsignal_meta_attrs = ('channel_index',)
-
     def __init__(self, filename, readonly=False):
         """
         Initialize new IO instance.
@@ -146,130 +363,8 @@ class NixIO(BaseIO):
         :param filename: full path to the file (like '/tmp/foo.h5')
         """
         BaseIO.__init__(self, filename=filename)
+        self.f = FileHandler(filename)
         self.readonly = readonly
-        self.f = None  # future file handler
-
-    def _open(self):
-        if os.path.exists(self.filename):
-            if self.readonly:
-                filemode = nix.FileMode.ReadOnly
-            else:
-                filemode = nix.FileMode.ReadWrite
-        else:
-            filemode = nix.FileMode.Overwrite
-
-        return nix.File.open(self.filename, filemode)
-
-    # -------------------------------------------
-    # helpers
-    # -------------------------------------------
-
-    def _read_multiple(self, nix_file, block_id, parent_id, obj_type):
-        """
-        Reads multiple objects of the same type from a given parent (parent_id).
-
-        :param nix_file:    opened NIX file
-        :param block_id:    block id from where to read
-        :param parent_id:   source object id
-        :param obj_type:    a type of object to fetch, like 'segment' or 'event'
-        :return:            a list of fetched objects
-        """
-        results = []
-
-        # TODO some refactoring here (group all NIX DAs and all Sources)
-
-        if obj_type == 'block':
-            results = [self._read_block(nix_file, b.name) for b in nix_file.blocks]
-
-        elif obj_type == 'segment':
-            tags = filter(lambda x: x.type == 'neo_segment', nix_file.blocks[block_id].tags)
-            results = [self._read_segment(nix_file, block_id, tag.name) for tag in tags]
-
-        elif obj_type == 'analogsignal':
-            nix_tag = nix_file.blocks[block_id].tags[parent_id]
-            signals = filter(lambda x: x.type == 'neo_analogsignal', nix_tag.references)
-            results = [self._read_analogsignal(nix_file, block_id, da.name) for da in signals]
-
-        return results
-
-    # -------------------------------------------
-    # internal I methods
-    # -------------------------------------------
-
-    def _read_block(self, nix_file, block_id):
-        nix_block = NixHelp.get_block(nix_file, block_id)
-
-        b = Block(name=nix_block.name)
-
-        nix_section = nix_block.metadata
-        direct_attrs = NixIO._default_meta_attr_names + NixIO._block_meta_attrs
-
-        for key, value in NixHelp.read_attributes(nix_section, direct_attrs).items():
-            setattr(b, key, value)
-
-        b.annotations = NixHelp.read_annotations(nix_section, direct_attrs)
-
-        setattr(b, 'segments', ProxyList(self, nix_block.name, nix_block.name, 'segment'))
-
-        # TODO add more setters for relations
-
-        return b
-
-    def _read_segment(self, nix_file, block_id, seg_id):
-        nix_block = NixHelp.get_block(nix_file, block_id)
-        nix_tag = nix_block.tags[seg_id]
-
-        seg = Segment(name=nix_tag.name)
-
-        if nix_tag.metadata is not None:
-            meta_attrs = NixIO._default_meta_attr_names + NixIO._segment_meta_attrs
-            for attr_name in meta_attrs:
-                try:
-                    setattr(seg, attr_name, nix_tag.metadata[attr_name])
-                except KeyError:
-                    pass  # attr is not present
-
-        # TODO: fetch annotations
-
-        setattr(seg, 'analogsignals', ProxyList(self, nix_block.name, nix_tag.name, 'analogsignal'))
-
-        # TODO add more setters for relations
-
-        return seg
-
-    def _read_analogsignal(self, nix_file, block_id, array_id):
-        nix_block = NixHelp.get_block(nix_file, block_id)
-        nix_da = nix_block.data_arrays[array_id]
-
-        params = {
-            'name': NixHelp.get_obj_neo_name(nix_da.name, 'analogsignal'),
-            'signal': nix_da[:],  # TODO think about lazy data loading
-            'units': nix_da.unit,
-            'dtype': nix_da.dtype,
-        }
-
-        s_dim = nix_da.dimensions[0]
-        sampling = s_dim.sampling_interval * getattr(pq, s_dim.unit)
-        if 'hz' in s_dim.unit.lower():
-            params['sampling_rate'] = sampling
-        else:
-            params['sampling_period'] = sampling
-
-        signal = AnalogSignal(**params)
-
-        # fetch t_start from metadata
-
-        if nix_da.metadata is not None:
-            meta_attrs = NixIO._default_meta_attr_names + NixIO._analogsignal_meta_attrs
-            for attr_name in meta_attrs:
-                try:
-                    setattr(signal, attr_name, nix_da.metadata[attr_name])
-                except KeyError:
-                    pass  # attr is not present
-
-        # TODO: fetch annotations
-
-        return signal
 
     # -------------------------------------------
     # internal O methods
@@ -291,7 +386,7 @@ class NixIO(BaseIO):
         # prepare metadata to store
         metadata = dict(block.annotations)
 
-        meta_attrs = NixIO._default_meta_attr_names + NixIO._block_meta_attrs
+        meta_attrs = NixHelp.default_meta_attr_names + NixHelp.block_meta_attrs
         for attr_name in meta_attrs:
             if getattr(block, attr_name, None) is not None:
                 metadata[attr_name] = getattr(block, attr_name, None)
@@ -333,7 +428,7 @@ class NixIO(BaseIO):
         # prepare metadata to store
         metadata = dict(segment.annotations)
 
-        meta_attrs = NixIO._default_meta_attr_names + NixIO._segment_meta_attrs
+        meta_attrs = NixHelp.default_meta_attr_names + NixHelp.segment_meta_attrs
         for attr_name in meta_attrs:
             if getattr(segment, attr_name, None) is not None:
                 metadata[attr_name] = getattr(segment, attr_name, None)
@@ -392,7 +487,7 @@ class NixIO(BaseIO):
         # prepare metadata to store
         metadata = dict(signal.annotations)
 
-        meta_attrs = NixIO._default_meta_attr_names + NixIO._analogsignal_meta_attrs
+        meta_attrs = NixHelp.default_meta_attr_names + NixHelp.analogsignal_meta_attrs
         for attr_name in meta_attrs:
             if getattr(signal, attr_name, None) is not None:
                 metadata[attr_name] = getattr(signal, attr_name, None)
@@ -412,13 +507,13 @@ class NixIO(BaseIO):
 
     @file_transaction
     def read_all_blocks(self):
-        return self._read_multiple(self.f, 'whatever', 'whatever', 'block')
+        return Reader.read_multiple(self.f, 'whatever', 'whatever', 'block')
 
     @file_transaction
     def read_block(self, block_id):
-        return self._read_block(self.f, block_id)
+        return Reader.read_block(self.f, block_id)
 
     @file_transaction
     def write_block(self, block, recursive=True):
-        self._write_block(self.f, block, recursive=recursive)
+        self._write_block(self.f.handle, block, recursive=recursive)
 

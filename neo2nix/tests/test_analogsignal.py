@@ -2,7 +2,7 @@ import unittest
 import os
 
 from .utils import build_fake_block
-from neo2nix.nixio import NixIO
+from neo2nix.nixio import NixIO, NixHelp
 
 
 class TestBlock(unittest.TestCase):
@@ -24,7 +24,7 @@ class TestBlock(unittest.TestCase):
         b1 = self.io.read_block(self.neob.name)
         sig = b1.segments[0].analogsignals[0]
 
-        attrs = NixIO._default_meta_attr_names + NixIO._analogsignal_meta_attrs
+        attrs = NixHelp.default_meta_attr_names + NixHelp.analogsignal_meta_attrs
         for attr_name in attrs:
             v_old = getattr(self.neosig, attr_name)
             v_new = getattr(sig, attr_name)
