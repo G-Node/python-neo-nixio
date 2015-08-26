@@ -7,6 +7,11 @@ import nix
 import os
 
 
+# -------------------------------------------
+# file operations
+# -------------------------------------------
+
+
 def file_transaction(method):
     """
     A decorator that opens the file before and closes after a given I/O method
@@ -27,9 +32,42 @@ def file_transaction(method):
     return wrapped
 
 
-class NixHelp:
+class FileHandler(object):
 
-    # specific to the NIX I/O
+    def __init__(self, filename, readonly=False):
+        """
+        Initialize new IO instance.
+
+        If the file does not exist, it will be created.
+        This I/O works in a detached mode.
+
+        :param filename: full path to the file (like '/tmp/foo.h5')
+        """
+        self.filename = filename
+        self.readonly = readonly
+        self.handle = None  # future NIX file handle
+
+    def open(self):
+        if os.path.exists(self.filename):
+            if self.readonly:
+                filemode = nix.FileMode.ReadOnly
+            else:
+                filemode = nix.FileMode.ReadWrite
+        else:
+            filemode = nix.FileMode.Overwrite
+
+        self.handle = nix.File.open(self.filename, filemode)
+
+    def close(self):
+        self.handle.close()
+
+
+# -------------------------------------------
+# NIX I/O helpers
+# -------------------------------------------
+
+
+class NixHelp:
 
     default_meta_attr_names = ('description', 'file_origin')
     block_meta_attrs = ('file_datetime', 'rec_datetime', 'index')
@@ -115,6 +153,79 @@ class NixHelp:
 
                 if not p.values == values:
                     p.values = values
+
+
+class ProxyList(object):
+    """ An enhanced list that can load its members on demand. Behaves exactly
+    like a regular list for members that are Neo objects.
+    """
+
+    def __init__(self, fh, block_id, parent_id, child_type):
+        """
+        :param io:          IO instance that can load items
+        :param child_type:  a type of the children, like 'segment' or 'event'
+        :param parent_id:   id of the parent object
+        """
+        self._fh = fh
+        self._block_id = block_id
+        self._parent_id = parent_id
+        self._child_type = child_type
+        self._cache = None
+
+    @property
+    def _data(self):
+        if self._cache is None:
+            should_close = False
+
+            if self._fh.handle is None or not self._fh.handle.is_open():
+                self._fh.open()
+                should_close = True
+
+            args = (self._fh, self._block_id, self._parent_id, self._child_type)
+            self._cache = Reader.read_multiple(*args)
+
+            if should_close:
+                self._fh.close()
+
+        return self._cache
+
+    def __getitem__(self, index):
+        return self._data.__getitem__(index)
+
+    def __delitem__(self, index):
+        self._data.__delitem__(index)
+
+    def __len__(self):
+        return self._data.__len__()
+
+    def __setitem__(self, index, value):
+        self._data.__setitem__(index, value)
+
+    def insert(self, index, value):
+        self._data.insert(index, value)
+
+    def append(self, value):
+        self._data.append(value)
+
+    def reverse(self):
+        self._data.reverse()
+
+    def extend(self, values):
+        self._data.extend(values)
+
+    def remove(self, value):
+        self._data.remove(value)
+
+    def __str__(self):
+        return '<' + self.__class__.__name__ + '>' + self._data.__str__()
+
+    def __repr__(self):
+        return '<' + self.__class__.__name__ + '>' + self._data.__repr__()
+
+
+# -------------------------------------------
+# Reader / Writer
+# -------------------------------------------
 
 
 class Reader:
@@ -236,141 +347,10 @@ class Reader:
         return signal
 
 
-class ProxyList(object):
-    """ An enhanced list that can load its members on demand. Behaves exactly
-    like a regular list for members that are Neo objects.
-    """
+class Writer:
 
-    def __init__(self, fh, block_id, parent_id, child_type):
-        """
-        :param io:          IO instance that can load items
-        :param child_type:  a type of the children, like 'segment' or 'event'
-        :param parent_id:   id of the parent object
-        """
-        self._fh = fh
-        self._block_id = block_id
-        self._parent_id = parent_id
-        self._child_type = child_type
-        self._cache = None
-
-    @property
-    def _data(self):
-        if self._cache is None:
-            should_close = False
-
-            if self._fh.handle is None or not self._fh.handle.is_open():
-                self._fh.open()
-                should_close = True
-
-            args = (self._fh, self._block_id, self._parent_id, self._child_type)
-            self._cache = Reader.read_multiple(*args)
-
-            if should_close:
-                self._fh.close()
-
-        return self._cache
-
-    def __getitem__(self, index):
-        return self._data.__getitem__(index)
-
-    def __delitem__(self, index):
-        self._data.__delitem__(index)
-
-    def __len__(self):
-        return self._data.__len__()
-
-    def __setitem__(self, index, value):
-        self._data.__setitem__(index, value)
-
-    def insert(self, index, value):
-        self._data.insert(index, value)
-
-    def append(self, value):
-        self._data.append(value)
-
-    def reverse(self):
-        self._data.reverse()
-
-    def extend(self, values):
-        self._data.extend(values)
-
-    def remove(self, value):
-        self._data.remove(value)
-
-    def __str__(self):
-        return '<' + self.__class__.__name__ + '>' + self._data.__str__()
-
-    def __repr__(self):
-        return '<' + self.__class__.__name__ + '>' + self._data.__repr__()
-
-
-class FileHandler(object):
-
-    def __init__(self, filename, readonly=False):
-        """
-        Initialize new IO instance.
-
-        If the file does not exist, it will be created.
-        This I/O works in a detached mode.
-
-        :param filename: full path to the file (like '/tmp/foo.h5')
-        """
-        self.filename = filename
-        self.readonly = readonly
-        self.handle = None  # future NIX file handle
-
-    def open(self):
-        if os.path.exists(self.filename):
-            if self.readonly:
-                filemode = nix.FileMode.ReadOnly
-            else:
-                filemode = nix.FileMode.ReadWrite
-        else:
-            filemode = nix.FileMode.Overwrite
-
-        self.handle = nix.File.open(self.filename, filemode)
-
-    def close(self):
-        self.handle.close()
-    
-
-class NixIO(BaseIO):
-    """
-    This I/O can read/write Neo objects into HDF5 format using NIX library.
-    """
-
-    is_readable = True
-    is_writable = True
-
-    supported_objects = objectlist
-    readable_objects = objectlist
-    writeable_objects = objectlist
-
-    read_params = dict(zip(objectlist, [] * len(objectlist)))
-    write_params = dict(zip(objectlist, [] * len(objectlist)))
-
-    name = 'Nix IO'
-    extensions = ['h5']
-    mode = 'file'
-
-    def __init__(self, filename, readonly=False):
-        """
-        Initialize new IO instance.
-
-        If the file does not exist, it will be created.
-        This I/O works in a detached mode.
-
-        :param filename: full path to the file (like '/tmp/foo.h5')
-        """
-        BaseIO.__init__(self, filename=filename)
-        self.f = FileHandler(filename)
-        self.readonly = readonly
-
-    # -------------------------------------------
-    # internal O methods
-    # -------------------------------------------
-
-    def _write_block(self, nix_file, block, recursive=True):
+    @staticmethod
+    def write_block(nix_file, block, recursive=True):
         """
         Writes the given Neo block to the NIX file.
 
@@ -403,14 +383,15 @@ class NixIO(BaseIO):
             to_remove = set([x.name for x in existing]) - set([x.name for x in block.segments])
 
             for segment in block.segments:
-                self._write_segment(nix_file, nix_block.name, segment, recursive=recursive)
+                Writer.write_segment(nix_file, nix_block.name, segment, recursive=recursive)
 
             for name in to_remove:
                 del nix_block.tags[name]
 
         return nix_block
 
-    def _write_segment(self, nix_file, block_id, segment, recursive=True):
+    @staticmethod
+    def write_segment(nix_file, block_id, segment, recursive=True):
         """
         Writes the given Neo Segment to the NIX file.
 
@@ -443,7 +424,7 @@ class NixIO(BaseIO):
             to_append = set([convert(x) for x in segment.analogsignals]) - set([x.name for x in existing])
 
             for signal in segment.analogsignals:
-                self._write_analogsignal(nix_file, nix_block.name, nix_tag.name, signal)
+                Writer.write_analogsignal(nix_file, nix_block.name, nix_tag.name, signal)
 
             names = [da.name for da in nix_tag.references if da.name in to_remove]
             for da_name in names:
@@ -458,7 +439,8 @@ class NixIO(BaseIO):
 
         return nix_tag
 
-    def _write_analogsignal(self, nix_file, block_id, tag_id, signal):
+    @staticmethod
+    def write_analogsignal(nix_file, block_id, tag_id, signal):
         """
         Writes the given Neo AnalogSignal to the NIX file.
 
@@ -500,10 +482,39 @@ class NixIO(BaseIO):
         NixHelp.write_metadata(nix_array.metadata, metadata)
 
         return nix_array
+    
 
-    # -------------------------------------------
-    # I/O methods
-    # -------------------------------------------
+class NixIO(BaseIO):
+    """
+    This I/O can read/write Neo objects into HDF5 format using NIX library.
+    """
+
+    is_readable = True
+    is_writable = True
+
+    supported_objects = objectlist
+    readable_objects = objectlist
+    writeable_objects = objectlist
+
+    read_params = dict(zip(objectlist, [] * len(objectlist)))
+    write_params = dict(zip(objectlist, [] * len(objectlist)))
+
+    name = 'Nix IO'
+    extensions = ['h5']
+    mode = 'file'
+
+    def __init__(self, filename, readonly=False):
+        """
+        Initialize new IO instance.
+
+        If the file does not exist, it will be created.
+        This I/O works in a detached mode.
+
+        :param filename: full path to the file (like '/tmp/foo.h5')
+        """
+        BaseIO.__init__(self, filename=filename)
+        self.f = FileHandler(filename)
+        self.readonly = readonly
 
     @file_transaction
     def read_all_blocks(self):
@@ -515,5 +526,5 @@ class NixIO(BaseIO):
 
     @file_transaction
     def write_block(self, block, recursive=True):
-        self._write_block(self.f.handle, block, recursive=recursive)
+        Writer.write_block(self.f.handle, block, recursive=recursive)
 
