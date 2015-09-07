@@ -72,7 +72,7 @@ class NixHelp:
     default_meta_attr_names = ('description', 'file_origin')
     block_meta_attrs = ('file_datetime', 'rec_datetime', 'index')
     segment_meta_attrs = ('file_datetime', 'rec_datetime', 'index')
-    analogsignal_meta_attrs = ('channel_index',)
+    analogsignal_meta_attrs = ()
     
     @staticmethod
     def get_or_create_section(root_section, group_name, name):
@@ -456,7 +456,7 @@ class Writer:
             # TODO update data?
 
         except KeyError:
-            args = (obj_name, 'neo_analogsignal', signal.dtype, (0,))
+            args = (obj_name, 'neo_analogsignal', signal.dtype, (0,1))
             nix_array = nix_block.create_data_array(*args)
             nix_array.append(signal)
 

@@ -3,7 +3,7 @@ from neo.test.generate_datasets import generate_one_simple_block
 
 
 def build_fake_block():
-    objects = [Block, Segment, RecordingChannelGroup, RecordingChannel,
+    objects = [Block, Segment, RecordingChannelGroup,
                Event, Epoch, Unit, AnalogSignal, SpikeTrain]
 
     b = generate_one_simple_block(supported_objects=objects)
