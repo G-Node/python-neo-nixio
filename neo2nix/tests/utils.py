@@ -18,4 +18,20 @@ def build_fake_block():
         'bool': True
     }
 
+    # FIXME remove this when Neo is fixed (RCG - Unit branch)
+
+    inds = [x for x in range(10)]
+    names = ['foo' + str(x) for x in inds]
+
+    rcg1 = RecordingChannelGroup(name='rcg1', channel_indexes=inds, channel_names=names)
+    rcg2 = RecordingChannelGroup(name='rcg2', channel_indexes=inds, channel_names=names)
+
+    for sig in b.segments[0].analogsignals:
+        rcg1.analogsignals.append(sig)
+
+    for sig in b.segments[1].analogsignals:
+        rcg2.analogsignals.append(sig)
+
+    b.recordingchannelgroups = [rcg1, rcg2]
+
     return b

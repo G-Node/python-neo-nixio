@@ -22,7 +22,8 @@ class TestBlock(unittest.TestCase):
 
     def test_attributes(self):
         b1 = self.io.read_block(self.neob.name)
-        sig = b1.segments[0].analogsignals[0]
+        seg = [s_i for s_i in b1.segments if s_i.name == self.neos.name][0]
+        sig = [a_i for a_i in seg.analogsignals if a_i.name == self.neosig.name][0]
 
         attrs = NixHelp.default_meta_attr_names + NixHelp.analogsignal_meta_attrs
         for attr_name in attrs:
@@ -53,16 +54,16 @@ class TestBlock(unittest.TestCase):
         assert new_name in [x.name for x in s2.analogsignals]
 
     def test_change(self):
-            description = 'hello, world!'
+        description = 'hello, world!'
 
-            b1 = self.io.read_block(self.neob.name)
-            s1 = b1.segments[0]
-            sig = s1.analogsignals[0]
+        b1 = self.io.read_block(self.neob.name)
+        s1 = b1.segments[0]
+        sig = s1.analogsignals[0]
 
-            sig.description = description  # TODO add more attributes
-            self.io.write_block(b1, recursive=True)
+        sig.description = description  # TODO add more attributes
+        self.io.write_block(b1, recursive=True)
 
-            b2 = self.io.read_block(self.neob.name)
-            s2 = b2.segments[0]
-            sig = s2.analogsignals[0]
-            assert sig.description == description
+        b2 = self.io.read_block(self.neob.name)
+        s2 = b2.segments[0]
+        sig = s2.analogsignals[0]
+        assert sig.description == description

@@ -5,12 +5,12 @@ from .utils import build_fake_block
 from neo2nix.nixio import NixIO, NixHelp
 
 
-class TestSegment(unittest.TestCase):
+class TestRCG(unittest.TestCase):
 
     def setUp(self):
         self.filename = "/tmp/unittest.h5"
         self.neob = build_fake_block()
-        self.neos = self.neob.segments[0]
+        self.rcg = self.neob.recordingchannelgroups[0]
 
         self.io = NixIO(self.filename)
         self.io.write_block(self.neob, recursive=True)
@@ -21,14 +21,14 @@ class TestSegment(unittest.TestCase):
 
     def test_attributes(self):
         b1 = self.io.read_block(self.neob.name)
-        s1 = b1.segments[0]
+        rcg = [r_i for r_i in b1.recordingchannelgroups if r_i.name == self.rcg.name][0]
 
-        assert len(s1.analogsignals) > 0
+        assert len(rcg.analogsignals) > 0
 
-        attrs = NixHelp.default_meta_attr_names + NixHelp.segment_meta_attrs
+        attrs = NixHelp.default_meta_attr_names + NixHelp.rcg_meta_attrs
         for attr_name in attrs + ('name',):
-            v_old = getattr(self.neos, attr_name)
-            v_new = getattr(s1, attr_name)
+            v_old = getattr(self.rcg, attr_name)
+            v_new = getattr(rcg, attr_name)
             assert v_new == v_old, "%s != %s" % (str(v_old), str(v_new))
 
     def test_annotations(self):
@@ -40,26 +40,26 @@ class TestSegment(unittest.TestCase):
 
     def test_change_name(self):
         b1 = self.io.read_block(self.neob.name)
-        s1 = b1.segments[0]
+        rcg = [r_i for r_i in b1.recordingchannelgroups if r_i.name == self.rcg.name][0]
 
-        new_name = s1.name + 'foo'
-        s1.name = new_name
+        new_name = rcg.name + 'foo'
+        rcg.name = new_name
 
         self.io.write_block(b1)
 
         b2 = self.io.read_block(self.neob.name)
-        assert len(b2.segments) == len(b1.segments)
-        assert new_name in [x.name for x in b2.segments]
+        assert len(b2.recordingchannelgroups) == len(b1.recordingchannelgroups)
+        assert new_name in [x.name for x in b2.recordingchannelgroups]
 
     def test_change(self):
         description = 'hello, world!'
 
         b1 = self.io.read_block(self.neob.name)
-        s1 = b1.segments[0]
+        rcg1 = b1.recordingchannelgroups[0]
 
-        s1.description = description  # TODO add more attributes
+        rcg1.description = description  # TODO add more attributes
         self.io.write_block(b1, recursive=True)
 
         b2 = self.io.read_block(self.neob.name)
-        s2 = b2.segments[0]
-        assert s2.description == description
+        rcg2 = b2.recordingchannelgroups[0]
+        assert rcg2.description == description
