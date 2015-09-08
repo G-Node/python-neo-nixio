@@ -104,29 +104,6 @@ class NixHelp:
         return cases[nix_obj.type](nix_obj)
 
     @staticmethod
-    def read_attributes(nix_section, attr_names):  # pure
-        result = {}
-
-        for attr_name in attr_names:
-            if attr_name in nix_section:
-                result[attr_name] = nix_section[attr_name]
-
-        return result
-
-    @staticmethod
-    def read_annotations(nix_section, exclude_attrs):  # pure
-        result = {}
-
-        for prop in nix_section.props:
-            key = prop.name
-            value = nix_section[key]
-
-            if key not in exclude_attrs:
-                result[key] = value
-
-        return result
-
-    @staticmethod
     def extract_metadata(neo_obj):  # pure
         metadata = dict(neo_obj.annotations)
 
@@ -210,9 +187,31 @@ class ProxyList(object):
 
 class Reader:
 
-    # -------------------------------------------
-    # read single
-    # -------------------------------------------
+    @staticmethod
+    def read_attributes(nix_section, obj_type):
+        result = {}
+
+        custom_attrs = getattr(NixHelp, obj_type + '_meta_attrs')
+        for attr_name in NixHelp.default_meta_attr_names + custom_attrs:
+            if attr_name in nix_section:
+                result[attr_name] = nix_section[attr_name]
+
+        return result
+
+    @staticmethod
+    def read_annotations(nix_section, obj_type):
+        result = {}
+
+        custom_attrs = getattr(NixHelp, obj_type + '_meta_attrs')
+        exclude_attrs = NixHelp.default_meta_attr_names + custom_attrs
+        for prop in nix_section.props:
+            key = prop.name
+            value = nix_section[key]
+
+            if key not in exclude_attrs:
+                result[key] = value
+
+        return result
 
     @staticmethod
     def read_block(fh, block_id):
@@ -228,18 +227,13 @@ class Reader:
 
         b = Block(name=nix_block.name)
 
-        nix_section = nix_block.metadata
-        direct_attrs = NixHelp.default_meta_attr_names + NixHelp.block_meta_attrs
-
-        for key, value in NixHelp.read_attributes(nix_section, direct_attrs).items():
+        for key, value in Reader.read_attributes(nix_block.metadata, 'block').items():
             setattr(b, key, value)
 
-        b.annotations = NixHelp.read_annotations(nix_section, direct_attrs)
+        b.annotations = Reader.read_annotations(nix_block.metadata, 'block')
 
         setattr(b, 'segments', ProxyList(fh, read_segments))
         setattr(b, 'recordingchannelgroups', ProxyList(fh, read_recordingchannelgroups))
-
-        # TODO add more setters for relations
 
         return b
 
@@ -255,13 +249,10 @@ class Reader:
 
         seg = Segment(name=nix_tag.name)
 
-        nix_section = nix_tag.metadata
-        direct_attrs = NixHelp.default_meta_attr_names + NixHelp.segment_meta_attrs
-
-        for key, value in NixHelp.read_attributes(nix_section, direct_attrs).items():
+        for key, value in Reader.read_attributes(nix_tag.metadata, 'segment').items():
             setattr(seg, key, value)
 
-        seg.annotations = NixHelp.read_annotations(nix_tag.metadata, direct_attrs)
+        seg.annotations = Reader.read_annotations(nix_tag.metadata, 'segment')
 
         setattr(seg, 'analogsignals', ProxyList(fh, read_analogsignals))
 
@@ -286,13 +277,10 @@ class Reader:
         }
         rcg = RecordingChannelGroup(**params)
 
-        nix_section = nix_source.metadata
-        direct_attrs = NixHelp.default_meta_attr_names + NixHelp.recordingchannelgroup_meta_attrs
-
-        for key, value in NixHelp.read_attributes(nix_section, direct_attrs).items():
+        for key, value in Reader.read_attributes(nix_source.metadata, 'recordingchannelgroup').items():
             setattr(rcg, key, value)
 
-        rcg.annotations = NixHelp.read_annotations(nix_section, direct_attrs)
+        rcg.annotations = Reader.read_annotations(nix_source.metadata, 'recordingchannelgroup')
 
         setattr(rcg, 'analogsignals', ProxyList(fh, read_analogsignals))
 
@@ -325,13 +313,10 @@ class Reader:
         t_start__unit = nix_da.metadata['t_start__unit']
         signal.t_start = pq.quantity.Quantity(float(t_start), t_start__unit)
 
-        nix_section = nix_da.metadata
-        direct_attrs = NixHelp.default_meta_attr_names + NixHelp.recordingchannelgroup_meta_attrs
-
-        for key, value in NixHelp.read_attributes(nix_section, direct_attrs).items():
+        for key, value in Reader.read_attributes(nix_da.metadata, 'analogsignal').items():
             setattr(signal, key, value)
 
-        signal.annotations = NixHelp.read_annotations(nix_section, direct_attrs)
+        signal.annotations = Reader.read_annotations(nix_da.metadata, 'analogsignal')
 
         return signal
 
