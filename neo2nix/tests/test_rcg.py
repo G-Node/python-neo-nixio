@@ -25,7 +25,7 @@ class TestRCG(unittest.TestCase):
 
         assert len(rcg.analogsignals) > 0
 
-        attrs = NixHelp.default_meta_attr_names + NixHelp.rcg_meta_attrs
+        attrs = NixHelp.default_meta_attr_names + NixHelp.recordingchannelgroup_meta_attrs
         for attr_name in attrs + ('name',):
             v_old = getattr(self.rcg, attr_name)
             v_new = getattr(rcg, attr_name)

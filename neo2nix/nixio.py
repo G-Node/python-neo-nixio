@@ -73,14 +73,21 @@ class NixHelp:
     block_meta_attrs = ('file_datetime', 'rec_datetime', 'index')
     segment_meta_attrs = ('file_datetime', 'rec_datetime', 'index')
     analogsignal_meta_attrs = ('name',)
-    rcg_meta_attrs = ('name', 'channel_indexes', 'channel_names')
-    
+    recordingchannelgroup_meta_attrs = ('name', 'channel_indexes', 'channel_names')
+
+    @staticmethod
+    def get_classname(neo_obj):
+        return neo_obj.__class__.__name__.lower()
+
     @staticmethod
     def get_or_create_section(root_section, group_name, name):
-        try:
-            group_sec = root_section.sections[group_name + 's']
-        except KeyError:
-            group_sec = root_section.create_section(group_name + 's', group_name)
+        if not isinstance(root_section, nix.Section):
+            group_sec = root_section  # file is a root section for Blocks
+        else:
+            try:
+                group_sec = root_section.sections[group_name + 's']
+            except KeyError:
+                group_sec = root_section.create_section(group_name + 's', group_name)
 
         try:
             target_sec = group_sec.sections[name]
@@ -104,7 +111,7 @@ class NixHelp:
         cases = {  # TODO these can be different
             'analogsignal': lambda x: str(hash(x.tostring())),
         }
-        return cases[obj.__class__.__name__.lower()](obj)
+        return cases[NixHelp.get_classname(obj)](obj)
 
     @staticmethod
     def get_obj_neo_name(nix_obj):  # pure
@@ -152,22 +159,31 @@ class NixHelp:
                 if not p.values == values:
                     p.values = values
 
+    @staticmethod
+    def extract_metadata(neo_obj):
+        metadata = dict(neo_obj.annotations)
+
+        custom_attrs = getattr(NixHelp, NixHelp.get_classname(neo_obj) + '_meta_attrs')
+        for attr_name in NixHelp.default_meta_attr_names + custom_attrs:
+            if getattr(neo_obj, attr_name, None) is not None:
+                metadata[attr_name] = getattr(neo_obj, attr_name)
+
+        return metadata
+
 
 class ProxyList(object):
     """ An enhanced list that can load its members on demand. Behaves exactly
     like a regular list for members that are Neo objects.
     """
 
-    def __init__(self, fh, block_id, parent_id, child_type):
+    def __init__(self, fh, fetch_func):
         """
         :param io:          IO instance that can load items
         :param child_type:  a type of the children, like 'segment' or 'event'
         :param parent_id:   id of the parent object
         """
         self._fh = fh
-        self._block_id = block_id
-        self._parent_id = parent_id
-        self._child_type = child_type
+        self._fetch_func = fetch_func
         self._cache = None
 
     @property
@@ -179,8 +195,7 @@ class ProxyList(object):
                 self._fh.open()
                 should_close = True
 
-            args = (self._fh, self._block_id, self._parent_id, self._child_type)
-            self._cache = Reader.read_multiple(*args)
+            self._cache = self._fetch_func(self._fh.handle)
 
             if should_close:
                 self._fh.close()
@@ -229,54 +244,19 @@ class ProxyList(object):
 class Reader:
 
     # -------------------------------------------
-    # read multiple
-    # -------------------------------------------
-
-    @staticmethod
-    def read_multiple(fh, block_id, parent_id, obj_type):
-        """
-        Reads multiple objects of the same type from a given parent (parent_id).
-
-        :param fh:          handler with opened NIX file
-        :param block_id:    block id from where to read
-        :param parent_id:   source object id
-        :param obj_type:    a type of object to fetch, like 'segment' or 'event'
-        :return:            a list of fetched objects
-        """
-        nix_file = fh.handle
-        results = []
-
-        # TODO some refactoring here (group all NIX DAs and all Sources)
-
-        if obj_type == 'block':
-            results = [Reader.read_block(fh, b.name) for b in nix_file.blocks]
-
-        elif obj_type == 'segment':
-            tags = filter(lambda x: x.type == obj_type, nix_file.blocks[block_id].tags)
-            results = [Reader.read_segment(fh, block_id, tag.name) for tag in tags]
-
-        elif obj_type == 'recordingchannelgroup':
-            sources = filter(lambda x: x.type == obj_type, nix_file.blocks[block_id].sources)
-            results = [Reader.read_RCG(fh, block_id, src.name) for src in sources]
-
-        elif obj_type == 'analogsignal':
-            nix_tag = nix_file.blocks[block_id].tags[parent_id]
-            signals = filter(lambda x: x.type == obj_type, nix_tag.references)
-            results = [Reader.read_analogsignal(fh, block_id, da.name) for da in signals]
-
-        elif obj_type == 'analogsignal_rcg':
-            signals = filter(lambda x: x.type == 'analogsignal', nix_file.blocks[block_id].data_arrays)
-            signals = [x for x in signals if parent_id in [y.name for y in x.sources]]
-            results = [Reader.read_analogsignal(fh, block_id, da.name) for da in signals]
-
-        return results
-
-    # -------------------------------------------
     # read single
     # -------------------------------------------
 
     @staticmethod
     def read_block(fh, block_id):
+        def read_segments(nix_file):
+            tags = filter(lambda x: x.type == 'segment', nix_file.blocks[block_id].tags)
+            return [Reader.read_segment(fh, block_id, tag.name) for tag in tags]
+
+        def read_recordingchannelgroups(nix_file):
+            sources = filter(lambda x: x.type == 'recordingchannelgroup', nix_file.blocks[block_id].sources)
+            return [Reader.read_RCG(fh, block_id, src.name) for src in sources]
+
         nix_block = NixHelp.get_block(fh.handle, block_id)
 
         b = Block(name=nix_block.name)
@@ -289,8 +269,8 @@ class Reader:
 
         b.annotations = NixHelp.read_annotations(nix_section, direct_attrs)
 
-        setattr(b, 'segments', ProxyList(fh, nix_block.name, nix_block.name, 'segment'))
-        setattr(b, 'recordingchannelgroups', ProxyList(fh, nix_block.name, nix_block.name, 'recordingchannelgroup'))
+        setattr(b, 'segments', ProxyList(fh, read_segments))
+        setattr(b, 'recordingchannelgroups', ProxyList(fh, read_recordingchannelgroups))
 
         # TODO add more setters for relations
 
@@ -298,6 +278,11 @@ class Reader:
 
     @staticmethod
     def read_segment(fh, block_id, seg_id):
+        def read_analogsignals(nix_file):
+            nix_tag = nix_file.blocks[block_id].tags[seg_id]
+            signals = filter(lambda x: x.type == 'analogsignal', nix_tag.references)
+            return [Reader.read_analogsignal(fh, block_id, da.name) for da in signals]
+
         nix_block = NixHelp.get_block(fh.handle, block_id)
         nix_tag = nix_block.tags[seg_id]
 
@@ -311,7 +296,7 @@ class Reader:
 
         seg.annotations = NixHelp.read_annotations(nix_tag.metadata, direct_attrs)
 
-        setattr(seg, 'analogsignals', ProxyList(fh, nix_block.name, nix_tag.name, 'analogsignal'))
+        setattr(seg, 'analogsignals', ProxyList(fh, read_analogsignals))
 
         # TODO add more setters for relations
 
@@ -324,7 +309,6 @@ class Reader:
             signals = [x for x in signals if nsn in [y.name for y in x.sources]]
             return [Reader.read_analogsignal(fh, block_id, da.name) for da in signals]
 
-
         nix_block = NixHelp.get_block(fh.handle, block_id)
         nix_source = nix_block.sources[rcg_id]
         nsn = nix_source.name
@@ -336,14 +320,14 @@ class Reader:
         rcg = RecordingChannelGroup(**params)
 
         nix_section = nix_source.metadata
-        direct_attrs = NixHelp.default_meta_attr_names + NixHelp.rcg_meta_attrs
+        direct_attrs = NixHelp.default_meta_attr_names + NixHelp.recordingchannelgroup_meta_attrs
 
         for key, value in NixHelp.read_attributes(nix_section, direct_attrs).items():
             setattr(rcg, key, value)
 
         rcg.annotations = NixHelp.read_annotations(nix_section, direct_attrs)
 
-        setattr(rcg, 'analogsignals', ProxyList(fh, nix_block.name, nix_source.name, 'analogsignal_rcg'))
+        setattr(rcg, 'analogsignals', ProxyList(fh, read_analogsignals))
 
         # TODO add more setters for relations
 
@@ -375,7 +359,7 @@ class Reader:
         signal.t_start = pq.quantity.Quantity(float(t_start), t_start__unit)
 
         nix_section = nix_da.metadata
-        direct_attrs = NixHelp.default_meta_attr_names + NixHelp.rcg_meta_attrs
+        direct_attrs = NixHelp.default_meta_attr_names + NixHelp.recordingchannelgroup_meta_attrs
 
         for key, value in NixHelp.read_attributes(nix_section, direct_attrs).items():
             setattr(signal, key, value)
@@ -412,19 +396,9 @@ class Writer:
         except KeyError:
             nix_block = nix_file.create_block(block.name, 'block')
 
-        # prepare metadata to store
-        metadata = dict(block.annotations)
+        metadata = NixHelp.extract_metadata(block)
 
-        meta_attrs = NixHelp.default_meta_attr_names + NixHelp.block_meta_attrs
-        for attr_name in meta_attrs:
-            if getattr(block, attr_name, None) is not None:
-                metadata[attr_name] = getattr(block, attr_name, None)
-
-        try:
-            nix_block.metadata = nix_file.sections[block.name]
-        except KeyError:
-            nix_block.metadata = nix_file.create_section(block.name, 'block')
-
+        nix_block.metadata = NixHelp.get_or_create_section(nix_file, 'block', nix_block.name)
         NixHelp.write_metadata(nix_block.metadata, metadata)
 
         if recursive:
@@ -449,13 +423,7 @@ class Writer:
         except KeyError:
             nix_tag = nix_block.create_tag(segment.name, 'segment', [0.0])
 
-        # prepare metadata to store
-        metadata = dict(segment.annotations)
-
-        meta_attrs = NixHelp.default_meta_attr_names + NixHelp.segment_meta_attrs
-        for attr_name in meta_attrs:
-            if getattr(segment, attr_name, None) is not None:
-                metadata[attr_name] = getattr(segment, attr_name, None)
+        metadata = NixHelp.extract_metadata(segment)
 
         nix_tag.metadata = NixHelp.get_or_create_section(nix_block.metadata, 'segment', segment.name)
         NixHelp.write_metadata(nix_tag.metadata, metadata)
@@ -495,14 +463,7 @@ class Writer:
         except KeyError:
             nix_source = nix_block.create_source(rcg.name, 'recordingchannelgroup')
 
-        # prepare metadata to store
-        metadata = dict(rcg.annotations)
-
-        meta_attrs = NixHelp.default_meta_attr_names + NixHelp.rcg_meta_attrs
-        for attr_name in meta_attrs:
-            if getattr(rcg, attr_name, None) is not None:
-                metadata[attr_name] = getattr(rcg, attr_name, None)
-
+        metadata = NixHelp.extract_metadata(rcg)
         nix_source.metadata = NixHelp.get_or_create_section(nix_block.metadata, 'recordingchannelgroup', rcg.name)
         NixHelp.write_metadata(nix_source.metadata, metadata)
 
@@ -552,13 +513,7 @@ class Writer:
             nix_array.append_sampled_dimension(signal.sampling_rate.item())
         nix_array.dimensions[0].unit = signal.sampling_rate.units.dimensionality.string
 
-        # prepare metadata to store
-        metadata = dict(signal.annotations)
-
-        meta_attrs = NixHelp.default_meta_attr_names + NixHelp.analogsignal_meta_attrs
-        for attr_name in meta_attrs:
-            if getattr(signal, attr_name, None) is not None:
-                metadata[attr_name] = getattr(signal, attr_name, None)
+        metadata = NixHelp.extract_metadata(signal)
 
         # special t_start serialization
         metadata['t_start'] = signal.t_start.item()
@@ -604,7 +559,7 @@ class NixIO(BaseIO):
 
     @file_transaction
     def read_all_blocks(self):
-        return Reader.read_multiple(self.f, 'whatever', 'whatever', 'block')
+        return [Reader.read_block(self.f, blk.name) for blk in self.f.handle.blocks]
 
     @file_transaction
     def read_block(self, block_id):
