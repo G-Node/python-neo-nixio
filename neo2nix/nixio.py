@@ -109,7 +109,7 @@ class NixHelp:
     @staticmethod
     def get_obj_neo_name(nix_obj):  # pure
         cases = {  # TODO these can be different
-           'neo_analogsignal': lambda x: x.metadata['name'],
+           'analogsignal': lambda x: x.metadata['name'],
         }
         return cases[nix_obj.type](nix_obj)
 
@@ -252,16 +252,21 @@ class Reader:
             results = [Reader.read_block(fh, b.name) for b in nix_file.blocks]
 
         elif obj_type == 'segment':
-            tags = filter(lambda x: x.type == 'neo_segment', nix_file.blocks[block_id].tags)
+            tags = filter(lambda x: x.type == obj_type, nix_file.blocks[block_id].tags)
             results = [Reader.read_segment(fh, block_id, tag.name) for tag in tags]
 
         elif obj_type == 'recordingchannelgroup':
-            sources = filter(lambda x: x.type == 'neo_recordingchannelgroup', nix_file.blocks[block_id].sources)
+            sources = filter(lambda x: x.type == obj_type, nix_file.blocks[block_id].sources)
             results = [Reader.read_RCG(fh, block_id, src.name) for src in sources]
 
         elif obj_type == 'analogsignal':
             nix_tag = nix_file.blocks[block_id].tags[parent_id]
-            signals = filter(lambda x: x.type == 'neo_analogsignal', nix_tag.references)
+            signals = filter(lambda x: x.type == obj_type, nix_tag.references)
+            results = [Reader.read_analogsignal(fh, block_id, da.name) for da in signals]
+
+        elif obj_type == 'analogsignal_rcg':
+            signals = filter(lambda x: x.type == 'analogsignal', nix_file.blocks[block_id].data_arrays)
+            signals = [x for x in signals if parent_id in [y.name for y in x.sources]]
             results = [Reader.read_analogsignal(fh, block_id, da.name) for da in signals]
 
         return results
@@ -314,8 +319,15 @@ class Reader:
 
     @staticmethod
     def read_RCG(fh, block_id, rcg_id):
+        def read_analogsignals(nix_file):
+            signals = filter(lambda x: x.type == 'analogsignal', nix_file.blocks[block_id].data_arrays)
+            signals = [x for x in signals if nsn in [y.name for y in x.sources]]
+            return [Reader.read_analogsignal(fh, block_id, da.name) for da in signals]
+
+
         nix_block = NixHelp.get_block(fh.handle, block_id)
         nix_source = nix_block.sources[rcg_id]
+        nsn = nix_source.name
 
         params = {
             'name': nix_source.name,
@@ -331,7 +343,7 @@ class Reader:
 
         rcg.annotations = NixHelp.read_annotations(nix_section, direct_attrs)
 
-        setattr(rcg, 'analogsignals', ProxyList(fh, nix_block.name, nix_source.name, 'analogsignal'))
+        setattr(rcg, 'analogsignals', ProxyList(fh, nix_block.name, nix_source.name, 'analogsignal_rcg'))
 
         # TODO add more setters for relations
 
@@ -384,13 +396,21 @@ class Writer:
         :param block:       a Neo block instance to save to NIX
         :param recursive:   write all block contents recursively
         """
-        #def write_children(neo_objs, nix_objs, obj_type)
+        def write_multiple(neo_objs, nix_objs, obj_type):
+            existing = filter(lambda x: x.type == obj_type, nix_objs)
+            to_remove = set([x.name for x in existing]) - set([x.name for x in neo_objs])
 
+            func = getattr(Writer, 'write_' + obj_type)
+            for obj in neo_objs:
+                func(nix_file, nix_block.name, obj, recursive=recursive)
+
+            for name in to_remove:
+                del nix_objs[name]
 
         try:
             nix_block = nix_file.blocks[block.name]
         except KeyError:
-            nix_block = nix_file.create_block(block.name, 'neo_block')
+            nix_block = nix_file.create_block(block.name, 'block')
 
         # prepare metadata to store
         metadata = dict(block.annotations)
@@ -408,14 +428,8 @@ class Writer:
         NixHelp.write_metadata(nix_block.metadata, metadata)
 
         if recursive:
-            existing = filter(lambda x: x.type == 'neo_segment', nix_block.tags)
-            to_remove = set([x.name for x in existing]) - set([x.name for x in block.segments])
-
-            for segment in block.segments:
-                Writer.write_segment(nix_file, nix_block.name, segment, recursive=recursive)
-
-            for name in to_remove:
-                del nix_block.tags[name]
+            write_multiple(block.segments, nix_block.tags, 'segment')
+            write_multiple(block.recordingchannelgroups, nix_block.sources, 'recordingchannelgroup')
 
         return nix_block
 
@@ -433,7 +447,7 @@ class Writer:
         try:
             nix_tag = nix_block.tags[segment.name]
         except KeyError:
-            nix_tag = nix_block.create_tag(segment.name, 'neo_segment', [0.0])
+            nix_tag = nix_block.create_tag(segment.name, 'segment', [0.0])
 
         # prepare metadata to store
         metadata = dict(segment.annotations)
@@ -448,7 +462,7 @@ class Writer:
 
         if recursive:
             convert = lambda x: NixHelp.get_obj_nix_name(x)
-            existing = list(filter(lambda x: x.type == 'neo_analogsignal', nix_tag.references))
+            existing = list(filter(lambda x: x.type == 'analogsignal', nix_tag.references))
             to_remove = set([x.name for x in existing]) - set([convert(x) for x in segment.analogsignals])
             to_append = set([convert(x) for x in segment.analogsignals]) - set([x.name for x in existing])
 
@@ -466,7 +480,7 @@ class Writer:
 
 
     @staticmethod
-    def write_RCG(nix_file, block_id, rcg, recursive=True):
+    def write_recordingchannelgroup(nix_file, block_id, rcg, recursive=True):
         """
         Writes the given Neo RecordingChannelGroup to the NIX file.
 
@@ -479,7 +493,7 @@ class Writer:
         try:
             nix_source = nix_block.sources[rcg.name]
         except KeyError:
-            nix_source = nix_block.create_tag(rcg.name, 'neo_recordingchannelgroup')
+            nix_source = nix_block.create_source(rcg.name, 'recordingchannelgroup')
 
         # prepare metadata to store
         metadata = dict(rcg.annotations)
@@ -495,7 +509,7 @@ class Writer:
         if recursive:
             convert = lambda x: NixHelp.get_obj_nix_name(x)
 
-            existing = filter(lambda x: x.type == 'neo_analogsignal', nix_block.data_arrays)
+            existing = filter(lambda x: x.type == 'analogsignal', nix_block.data_arrays)
             existing = [x for x in existing if nix_source in x.sources]
             to_remove = set([x.name for x in existing]) - set([convert(x) for x in rcg.analogsignals])
             to_append = set([convert(x) for x in rcg.analogsignals]) - set([x.name for x in existing])
@@ -504,10 +518,10 @@ class Writer:
                 Writer.write_analogsignal(nix_file, nix_block.name, signal)
 
             for nix_da in to_remove:
-                del nix_da.sources[nix_source.name]
+                del nix_block.data_arrays[nix_da].sources[nix_source.name]
 
             for nix_da in to_append:
-                nix_da.sources.append(nix_source)
+                nix_block.data_arrays[nix_da].sources.append(nix_source)
 
         return nix_source
 
@@ -528,7 +542,7 @@ class Writer:
             # TODO update data?
 
         except KeyError:
-            args = (obj_name, 'neo_analogsignal', signal.dtype, (0,1))
+            args = (obj_name, 'analogsignal', signal.dtype, (0,1))
             nix_array = nix_block.create_data_array(*args)
             nix_array.append(signal)
 
