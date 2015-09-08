@@ -23,8 +23,22 @@ def build_fake_block():
     inds = [x for x in range(10)]
     names = ['foo' + str(x) for x in inds]
 
+    unit1 = Unit('unit1')
+    unit2 = Unit('unit2')
+    unit3 = Unit('unit3')
+
+    for st in b.segments[0].spiketrains:
+        unit1.spiketrains.append(st)
+
+    for st in b.segments[1].spiketrains:
+        unit2.spiketrains.append(st)
+
     rcg1 = RecordingChannelGroup(name='rcg1', channel_indexes=inds, channel_names=names)
     rcg2 = RecordingChannelGroup(name='rcg2', channel_indexes=inds, channel_names=names)
+
+    rcg1.units.append(unit1)
+    rcg1.units.append(unit2)
+    rcg2.units.append(unit3)
 
     for sig in b.segments[0].analogsignals:
         rcg1.analogsignals.append(sig)

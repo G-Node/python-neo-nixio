@@ -1,5 +1,6 @@
 from neo.core import objectlist, objectnames, class_by_name
-from neo.core import Block, Event, Epoch, Segment, AnalogSignal, RecordingChannelGroup
+from neo.core import Block, Event, Epoch, Segment, AnalogSignal, \
+                        RecordingChannelGroup, Unit
 from neo.io.baseio import BaseIO
 
 import quantities as pq
@@ -74,6 +75,11 @@ class NixHelp:
     segment_meta_attrs = ('file_datetime', 'rec_datetime', 'index')
     analogsignal_meta_attrs = ('name',)
     recordingchannelgroup_meta_attrs = ('name', 'channel_indexes', 'channel_names')
+    unit_meta_attrs = ()
+
+    naming_map = {
+        'analogsignal': lambda x: str(hash(x.tostring())),
+    }
 
     @staticmethod
     def get_classname(neo_obj):
@@ -88,13 +94,11 @@ class NixHelp:
 
     @staticmethod
     def get_obj_nix_name(obj):  # pure
-
-        # FIXME make for all objects
-
-        cases = {  # TODO these can be different
-            'analogsignal': lambda x: str(hash(x.tostring())),
-        }
-        return cases[NixHelp.get_classname(obj)](obj)
+        try:
+            res = NixHelp.naming_map[NixHelp.get_classname(obj)](obj)
+        except KeyError:
+            res = obj.name
+        return res
 
     @staticmethod
     def get_obj_neo_name(nix_obj):  # pure
@@ -267,6 +271,10 @@ class Reader:
             signals = [x for x in signals if nsn in [y.name for y in x.sources]]
             return [Reader.read_analogsignal(fh, block_id, da.name) for da in signals]
 
+        def read_units(nix_file):
+            units = filter(lambda x: x.type == 'unit', nix_file.blocks[block_id].sources[nsn].sources)
+            return [Reader.read_unit(fh, block_id, nsn, unit.name) for unit in units]
+
         nix_block = NixHelp.get_block(fh.handle, block_id)
         nix_source = nix_block.sources[rcg_id]
         nsn = nix_source.name
@@ -283,8 +291,31 @@ class Reader:
         rcg.annotations = Reader.read_annotations(nix_source.metadata, 'recordingchannelgroup')
 
         setattr(rcg, 'analogsignals', ProxyList(fh, read_analogsignals))
+        setattr(rcg, 'units', ProxyList(fh, read_units))
 
-        # TODO add more setters for relations
+        return rcg
+
+    @staticmethod
+    def read_unit(fh, block_id, rcg_source_id, unit_id):
+        def read_spiketrains(nix_file):
+            strains = filter(lambda x: x.type == 'spiketrain', nix_file.blocks[block_id].data_arrays)
+            strains = [x for x in strains if nsn in [y.name for y in x.sources]]
+            #return [Reader.read_spiketrain(fh, block_id, da.name) for da in strains]
+            return []
+
+        nix_block = NixHelp.get_block(fh.handle, block_id)
+        nix_rcg_source = nix_block.sources[rcg_source_id]
+        nix_source = nix_rcg_source.sources[unit_id]
+        nsn = nix_source.name
+
+        rcg = Unit(nix_source.name)
+
+        for key, value in Reader.read_attributes(nix_source.metadata, 'unit').items():
+            setattr(rcg, key, value)
+
+        rcg.annotations = Reader.read_annotations(nix_source.metadata, 'unit')
+
+        setattr(rcg, 'spiketrains', ProxyList(fh, read_spiketrains))
 
         return rcg
 
@@ -357,6 +388,15 @@ class Writer:
                     p.values = values
 
     @staticmethod
+    def compare(neo_objs, nix_objs):
+        conv = NixHelp.get_obj_nix_name  # convert NIX to Neo name if needed
+
+        to_remove = set([x.name for x in nix_objs]) - set([conv(x) for x in neo_objs])
+        to_append = set([conv(x) for x in neo_objs]) - set([x.name for x in nix_objs])
+
+        return to_remove, to_append
+
+    @staticmethod
     def write_block(nix_file, block, recursive=True):
         """
         Writes the given Neo block to the NIX file.
@@ -367,7 +407,7 @@ class Writer:
         """
         def write_multiple(neo_objs, nix_objs, obj_type):
             existing = filter(lambda x: x.type == obj_type, nix_objs)
-            to_remove = set([x.name for x in existing]) - set([x.name for x in neo_objs])
+            to_remove, to_append = Writer.compare(neo_objs, existing)
 
             func = getattr(Writer, 'write_' + obj_type)
             for obj in neo_objs:
@@ -399,6 +439,21 @@ class Writer:
         :param block_id:    an id of the block in NIX file where to save segment
         :param recursive:   write all segment contents recursively
         """
+        def write_multiple(neo_objs, nix_objs, obj_type):
+            existing = list(filter(lambda x: x.type == obj_type, nix_objs))
+            to_remove, to_append = Writer.compare(neo_objs, existing)
+
+            func = getattr(Writer, 'write_' + obj_type)
+            for obj in neo_objs:
+                func(nix_file, nix_block.name, obj)
+
+            names = [da.name for da in nix_objs if da.name in to_remove]
+            for da_name in names:
+                del nix_objs[da_name]
+
+            for name in to_append:
+                nix_objs.append(nix_block.data_arrays[name])
+
         nix_block = NixHelp.get_block(nix_file, block_id)
 
         try:
@@ -410,20 +465,8 @@ class Writer:
         Writer.write_metadata(nix_tag.metadata, NixHelp.extract_metadata(segment))
 
         if recursive:
-            convert = lambda x: NixHelp.get_obj_nix_name(x)
-            existing = list(filter(lambda x: x.type == 'analogsignal', nix_tag.references))
-            to_remove = set([x.name for x in existing]) - set([convert(x) for x in segment.analogsignals])
-            to_append = set([convert(x) for x in segment.analogsignals]) - set([x.name for x in existing])
-
-            for signal in segment.analogsignals:
-                Writer.write_analogsignal(nix_file, nix_block.name, signal)
-
-            names = [da.name for da in nix_tag.references if da.name in to_remove]
-            for da_name in names:
-                del nix_tag.references[da_name]
-
-            for name in to_append:
-                nix_tag.references.append(nix_block.data_arrays[name])
+            write_multiple(segment.analogsignals, nix_tag.references, 'analogsignal')
+            # TODO add more
 
         return nix_tag
 
@@ -437,6 +480,30 @@ class Writer:
         :param block_id:    an id of the block in NIX file where to save segment
         :param recursive:   write all RCG contents recursively
         """
+        def write_units(units):
+            existing = filter(lambda x: x.type == 'unit', nix_source.sources)
+            to_remove, to_append = Writer.compare(units, existing)
+
+            for unit in units:
+                Writer.write_unit(nix_file, nix_block.name, nix_source.name, unit, recursive=recursive)
+
+            for name in to_remove:
+                del nix_source.sources[name]
+
+        def write_signals(signals):
+            existing = filter(lambda x: x.type == 'analogsignal', nix_block.data_arrays)
+            existing = [x for x in existing if nix_source in x.sources]
+            to_remove, to_append = Writer.compare(signals, existing)
+
+            for signal in signals:
+                Writer.write_analogsignal(nix_file, nix_block.name, signal)
+
+            for nix_da in to_remove:
+                del nix_block.data_arrays[nix_da].sources[nix_source.name]
+
+            for nix_da in to_append:
+                nix_block.data_arrays[nix_da].sources.append(nix_source)
+
         nix_block = NixHelp.get_block(nix_file, block_id)
 
         try:
@@ -448,21 +515,35 @@ class Writer:
         Writer.write_metadata(nix_source.metadata, NixHelp.extract_metadata(rcg))
 
         if recursive:
-            convert = lambda x: NixHelp.get_obj_nix_name(x)
+            write_units(rcg.units)
+            write_signals(rcg.analogsignals)
 
-            existing = filter(lambda x: x.type == 'analogsignal', nix_block.data_arrays)
-            existing = [x for x in existing if nix_source in x.sources]
-            to_remove = set([x.name for x in existing]) - set([convert(x) for x in rcg.analogsignals])
-            to_append = set([convert(x) for x in rcg.analogsignals]) - set([x.name for x in existing])
+        return nix_source
 
-            for signal in rcg.analogsignals:
-                Writer.write_analogsignal(nix_file, nix_block.name, signal)
+    @staticmethod
+    def write_unit(nix_file, block_id, source_id, unit, recursive=True):
+        """
+        Writes the given Neo Unit to the NIX file.
 
-            for nix_da in to_remove:
-                del nix_block.data_arrays[nix_da].sources[nix_source.name]
+        :param nix_file:    an open file where to save Unit
+        :param block_id:    an id of the block in NIX file where to save Unit
+        :param source_id:   an id of the source in NIX file where to save Unit
+        :param unit:        Neo Unit to store
+        """
+        nix_block = NixHelp.get_block(nix_file, block_id)
+        nix_rcg_source = nix_block.sources[source_id]
 
-            for nix_da in to_append:
-                nix_block.data_arrays[nix_da].sources.append(nix_source)
+        try:
+            nix_source = nix_rcg_source.sources[unit.name]
+        except KeyError:
+            nix_source = nix_rcg_source.create_source(unit.name, 'unit')
+
+        nix_source.metadata = Writer.get_or_create_section(nix_block.metadata, 'unit', unit.name)
+        Writer.write_metadata(nix_source.metadata, NixHelp.extract_metadata(unit))
+
+        if recursive:
+            # TODO store spiketrains
+            pass
 
         return nix_source
 
