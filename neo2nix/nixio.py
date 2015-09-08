@@ -80,23 +80,6 @@ class NixHelp:
         return neo_obj.__class__.__name__.lower()
 
     @staticmethod
-    def get_or_create_section(root_section, group_name, name):
-        if not isinstance(root_section, nix.Section):
-            group_sec = root_section  # file is a root section for Blocks
-        else:
-            try:
-                group_sec = root_section.sections[group_name + 's']
-            except KeyError:
-                group_sec = root_section.create_section(group_name + 's', group_name)
-
-        try:
-            target_sec = group_sec.sections[name]
-        except KeyError:
-            target_sec = group_sec.create_section(name, group_name)
-
-        return target_sec
-
-    @staticmethod
     def get_block(nix_file, block_id):
         try:
             return nix_file.blocks[block_id]
@@ -144,23 +127,7 @@ class NixHelp:
         return result
 
     @staticmethod
-    def write_metadata(nix_section, dict_to_store):
-        for attr_name, value in dict_to_store.items():
-            if value is not None:
-                if not type(value) in (list, tuple):
-                    value = (value,)
-                values = [nix.Value(x) for x in value]
-
-                try:
-                    p = nix_section.props[attr_name]
-                except KeyError:
-                    p = nix_section.create_property(attr_name, values)
-
-                if not p.values == values:
-                    p.values = values
-
-    @staticmethod
-    def extract_metadata(neo_obj):
+    def extract_metadata(neo_obj):  # pure
         metadata = dict(neo_obj.annotations)
 
         custom_attrs = getattr(NixHelp, NixHelp.get_classname(neo_obj) + '_meta_attrs')
@@ -372,6 +339,39 @@ class Reader:
 class Writer:
 
     @staticmethod
+    def get_or_create_section(root_section, group_name, name):
+        if not isinstance(root_section, nix.Section):
+            group_sec = root_section  # file is a root section for Blocks
+        else:
+            try:
+                group_sec = root_section.sections[group_name + 's']
+            except KeyError:
+                group_sec = root_section.create_section(group_name + 's', group_name)
+
+        try:
+            target_sec = group_sec.sections[name]
+        except KeyError:
+            target_sec = group_sec.create_section(name, group_name)
+
+        return target_sec
+
+    @staticmethod
+    def write_metadata(nix_section, dict_to_store):
+        for attr_name, value in dict_to_store.items():
+            if value is not None:
+                if not type(value) in (list, tuple):
+                    value = (value,)
+                values = [nix.Value(x) for x in value]
+
+                try:
+                    p = nix_section.props[attr_name]
+                except KeyError:
+                    p = nix_section.create_property(attr_name, values)
+
+                if not p.values == values:
+                    p.values = values
+
+    @staticmethod
     def write_block(nix_file, block, recursive=True):
         """
         Writes the given Neo block to the NIX file.
@@ -396,10 +396,8 @@ class Writer:
         except KeyError:
             nix_block = nix_file.create_block(block.name, 'block')
 
-        metadata = NixHelp.extract_metadata(block)
-
-        nix_block.metadata = NixHelp.get_or_create_section(nix_file, 'block', nix_block.name)
-        NixHelp.write_metadata(nix_block.metadata, metadata)
+        nix_block.metadata = Writer.get_or_create_section(nix_file, 'block', block.name)
+        Writer.write_metadata(nix_block.metadata, NixHelp.extract_metadata(block))
 
         if recursive:
             write_multiple(block.segments, nix_block.tags, 'segment')
@@ -423,10 +421,8 @@ class Writer:
         except KeyError:
             nix_tag = nix_block.create_tag(segment.name, 'segment', [0.0])
 
-        metadata = NixHelp.extract_metadata(segment)
-
-        nix_tag.metadata = NixHelp.get_or_create_section(nix_block.metadata, 'segment', segment.name)
-        NixHelp.write_metadata(nix_tag.metadata, metadata)
+        nix_tag.metadata = Writer.get_or_create_section(nix_block.metadata, 'segment', segment.name)
+        Writer.write_metadata(nix_tag.metadata, NixHelp.extract_metadata(segment))
 
         if recursive:
             convert = lambda x: NixHelp.get_obj_nix_name(x)
@@ -463,9 +459,8 @@ class Writer:
         except KeyError:
             nix_source = nix_block.create_source(rcg.name, 'recordingchannelgroup')
 
-        metadata = NixHelp.extract_metadata(rcg)
-        nix_source.metadata = NixHelp.get_or_create_section(nix_block.metadata, 'recordingchannelgroup', rcg.name)
-        NixHelp.write_metadata(nix_source.metadata, metadata)
+        nix_source.metadata = Writer.get_or_create_section(nix_block.metadata, 'recordingchannelgroup', rcg.name)
+        Writer.write_metadata(nix_source.metadata, NixHelp.extract_metadata(rcg))
 
         if recursive:
             convert = lambda x: NixHelp.get_obj_nix_name(x)
@@ -519,8 +514,8 @@ class Writer:
         metadata['t_start'] = signal.t_start.item()
         metadata['t_start__unit'] = signal.t_start.units.dimensionality.string
 
-        nix_array.metadata = NixHelp.get_or_create_section(nix_block.metadata, 'analogsignal', obj_name)
-        NixHelp.write_metadata(nix_array.metadata, metadata)
+        nix_array.metadata = Writer.get_or_create_section(nix_block.metadata, 'analogsignal', obj_name)
+        Writer.write_metadata(nix_array.metadata, metadata)
 
         return nix_array
     
