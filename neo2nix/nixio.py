@@ -146,13 +146,6 @@ class NixHelp:
         'analogsignal': lambda x: str(hash(x.tostring())),
     }
 
-    @staticmethod
-    def get_block(nix_file, block_id):
-        try:
-            return nix_file.blocks[block_id]
-        except KeyError:
-            raise NameError('Block with this id %s does not exist' % block_id)
-
 
 # -------------------------------------------
 # Reader / Writer
@@ -206,7 +199,7 @@ class Reader:
             sources = filter(lambda x: x.type == 'recordingchannelgroup', nix_file.blocks[block_id].sources)
             return [Reader.read_RCG(fh, block_id, src.name) for src in sources]
 
-        nix_block = NixHelp.get_block(fh.handle, block_id)
+        nix_block = fh.handle.blocks[block_id]
 
         b = Block(name=nix_block.name)
 
@@ -227,7 +220,7 @@ class Reader:
             signals = filter(lambda x: x.type == 'analogsignal', nix_tag.references)
             return [Reader.read_analogsignal(fh, block_id, da.name) for da in signals]
 
-        nix_block = NixHelp.get_block(fh.handle, block_id)
+        nix_block = fh.handle.blocks[block_id]
         nix_tag = nix_block.tags[seg_id]
 
         seg = Segment(name=nix_tag.name)
@@ -254,7 +247,7 @@ class Reader:
             units = filter(lambda x: x.type == 'unit', nix_file.blocks[block_id].sources[nsn].sources)
             return [Reader.read_unit(fh, block_id, nsn, unit.name) for unit in units]
 
-        nix_block = NixHelp.get_block(fh.handle, block_id)
+        nix_block = fh.handle.blocks[block_id]
         nix_source = nix_block.sources[rcg_id]
         nsn = nix_source.name
 
@@ -282,7 +275,7 @@ class Reader:
             #return [Reader.read_spiketrain(fh, block_id, da.name) for da in strains]
             return []
 
-        nix_block = NixHelp.get_block(fh.handle, block_id)
+        nix_block = fh.handle.blocks[block_id]
         nix_rcg_source = nix_block.sources[rcg_source_id]
         nix_source = nix_rcg_source.sources[unit_id]
         nsn = nix_source.name
@@ -300,7 +293,7 @@ class Reader:
 
     @staticmethod
     def read_analogsignal(fh, block_id, array_id):
-        nix_block = NixHelp.get_block(fh.handle, block_id)
+        nix_block = fh.handle.blocks[block_id]
         nix_da = nix_block.data_arrays[array_id]
 
         params = {
@@ -457,7 +450,7 @@ class Writer:
             for name in to_append:
                 nix_objs.append(nix_block.data_arrays[name])
 
-        nix_block = NixHelp.get_block(nix_file, block_id)
+        nix_block = nix_file.blocks[block_id]
 
         try:
             nix_tag = nix_block.tags[segment.name]
@@ -507,7 +500,7 @@ class Writer:
             for nix_da in to_append:
                 nix_block.data_arrays[nix_da].sources.append(nix_source)
 
-        nix_block = NixHelp.get_block(nix_file, block_id)
+        nix_block = nix_file.blocks[block_id]
 
         try:
             nix_source = nix_block.sources[rcg.name]
@@ -533,7 +526,7 @@ class Writer:
         :param source_id:   an id of the source in NIX file where to save Unit
         :param unit:        Neo Unit to store
         """
-        nix_block = NixHelp.get_block(nix_file, block_id)
+        nix_block = nix_file.blocks[block_id]
         nix_rcg_source = nix_block.sources[source_id]
 
         try:
@@ -558,7 +551,7 @@ class Writer:
         :param nix_file:    an open file where to save Block
         :param block_id:    an id of the block in NIX file where to save segment
         """
-        nix_block = NixHelp.get_block(nix_file, block_id)
+        nix_block = nix_file.blocks[block_id]
         obj_name = Writer.Help.get_obj_nix_name(signal)
 
         try:
