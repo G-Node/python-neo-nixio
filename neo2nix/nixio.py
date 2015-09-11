@@ -1,6 +1,6 @@
 from neo.core import objectlist, objectnames, class_by_name
 from neo.core import Block, Event, Epoch, Segment, AnalogSignal, \
-                        RecordingChannelGroup, Unit
+                        SpikeTrain, RecordingChannelGroup, Unit
 from neo.io.baseio import BaseIO
 
 import quantities as pq
@@ -128,23 +128,15 @@ class ProxyList(object):
         return '<' + self.__class__.__name__ + '>' + self._data.__repr__()
 
 
-# -------------------------------------------
-# NIX I/O helpers
-# -------------------------------------------
-
-
 class NixHelp:
 
     default_meta_attr_names = ('description', 'file_origin')
     block_meta_attrs = ('file_datetime', 'rec_datetime', 'index')
     segment_meta_attrs = ('file_datetime', 'rec_datetime', 'index')
     analogsignal_meta_attrs = ('name',)
+    spiketrain_meta_attrs = ('name', 'waveforms', 'left_sweep')  # FIXME ??
     recordingchannelgroup_meta_attrs = ('name', 'channel_indexes', 'channel_names')
     unit_meta_attrs = ()
-
-    naming_map = {
-        'analogsignal': lambda x: str(hash(x.tostring())),
-    }
 
 
 # -------------------------------------------
@@ -158,10 +150,12 @@ class Reader:
 
         @staticmethod
         def get_obj_neo_name(nix_obj):  # pure
-            cases = {  # TODO these can be different
-                'analogsignal': lambda x: x.metadata['name'],
-            }
-            return cases[nix_obj.type](nix_obj)
+            if nix_obj.type in ['analogsignal', 'spiketrain', 'event', 'epoch']:
+                try:
+                    return nix_obj.metadata['name']
+                except KeyError:
+                    return None
+            return nix_obj.name
 
         @staticmethod
         def read_attributes(nix_section, obj_type):
@@ -215,10 +209,11 @@ class Reader:
 
     @staticmethod
     def read_segment(fh, block_id, seg_id):
-        def read_analogsignals(nix_file):
+        def read_multiple(nix_file, obj_type):
             nix_tag = nix_file.blocks[block_id].tags[seg_id]
-            signals = filter(lambda x: x.type == 'analogsignal', nix_tag.references)
-            return [Reader.read_analogsignal(fh, block_id, da.name) for da in signals]
+            objs = filter(lambda x: x.type == obj_type, nix_tag.references)
+            read_func = getattr(Reader, 'read_' + obj_type)
+            return [read_func(fh, block_id, da.name) for da in objs]
 
         nix_block = fh.handle.blocks[block_id]
         nix_tag = nix_block.tags[seg_id]
@@ -230,9 +225,8 @@ class Reader:
 
         seg.annotations = Reader.Help.read_annotations(nix_tag.metadata, 'segment')
 
-        setattr(seg, 'analogsignals', ProxyList(fh, read_analogsignals))
-
-        # TODO add more setters for relations
+        setattr(seg, 'analogsignals', ProxyList(fh, lambda f: read_multiple(f, 'analogsignal')))
+        setattr(seg, 'spiketrains', ProxyList(fh, lambda f: read_multiple(f, 'spiketrain')))
 
         return seg
 
@@ -272,8 +266,7 @@ class Reader:
         def read_spiketrains(nix_file):
             strains = filter(lambda x: x.type == 'spiketrain', nix_file.blocks[block_id].data_arrays)
             strains = [x for x in strains if nsn in [y.name for y in x.sources]]
-            #return [Reader.read_spiketrain(fh, block_id, da.name) for da in strains]
-            return []
+            return [Reader.read_spiketrain(fh, block_id, da.name) for da in strains]
 
         nix_block = fh.handle.blocks[block_id]
         nix_rcg_source = nix_block.sources[rcg_source_id]
@@ -323,6 +316,45 @@ class Reader:
 
         return signal
 
+    @staticmethod
+    def read_spiketrain(fh, block_id, array_id):
+        nix_block = fh.handle.blocks[block_id]
+        nix_da = nix_block.data_arrays[array_id]
+
+        t_stop = nix_da.metadata['t_stop']
+        t_stop__unit = nix_da.metadata['t_stop__unit']
+
+        params = {
+            'times': nix_da[:],  # TODO think about lazy data loading
+            'dtype': nix_da.dtype,
+            't_stop': pq.quantity.Quantity(float(t_stop), t_stop__unit),
+        }
+
+        name = Reader.Help.get_obj_neo_name(nix_da)
+        if name:
+            params['name'] = name
+
+        if 't_start' in nix_da.metadata:
+            t_start = nix_da.metadata['t_start']
+            t_start__unit = nix_da.metadata['t_start__unit']
+            params['t_start'] = pq.quantity.Quantity(float(t_start), t_start__unit)
+
+        if len(nix_da.dimensions) > 0:
+            s_dim = nix_da.dimensions[0]
+            params['sampling_rate'] = s_dim.sampling_interval * getattr(pq, s_dim.unit)
+
+        if nix_da.unit:
+            params['units'] = nix_da.unit
+
+        st = SpikeTrain(**params)
+
+        for key, value in Reader.Help.read_attributes(nix_da.metadata, 'spiketrain').items():
+            setattr(st, key, value)
+
+        st.annotations = Reader.Help.read_annotations(nix_da.metadata, 'spiketrain')
+
+        return st
+
 
 class Writer:
 
@@ -332,12 +364,11 @@ class Writer:
             return neo_obj.__class__.__name__.lower()
 
         @staticmethod
-        def get_obj_nix_name(neo_obj):  # pure
-            try:
-                res = NixHelp.naming_map[Writer.Help.get_classname(neo_obj)](neo_obj)
-            except KeyError:
-                res = neo_obj.name
-            return res
+        def get_obj_nix_name(neo_obj):
+            types = ['analogsignal', 'spiketrain', 'event', 'epoch']
+            if Writer.Help.get_classname(neo_obj) in types:
+                return str(hash(neo_obj.tostring()))
+            return neo_obj.name
 
         @staticmethod
         def extract_metadata(neo_obj):  # pure
@@ -462,7 +493,7 @@ class Writer:
 
         if recursive:
             write_multiple(segment.analogsignals, nix_tag.references, 'analogsignal')
-            # TODO add more
+            write_multiple(segment.spiketrains, nix_tag.references, 'spiketrain')
 
         return nix_tag
 
@@ -526,6 +557,20 @@ class Writer:
         :param source_id:   an id of the source in NIX file where to save Unit
         :param unit:        Neo Unit to store
         """
+        def write_spiketrains(sts):
+            existing = filter(lambda x: x.type == 'spiketrain', nix_block.data_arrays)
+            existing = [x for x in existing if nix_source in x.sources]
+            to_remove, to_append = Writer.Help.compare(sts, existing)
+
+            for st in sts:
+                Writer.write_spiketrain(nix_file, nix_block.name, st)
+
+            for nix_da in to_remove:
+                del nix_block.data_arrays[nix_da].sources[nix_source.name]
+
+            for nix_da in to_append:
+                nix_block.data_arrays[nix_da].sources.append(nix_source)
+
         nix_block = nix_file.blocks[block_id]
         nix_rcg_source = nix_block.sources[source_id]
 
@@ -538,8 +583,7 @@ class Writer:
         Writer.Help.write_metadata(nix_source.metadata, Writer.Help.extract_metadata(unit))
 
         if recursive:
-            # TODO store spiketrains
-            pass
+            write_spiketrains(unit.spiketrains)
 
         return nix_source
 
@@ -580,7 +624,48 @@ class Writer:
         Writer.Help.write_metadata(nix_array.metadata, metadata)
 
         return nix_array
-    
+
+    @staticmethod
+    def write_spiketrain(nix_file, block_id, st):
+        """
+        Writes the given Neo AnalogSignal to the NIX file.
+
+        :param nix_file:    an open file where to save Block
+        :param block_id:    an id of the block in NIX file where to save segment
+        """
+        nix_block = nix_file.blocks[block_id]
+        obj_name = Writer.Help.get_obj_nix_name(st)
+
+        try:
+            nix_array = nix_block.data_arrays[obj_name]
+        except KeyError:
+            args = (obj_name, 'spiketrain', st.dtype, (0,))
+            nix_array = nix_block.create_data_array(*args)
+            nix_array.append(st)
+
+        nix_array.unit = st.units.dimensionality.string
+
+        if not nix_array.dimensions:
+            nix_array.append_sampled_dimension(st.sampling_rate.item())
+        nix_array.dimensions[0].unit = st.sampling_rate.units.dimensionality.string
+
+        metadata = Writer.Help.extract_metadata(st)
+
+        metadata['t_start'] = st.t_start.item()
+        metadata['t_start__unit'] = st.t_start.units.dimensionality.string
+        metadata['t_stop'] = st.t_stop.item()
+        metadata['t_stop__unit'] = st.t_stop.units.dimensionality.string
+
+        nix_array.metadata = Writer.Help.get_or_create_section(nix_block.metadata, 'spiketrain', obj_name)
+        Writer.Help.write_metadata(nix_array.metadata, metadata)
+
+        return nix_array
+
+
+
+
+
+
 
 class NixIO(BaseIO):
     """
