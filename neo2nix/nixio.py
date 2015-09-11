@@ -478,6 +478,21 @@ class Writer:
 
             return to_remove, to_append
 
+        @staticmethod
+        def clean(nix_block):
+            """ clean up: del all arrays with no tag/source """
+            def has_references(nix_array):
+                return len([x for x in nix_block.tags if nix_array in x.references]) > 0
+
+            def has_sources(nix_array):
+                return len(nix_array.sources) > 0
+
+            names = [x.name for x in nix_block.data_arrays]
+            for name in names:
+                da = nix_block.data_arrays[name]
+                if not has_references(da) and not has_sources(da):
+                    del nix_block.data_arrays[name]
+
     @staticmethod
     def write_block(nix_file, block, recursive=True):
         """
@@ -550,6 +565,7 @@ class Writer:
             write_multiple(segment.events, nix_tag.references, 'event')
             write_multiple(segment.epochs, nix_tag.references, 'epoch')
 
+        Writer.Help.clean(nix_block)
         return nix_tag
 
 
@@ -598,6 +614,7 @@ class Writer:
             write_units(rcg.units)
             write_signals(rcg.analogsignals)
 
+        Writer.Help.clean(nix_block)
         return nix_source
 
     @staticmethod
@@ -637,6 +654,7 @@ class Writer:
         if recursive:
             write_spiketrains(unit.spiketrains)
 
+        Writer.Help.clean(nix_block)
         return nix_source
 
     @staticmethod
@@ -815,12 +833,4 @@ class NixIO(BaseIO):
 
     @file_transaction
     def write_block(self, block, recursive=True):
-        Writer.write_block(self.f.handle, block, recursive=recursive)
-
-        # FIXME really delete unused arrays?
-
-        # implement clean up
-        # del all arrays with no tag/source
-        #del nix_block.data_arrays[da_name]
-
-
+        nix_block = Writer.write_block(self.f.handle, block, recursive=recursive)
