@@ -3,6 +3,7 @@ from neo.core import Block, Event, Epoch, Segment, AnalogSignal, \
                         SpikeTrain, RecordingChannelGroup, Unit
 from neo.io.baseio import BaseIO
 
+import numpy as np
 import quantities as pq
 import nix
 import os
@@ -40,6 +41,8 @@ class NixHelp:
     segment_meta_attrs = ('file_datetime', 'rec_datetime', 'index')
     analogsignal_meta_attrs = ('name',)
     spiketrain_meta_attrs = ('name',)
+    event_meta_attrs = ('name',)
+    epoch_meta_attrs = ('name',)
     recordingchannelgroup_meta_attrs = ('name', 'channel_indexes', 'channel_names')
     unit_meta_attrs = ()
 
@@ -233,6 +236,8 @@ class Reader:
 
         setattr(seg, 'analogsignals', ProxyList(fh, lambda f: read_multiple(f, 'analogsignal')))
         setattr(seg, 'spiketrains', ProxyList(fh, lambda f: read_multiple(f, 'spiketrain')))
+        setattr(seg, 'events', ProxyList(fh, lambda f: read_multiple(f, 'event')))
+        setattr(seg, 'epochs', ProxyList(fh, lambda f: read_multiple(f, 'epoch')))
 
         return seg
 
@@ -354,6 +359,54 @@ class Reader:
 
         return st
 
+    @staticmethod
+    def read_event(fh, block_id, array_id):
+        nix_block = fh.handle.blocks[block_id]
+        nix_da = nix_block.data_arrays[array_id]
+
+        params = {
+            'times': nix_da[:],  # TODO think about lazy data loading
+            'labels': nix_da.dimensions[0].labels
+        }
+
+        name = Reader.Help.get_obj_neo_name(nix_da)
+        if name:
+            params['name'] = name
+
+        event = Event(**params)
+
+        for key, value in Reader.Help.read_attributes(nix_da.metadata, 'event').items():
+            setattr(event, key, value)
+
+        event.annotations = Reader.Help.read_annotations(nix_da.metadata, 'event')
+
+        return event
+
+
+    @staticmethod
+    def read_epoch(fh, block_id, array_id):
+        nix_block = fh.handle.blocks[block_id]
+        nix_da = nix_block.data_arrays[array_id]
+
+        params = {
+            'times': nix_da[0],  # TODO think about lazy data loading
+            'durations': nix_da[1],  # TODO think about lazy data loading
+            'labels': nix_da.dimensions[0].labels
+        }
+
+        name = Reader.Help.get_obj_neo_name(nix_da)
+        if name:
+            params['name'] = name
+
+        epoch = Epoch(**params)
+
+        for key, value in Reader.Help.read_attributes(nix_da.metadata, 'epoch').items():
+            setattr(epoch, key, value)
+
+        epoch.annotations = Reader.Help.read_annotations(nix_da.metadata, 'epoch')
+
+        return epoch
+
 
 class Writer:
 
@@ -364,9 +417,12 @@ class Writer:
 
         @staticmethod
         def get_obj_nix_name(neo_obj):
-            types = ['analogsignal', 'spiketrain', 'event', 'epoch']
-            if Writer.Help.get_classname(neo_obj) in types:
+            clsname = Writer.Help.get_classname(neo_obj)
+
+            if clsname in ['analogsignal', 'spiketrain']:
                 return str(hash(neo_obj.tostring()))
+            elif clsname in ['event', 'epoch']:
+                return str(hash(neo_obj.times.tostring()))
             return neo_obj.name
 
         @staticmethod
@@ -437,7 +493,7 @@ class Writer:
 
             func = getattr(Writer, 'write_' + obj_type)
             for obj in neo_objs:
-                func(nix_file, nix_block.name, obj, recursive=recursive)
+                func(nix_block, obj, recursive=recursive)
 
             for name in to_remove:
                 del nix_objs[name]
@@ -457,7 +513,7 @@ class Writer:
         return nix_block
 
     @staticmethod
-    def write_segment(nix_file, block_id, segment, recursive=True):
+    def write_segment(nix_block, segment, recursive=True):
         """
         Writes the given Neo Segment to the NIX file.
 
@@ -471,7 +527,7 @@ class Writer:
 
             func = getattr(Writer, 'write_' + obj_type)
             for obj in neo_objs:
-                func(nix_file, nix_block.name, obj)
+                func(nix_block, obj)
 
             names = [da.name for da in nix_objs if da.name in to_remove]
             for da_name in names:
@@ -479,8 +535,6 @@ class Writer:
 
             for name in to_append:
                 nix_objs.append(nix_block.data_arrays[name])
-
-        nix_block = nix_file.blocks[block_id]
 
         try:
             nix_tag = nix_block.tags[segment.name]
@@ -493,12 +547,14 @@ class Writer:
         if recursive:
             write_multiple(segment.analogsignals, nix_tag.references, 'analogsignal')
             write_multiple(segment.spiketrains, nix_tag.references, 'spiketrain')
+            write_multiple(segment.events, nix_tag.references, 'event')
+            write_multiple(segment.epochs, nix_tag.references, 'epoch')
 
         return nix_tag
 
 
     @staticmethod
-    def write_recordingchannelgroup(nix_file, block_id, rcg, recursive=True):
+    def write_recordingchannelgroup(nix_block, rcg, recursive=True):
         """
         Writes the given Neo RecordingChannelGroup to the NIX file.
 
@@ -511,7 +567,7 @@ class Writer:
             to_remove, to_append = Writer.Help.compare(units, existing)
 
             for unit in units:
-                Writer.write_unit(nix_file, nix_block.name, nix_source.name, unit, recursive=recursive)
+                Writer.write_unit(nix_block, nix_source.name, unit, recursive=recursive)
 
             for name in to_remove:
                 del nix_source.sources[name]
@@ -522,15 +578,13 @@ class Writer:
             to_remove, to_append = Writer.Help.compare(signals, existing)
 
             for signal in signals:
-                Writer.write_analogsignal(nix_file, nix_block.name, signal)
+                Writer.write_analogsignal(nix_block, signal)
 
             for nix_da in to_remove:
                 del nix_block.data_arrays[nix_da].sources[nix_source.name]
 
             for nix_da in to_append:
                 nix_block.data_arrays[nix_da].sources.append(nix_source)
-
-        nix_block = nix_file.blocks[block_id]
 
         try:
             nix_source = nix_block.sources[rcg.name]
@@ -547,7 +601,7 @@ class Writer:
         return nix_source
 
     @staticmethod
-    def write_unit(nix_file, block_id, source_id, unit, recursive=True):
+    def write_unit(nix_block, source_id, unit, recursive=True):
         """
         Writes the given Neo Unit to the NIX file.
 
@@ -562,7 +616,7 @@ class Writer:
             to_remove, to_append = Writer.Help.compare(sts, existing)
 
             for st in sts:
-                Writer.write_spiketrain(nix_file, nix_block.name, st)
+                Writer.write_spiketrain(nix_block, st)
 
             for nix_da in to_remove:
                 del nix_block.data_arrays[nix_da].sources[nix_source.name]
@@ -570,7 +624,6 @@ class Writer:
             for nix_da in to_append:
                 nix_block.data_arrays[nix_da].sources.append(nix_source)
 
-        nix_block = nix_file.blocks[block_id]
         nix_rcg_source = nix_block.sources[source_id]
 
         try:
@@ -587,14 +640,13 @@ class Writer:
         return nix_source
 
     @staticmethod
-    def write_analogsignal(nix_file, block_id, signal):
+    def write_analogsignal(nix_block, signal):
         """
         Writes the given Neo AnalogSignal to the NIX file.
 
         :param nix_file:    an open file where to save Block
         :param block_id:    an id of the block in NIX file where to save segment
         """
-        nix_block = nix_file.blocks[block_id]
         obj_name = Writer.Help.get_obj_nix_name(signal)
 
         try:
@@ -625,14 +677,13 @@ class Writer:
         return nix_array
 
     @staticmethod
-    def write_spiketrain(nix_file, block_id, st):
+    def write_spiketrain(nix_block, st):
         """
         Writes the given Neo AnalogSignal to the NIX file.
 
         :param nix_file:    an open file where to save Block
         :param block_id:    an id of the block in NIX file where to save segment
         """
-        nix_block = nix_file.blocks[block_id]
         obj_name = Writer.Help.get_obj_nix_name(st)
 
         try:
@@ -667,6 +718,59 @@ class Writer:
 
         return nix_array
 
+    @staticmethod
+    def write_event(nix_block, event):
+        """
+        Writes the given Neo Event to the NIX file.
+
+        :param nix_block:    a block in NIX file where to save event
+        """
+        obj_name = Writer.Help.get_obj_nix_name(event)
+
+        try:
+            nix_array = nix_block.data_arrays[obj_name]
+        except KeyError:
+            args = (obj_name, 'event', event.times.dtype, (0,))
+            nix_array = nix_block.create_data_array(*args)
+            nix_array.append(event.times)
+
+        if not nix_array.dimensions:
+            nix_array.append_set_dimension()
+        nix_array.dimensions[0].labels = event.labels
+
+        metadata = Writer.Help.extract_metadata(event)
+
+        nix_array.metadata = Writer.Help.get_or_create_section(nix_block.metadata, 'event', obj_name)
+        Writer.Help.write_metadata(nix_array.metadata, metadata)
+
+        return nix_array
+
+    @staticmethod
+    def write_epoch(nix_block, epoch):
+        """
+        Writes the given Neo Event to the NIX file.
+
+        :param nix_block:    a block in NIX file where to save event
+        """
+        obj_name = Writer.Help.get_obj_nix_name(epoch)
+
+        try:
+            nix_array = nix_block.data_arrays[obj_name]
+        except KeyError:
+            data = np.array([epoch.times, epoch.durations])
+            args = (obj_name, 'epoch', epoch.times.dtype)
+            nix_array = nix_block.create_data_array(*args, data=data)
+
+        if not nix_array.dimensions:
+            nix_array.append_set_dimension()
+        nix_array.dimensions[0].labels = epoch.labels
+
+        metadata = Writer.Help.extract_metadata(epoch)
+
+        nix_array.metadata = Writer.Help.get_or_create_section(nix_block.metadata, 'epoch', obj_name)
+        Writer.Help.write_metadata(nix_array.metadata, metadata)
+
+        return nix_array
 
 
 class NixIO(BaseIO):
