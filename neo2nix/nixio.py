@@ -33,6 +33,17 @@ def file_transaction(method):
     return wrapped
 
 
+class NixHelp:
+
+    default_meta_attr_names = ('description', 'file_origin')
+    block_meta_attrs = ('file_datetime', 'rec_datetime', 'index')
+    segment_meta_attrs = ('file_datetime', 'rec_datetime', 'index')
+    analogsignal_meta_attrs = ('name',)
+    spiketrain_meta_attrs = ('name',)
+    recordingchannelgroup_meta_attrs = ('name', 'channel_indexes', 'channel_names')
+    unit_meta_attrs = ()
+
+
 class FileHandler(object):
 
     def __init__(self, filename, readonly=False):
@@ -128,17 +139,6 @@ class ProxyList(object):
         return '<' + self.__class__.__name__ + '>' + self._data.__repr__()
 
 
-class NixHelp:
-
-    default_meta_attr_names = ('description', 'file_origin')
-    block_meta_attrs = ('file_datetime', 'rec_datetime', 'index')
-    segment_meta_attrs = ('file_datetime', 'rec_datetime', 'index')
-    analogsignal_meta_attrs = ('name',)
-    spiketrain_meta_attrs = ('name', 'waveforms', 'left_sweep')  # FIXME ??
-    recordingchannelgroup_meta_attrs = ('name', 'channel_indexes', 'channel_names')
-    unit_meta_attrs = ()
-
-
 # -------------------------------------------
 # Reader / Writer
 # -------------------------------------------
@@ -182,6 +182,12 @@ class Reader:
                     result[key] = value
 
             return result
+
+        @staticmethod
+        def read_quantity(nix_section, qname):
+            value = nix_section[qname]
+            unit = nix_section[qname + '__unit']
+            return pq.quantity.Quantity(float(value), unit)
 
     @staticmethod
     def read_block(fh, block_id):
@@ -304,10 +310,7 @@ class Reader:
             params['sampling_period'] = sampling
 
         signal = AnalogSignal(**params)
-
-        t_start = nix_da.metadata['t_start']
-        t_start__unit = nix_da.metadata['t_start__unit']
-        signal.t_start = pq.quantity.Quantity(float(t_start), t_start__unit)
+        signal.t_start = Reader.Help.read_quantity(nix_da.metadata, 't_start')
 
         for key, value in Reader.Help.read_attributes(nix_da.metadata, 'analogsignal').items():
             setattr(signal, key, value)
@@ -321,23 +324,19 @@ class Reader:
         nix_block = fh.handle.blocks[block_id]
         nix_da = nix_block.data_arrays[array_id]
 
-        t_stop = nix_da.metadata['t_stop']
-        t_stop__unit = nix_da.metadata['t_stop__unit']
-
         params = {
             'times': nix_da[:],  # TODO think about lazy data loading
             'dtype': nix_da.dtype,
-            't_stop': pq.quantity.Quantity(float(t_stop), t_stop__unit),
+            't_start': Reader.Help.read_quantity(nix_da.metadata, 't_start'),
+            't_stop': Reader.Help.read_quantity(nix_da.metadata, 't_stop')
         }
 
         name = Reader.Help.get_obj_neo_name(nix_da)
         if name:
             params['name'] = name
 
-        if 't_start' in nix_da.metadata:
-            t_start = nix_da.metadata['t_start']
-            t_start__unit = nix_da.metadata['t_start__unit']
-            params['t_start'] = pq.quantity.Quantity(float(t_start), t_start__unit)
+        if 'left_sweep' in nix_da.metadata:
+            params['left_sweep'] = Reader.Help.read_quantity(nix_da.metadata, 'left_sweep')
 
         if len(nix_da.dimensions) > 0:
             s_dim = nix_da.dimensions[0]
@@ -645,9 +644,10 @@ class Writer:
 
         nix_array.unit = st.units.dimensionality.string
 
-        if not nix_array.dimensions:
-            nix_array.append_sampled_dimension(st.sampling_rate.item())
-        nix_array.dimensions[0].unit = st.sampling_rate.units.dimensionality.string
+        if st.sampling_rate is not None:
+            if not nix_array.dimensions:
+                nix_array.append_sampled_dimension(st.sampling_rate.item())
+            nix_array.dimensions[0].unit = st.sampling_rate.units.dimensionality.string
 
         metadata = Writer.Help.extract_metadata(st)
 
@@ -656,14 +656,16 @@ class Writer:
         metadata['t_stop'] = st.t_stop.item()
         metadata['t_stop__unit'] = st.t_stop.units.dimensionality.string
 
+        if st.left_sweep:
+            metadata['left_sweep'] = st.left_sweep.item()
+            metadata['left_sweep__unit'] = st.left_sweep.units.dimensionality.string
+
+        # FIXME waveforms?
+
         nix_array.metadata = Writer.Help.get_or_create_section(nix_block.metadata, 'spiketrain', obj_name)
         Writer.Help.write_metadata(nix_array.metadata, metadata)
 
         return nix_array
-
-
-
-
 
 
 
