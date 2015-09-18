@@ -2,7 +2,7 @@ import unittest
 import os
 
 from .utils import build_fake_block
-from neo2nix.nixio import NixIO, NixHelp
+from neo2nix.nixio import NixIO, simple_attrs
 
 
 class TestBlock(unittest.TestCase):
@@ -23,7 +23,7 @@ class TestBlock(unittest.TestCase):
 
         assert len(b1.segments) == 0
 
-        attrs = NixHelp.default_meta_attr_names + NixHelp.block_meta_attrs
+        attrs = simple_attrs['default'] + simple_attrs['block']
         for attr_name in attrs + ('name',):
             v_old = getattr(self.neob, attr_name)
             v_new = getattr(b1, attr_name)

@@ -130,20 +130,27 @@ class ProxyList(object):
 # Reader / Writer
 # -------------------------------------------
 
-class NixHelp:
-
-    default_meta_attr_names = ('description', 'file_origin')
-    block_meta_attrs = ('file_datetime', 'rec_datetime', 'index')
-    segment_meta_attrs = ('file_datetime', 'rec_datetime', 'index')
-    analogsignal_meta_attrs = ('name',)
-    spiketrain_meta_attrs = ('name',)
-    event_meta_attrs = ('name',)
-    epoch_meta_attrs = ('name',)
-    recordingchannelgroup_meta_attrs = ('name', 'channel_indexes', 'channel_names')
-    unit_meta_attrs = ()
+simple_attrs = {
+    'default': ('description', 'file_origin'),
+    'block': ('file_datetime', 'rec_datetime', 'index'),
+    'segment': ('file_datetime', 'rec_datetime', 'index'),
+    'analogsignal': ('name',),
+    'spiketrain': ('name',),
+    'event': ('name',),
+    'epoch': ('name',),
+    'recordingchannelgroup': ('name', 'channel_indexes', 'channel_names'),
+    'unit': ()
+}
 
 
 class Reader:
+    """
+    An interface to read Neo objects from NIX file
+    File should be created by NixIO.Writer
+
+    Fully static
+    Implements lazy loading for children objects
+    """
 
     class Help:
 
@@ -160,8 +167,7 @@ class Reader:
         def read_attributes(nix_section, obj_type):
             result = {}
 
-            custom_attrs = getattr(NixHelp, obj_type + '_meta_attrs')
-            for attr_name in NixHelp.default_meta_attr_names + custom_attrs:
+            for attr_name in simple_attrs['default'] + simple_attrs[obj_type]:
                 if attr_name in nix_section:
                     result[attr_name] = nix_section[attr_name]
 
@@ -171,8 +177,7 @@ class Reader:
         def read_annotations(nix_section, obj_type):
             result = {}
 
-            custom_attrs = getattr(NixHelp, obj_type + '_meta_attrs')
-            exclude_attrs = NixHelp.default_meta_attr_names + custom_attrs
+            exclude_attrs = simple_attrs['default'] + simple_attrs[obj_type]
             for prop in nix_section.props:
                 key = prop.name
                 value = nix_section[key]
@@ -405,6 +410,11 @@ class Reader:
 
 
 class Writer:
+    """
+    An interface to write Neo objects to NIX
+
+    Fully static
+    """
 
     class Help:
         @staticmethod
@@ -413,11 +423,11 @@ class Writer:
 
         @staticmethod
         def get_obj_nix_name(neo_obj):
-            clsname = Writer.Help.get_classname(neo_obj)
+            obj_type = Writer.Help.get_classname(neo_obj)
 
-            if clsname in ['analogsignal', 'spiketrain']:
+            if obj_type in ['analogsignal', 'spiketrain']:
                 return str(hash(neo_obj.tostring()))
-            elif clsname in ['event', 'epoch']:
+            elif obj_type in ['event', 'epoch']:
                 return str(hash(neo_obj.times.tostring()))
             return neo_obj.name
 
@@ -425,8 +435,8 @@ class Writer:
         def extract_metadata(neo_obj):  # pure
             metadata = dict(neo_obj.annotations)
 
-            custom_attrs = getattr(NixHelp, Writer.Help.get_classname(neo_obj) + '_meta_attrs')
-            for attr_name in NixHelp.default_meta_attr_names + custom_attrs:
+            obj_type = Writer.Help.get_classname(neo_obj)
+            for attr_name in simple_attrs['default'] + simple_attrs[obj_type]:
                 if getattr(neo_obj, attr_name, None) is not None:
                     metadata[attr_name] = getattr(neo_obj, attr_name)
 
@@ -495,13 +505,6 @@ class Writer:
 
     @staticmethod
     def write_block(nix_file, block, recursive=True):
-        """
-        Writes the given Neo block to the NIX file.
-
-        :param nix_file:    an open file where to save Block
-        :param block:       a Neo block instance to save to NIX
-        :param recursive:   write all block contents recursively
-        """
         def write_multiple(neo_objs, nix_objs, obj_type):
             existing = filter(lambda x: x.type == obj_type, nix_objs)
             to_remove, to_append = Writer.Help.compare(neo_objs, existing)
@@ -529,13 +532,6 @@ class Writer:
 
     @staticmethod
     def write_segment(nix_block, segment, recursive=True):
-        """
-        Writes the given Neo Segment to the NIX file.
-
-        :param nix_file:    an open file where to save Block
-        :param block_id:    an id of the block in NIX file where to save segment
-        :param recursive:   write all segment contents recursively
-        """
         def write_multiple(neo_objs, nix_objs, obj_type):
             existing = list(filter(lambda x: x.type == obj_type, nix_objs))
             to_remove, to_append = Writer.Help.compare(neo_objs, existing)
@@ -571,13 +567,6 @@ class Writer:
 
     @staticmethod
     def write_recordingchannelgroup(nix_block, rcg, recursive=True):
-        """
-        Writes the given Neo RecordingChannelGroup to the NIX file.
-
-        :param nix_file:    an open file where to save Block
-        :param block_id:    an id of the block in NIX file where to save segment
-        :param recursive:   write all RCG contents recursively
-        """
         def write_units(units):
             existing = filter(lambda x: x.type == 'unit', nix_source.sources)
             to_remove, to_append = Writer.Help.compare(units, existing)
@@ -619,14 +608,6 @@ class Writer:
 
     @staticmethod
     def write_unit(nix_block, source_id, unit, recursive=True):
-        """
-        Writes the given Neo Unit to the NIX file.
-
-        :param nix_file:    an open file where to save Unit
-        :param block_id:    an id of the block in NIX file where to save Unit
-        :param source_id:   an id of the source in NIX file where to save Unit
-        :param unit:        Neo Unit to store
-        """
         def write_spiketrains(sts):
             existing = filter(lambda x: x.type == 'spiketrain', nix_block.data_arrays)
             existing = [x for x in existing if nix_source in x.sources]
@@ -659,12 +640,6 @@ class Writer:
 
     @staticmethod
     def write_analogsignal(nix_block, signal):
-        """
-        Writes the given Neo AnalogSignal to the NIX file.
-
-        :param nix_file:    an open file where to save Block
-        :param block_id:    an id of the block in NIX file where to save segment
-        """
         obj_name = Writer.Help.get_obj_nix_name(signal)
 
         try:
@@ -696,12 +671,6 @@ class Writer:
 
     @staticmethod
     def write_spiketrain(nix_block, st):
-        """
-        Writes the given Neo AnalogSignal to the NIX file.
-
-        :param nix_file:    an open file where to save Block
-        :param block_id:    an id of the block in NIX file where to save segment
-        """
         obj_name = Writer.Help.get_obj_nix_name(st)
 
         try:
@@ -738,11 +707,6 @@ class Writer:
 
     @staticmethod
     def write_event(nix_block, event):
-        """
-        Writes the given Neo Event to the NIX file.
-
-        :param nix_block:    a block in NIX file where to save event
-        """
         obj_name = Writer.Help.get_obj_nix_name(event)
 
         try:
@@ -765,11 +729,6 @@ class Writer:
 
     @staticmethod
     def write_epoch(nix_block, epoch):
-        """
-        Writes the given Neo Event to the NIX file.
-
-        :param nix_block:    a block in NIX file where to save event
-        """
         obj_name = Writer.Help.get_obj_nix_name(epoch)
 
         try:

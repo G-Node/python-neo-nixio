@@ -1,7 +1,7 @@
 import unittest
 import os
 
-from neo2nix.nixio import Writer, NixHelp
+from neo2nix.nixio import Writer, simple_attrs
 import nix
 
 from ..utils import build_fake_block
@@ -38,8 +38,7 @@ class TestWriter(unittest.TestCase):
         assert len(neo_block.segments) == len(nix_block.tags)
         assert len(neo_block.recordingchannelgroups) == len(nix_block.sources)
 
-        attrs = NixHelp.default_meta_attr_names + NixHelp.block_meta_attrs
-        for attr_name in attrs:
+        for attr_name in simple_attrs['default'] + simple_attrs['block']:
             v_old = getattr(neo_block, attr_name)
             if v_old is not None:
                 v_new = nix_block.metadata[attr_name]
@@ -72,8 +71,7 @@ class TestWriter(unittest.TestCase):
         assert len(seg.events) == len([x for x in nix_block.data_arrays if x.type == 'event'])
         assert len(seg.epochs) == len([x for x in nix_block.data_arrays if x.type == 'epoch'])
 
-        attrs = NixHelp.default_meta_attr_names + NixHelp.segment_meta_attrs
-        for attr_name in attrs:
+        for attr_name in simple_attrs['default'] + simple_attrs['segment']:
             v_old = getattr(seg, attr_name)
             if v_old is not None:
                 v_new = nix_tag.metadata[attr_name]

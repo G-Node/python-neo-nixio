@@ -2,7 +2,7 @@ import unittest
 import os
 
 from .utils import build_fake_block
-from neo2nix.nixio import NixIO, NixHelp
+from neo2nix.nixio import NixIO, simple_attrs
 
 
 class TestRCG(unittest.TestCase):
@@ -25,7 +25,7 @@ class TestRCG(unittest.TestCase):
 
         assert len(rcg.analogsignals) > 0
 
-        attrs = NixHelp.default_meta_attr_names + NixHelp.recordingchannelgroup_meta_attrs
+        attrs = simple_attrs['default'] + simple_attrs['recordingchannelgroup']
         for attr_name in attrs + ('name',):
             v_old = getattr(self.rcg, attr_name)
             v_new = getattr(rcg, attr_name)

@@ -2,7 +2,7 @@ import unittest
 import os
 
 from .utils import build_fake_block
-from neo2nix.nixio import NixIO, NixHelp
+from neo2nix.nixio import NixIO, simple_attrs
 
 
 class TestSegment(unittest.TestCase):
@@ -25,7 +25,7 @@ class TestSegment(unittest.TestCase):
 
         assert len(s1.analogsignals) > 0
 
-        attrs = NixHelp.default_meta_attr_names + NixHelp.segment_meta_attrs
+        attrs = simple_attrs['default'] + simple_attrs['segment']
         for attr_name in attrs + ('name',):
             v_old = getattr(self.neos, attr_name)
             v_new = getattr(s1, attr_name)

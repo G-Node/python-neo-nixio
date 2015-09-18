@@ -2,7 +2,7 @@ import unittest
 import os
 
 from .utils import build_fake_block
-from neo2nix.nixio import NixIO, NixHelp
+from neo2nix.nixio import NixIO, simple_attrs
 
 
 class TestBlock(unittest.TestCase):
@@ -25,7 +25,7 @@ class TestBlock(unittest.TestCase):
         seg = [s_i for s_i in b1.segments if s_i.name == self.neos.name][0]
         sig = [a_i for a_i in seg.spiketrains if a_i.name == self.neost.name][0]
 
-        attrs = NixHelp.default_meta_attr_names + NixHelp.spiketrain_meta_attrs
+        attrs = simple_attrs['default'] + simple_attrs['spiketrain']
         for attr_name in attrs:
             v_old = getattr(self.neost, attr_name)
             v_new = getattr(sig, attr_name)

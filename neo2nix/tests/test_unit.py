@@ -2,7 +2,7 @@ import unittest
 import os
 
 from .utils import build_fake_block
-from neo2nix.nixio import NixIO, NixHelp
+from neo2nix.nixio import NixIO, simple_attrs
 
 
 class TestUnit(unittest.TestCase):
@@ -27,7 +27,7 @@ class TestUnit(unittest.TestCase):
 
         assert len(unit.spiketrains) > 0
 
-        attrs = NixHelp.default_meta_attr_names + NixHelp.unit_meta_attrs
+        attrs = simple_attrs['default'] + simple_attrs['unit']
         for attr_name in attrs + ('name',):
             v_old = getattr(self.unit, attr_name)
             v_new = getattr(unit, attr_name)
