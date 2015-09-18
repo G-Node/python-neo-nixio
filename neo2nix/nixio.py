@@ -19,8 +19,8 @@ def file_transaction(method):
     A decorator that opens the file before and closes after a given I/O method
     execution.
 
-    :param method: a method to execute between opening and closing a file.
-    :return:
+    :param method:  a method to execute between opening and closing a file.
+    :return:        wrapped function
     """
     def wrapped(*args, **kwargs):
         instance = args[0]
@@ -32,19 +32,6 @@ def file_transaction(method):
         return result
 
     return wrapped
-
-
-class NixHelp:
-
-    default_meta_attr_names = ('description', 'file_origin')
-    block_meta_attrs = ('file_datetime', 'rec_datetime', 'index')
-    segment_meta_attrs = ('file_datetime', 'rec_datetime', 'index')
-    analogsignal_meta_attrs = ('name',)
-    spiketrain_meta_attrs = ('name',)
-    event_meta_attrs = ('name',)
-    epoch_meta_attrs = ('name',)
-    recordingchannelgroup_meta_attrs = ('name', 'channel_indexes', 'channel_names')
-    unit_meta_attrs = ()
 
 
 class FileHandler(object):
@@ -78,15 +65,12 @@ class FileHandler(object):
 
 
 class ProxyList(object):
-    """ An enhanced list that can load its members on demand. Behaves exactly
-    like a regular list for members that are Neo objects.
-    """
+    """ An enhanced list that can load its members on demand. """
 
     def __init__(self, fh, fetch_func):
         """
-        :param io:          IO instance that can load items
-        :param child_type:  a type of the children, like 'segment' or 'event'
-        :param parent_id:   id of the parent object
+        :param fh:          FileHandler instance (see above) with file reference
+        :param fetch_func:  function to apply to fetch objects
         """
         self._fh = fh
         self._fetch_func = fetch_func
@@ -146,13 +130,25 @@ class ProxyList(object):
 # Reader / Writer
 # -------------------------------------------
 
+class NixHelp:
+
+    default_meta_attr_names = ('description', 'file_origin')
+    block_meta_attrs = ('file_datetime', 'rec_datetime', 'index')
+    segment_meta_attrs = ('file_datetime', 'rec_datetime', 'index')
+    analogsignal_meta_attrs = ('name',)
+    spiketrain_meta_attrs = ('name',)
+    event_meta_attrs = ('name',)
+    epoch_meta_attrs = ('name',)
+    recordingchannelgroup_meta_attrs = ('name', 'channel_indexes', 'channel_names')
+    unit_meta_attrs = ()
+
 
 class Reader:
 
     class Help:
 
         @staticmethod
-        def get_obj_neo_name(nix_obj):  # pure
+        def get_obj_neo_name(nix_obj):
             if nix_obj.type in ['analogsignal', 'spiketrain', 'event', 'epoch']:
                 try:
                     return nix_obj.metadata['name']
@@ -455,19 +451,23 @@ class Writer:
 
         @staticmethod
         def write_metadata(nix_section, dict_to_store):
-            for attr_name, value in dict_to_store.items():
-                if value is not None:
-                    if not type(value) in (list, tuple):
-                        value = (value,)
-                    values = [nix.Value(x) for x in value]
+            def make_nix_values(value):
+                if not type(value) in (list, tuple):
+                    return [nix.Value(value)]
+                return [nix.Value(x) for x in value]
 
-                    try:
-                        p = nix_section.props[attr_name]
-                    except KeyError:
-                        p = nix_section.create_property(attr_name, values)
+            to_store = dict([(k, v) for k, v in dict_to_store.items() if v is not None])
+
+            for attr_name, value in to_store.items():
+                values = make_nix_values(value)
+
+                try:
+                    p = nix_section.props[attr_name]
 
                     if not p.values == values:
                         p.values = values
+                except KeyError:
+                    p = nix_section.create_property(attr_name, values)
 
         @staticmethod
         def compare(neo_objs, nix_objs):
