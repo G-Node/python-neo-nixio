@@ -1,6 +1,6 @@
-from neo.core import objectlist, objectnames, class_by_name
+from neo.core import objectlist
 from neo.core import Block, Event, Epoch, Segment, AnalogSignal, \
-                        SpikeTrain, RecordingChannelGroup, Unit
+    IrregularlySampledSignal, SpikeTrain, RecordingChannelGroup, Unit
 from neo.io.baseio import BaseIO
 
 import numpy as np
@@ -35,16 +35,11 @@ def file_transaction(method):
 
 
 class FileHandler(object):
+    """
+    Wrapper for NIX.File to provide some extended functions
+    """
 
     def __init__(self, filename, readonly=False):
-        """
-        Initialize new IO instance.
-
-        If the file does not exist, it will be created.
-        This I/O works in a detached mode.
-
-        :param filename: full path to the file (like '/tmp/foo.h5')
-        """
         self.filename = filename
         self.readonly = readonly
         self.handle = None  # future NIX file handle
@@ -135,6 +130,7 @@ simple_attrs = {
     'block': ('file_datetime', 'rec_datetime', 'index'),
     'segment': ('file_datetime', 'rec_datetime', 'index'),
     'analogsignal': ('name',),
+    'irregularlysampledsignal': ('name',),
     'spiketrain': ('name',),
     'event': ('name',),
     'epoch': ('name',),
@@ -236,6 +232,7 @@ class Reader:
         seg.annotations = Reader.Help.read_annotations(nix_tag.metadata, 'segment')
 
         setattr(seg, 'analogsignals', ProxyList(fh, lambda f: read_multiple(f, 'analogsignal')))
+        setattr(seg, 'irregularlysampledsignals', ProxyList(fh, lambda f: read_multiple(f, 'irregularlysampledsignals')))
         setattr(seg, 'spiketrains', ProxyList(fh, lambda f: read_multiple(f, 'spiketrain')))
         setattr(seg, 'events', ProxyList(fh, lambda f: read_multiple(f, 'event')))
         setattr(seg, 'epochs', ProxyList(fh, lambda f: read_multiple(f, 'epoch')))
@@ -246,6 +243,11 @@ class Reader:
     def read_RCG(fh, block_id, rcg_id):
         def read_analogsignals(nix_file):
             signals = filter(lambda x: x.type == 'analogsignal', nix_file.blocks[block_id].data_arrays)
+            signals = [x for x in signals if nsn in [y.name for y in x.sources]]
+            return [Reader.read_analogsignal(fh, block_id, da.name) for da in signals]
+
+        def read_irregularlysampledsignals(nix_file):
+            signals = filter(lambda x: x.type == 'irregularlysampledsignal', nix_file.blocks[block_id].data_arrays)
             signals = [x for x in signals if nsn in [y.name for y in x.sources]]
             return [Reader.read_analogsignal(fh, block_id, da.name) for da in signals]
 
@@ -269,6 +271,7 @@ class Reader:
         rcg.annotations = Reader.Help.read_annotations(nix_source.metadata, 'recordingchannelgroup')
 
         setattr(rcg, 'analogsignals', ProxyList(fh, read_analogsignals))
+        setattr(rcg, 'irregularlysampledsignals', ProxyList(fh, read_irregularlysampledsignals))
         setattr(rcg, 'units', ProxyList(fh, read_units))
 
         return rcg
@@ -322,6 +325,29 @@ class Reader:
             setattr(signal, key, value)
 
         signal.annotations = Reader.Help.read_annotations(nix_da.metadata, 'analogsignal')
+
+        return signal
+
+    @staticmethod
+    def read_irregularlysampledsignal(fh, block_id, array_id):
+        nix_block = fh.handle.blocks[block_id]
+        nix_da = nix_block.data_arrays[array_id]
+
+        params = {
+            'name': Reader.Help.get_obj_neo_name(nix_da),
+            'signal': nix_da[:],  # TODO think about lazy data loading
+            'units': nix_da.unit,
+            'times': nix_da.dimensions[0].ticks,
+            'time_units': nix_da.dimensions[0].unit,
+            'dtype': nix_da.dtype,
+        }
+
+        signal = IrregularlySampledSignal(**params)
+
+        for key, value in Reader.Help.read_attributes(nix_da.metadata, 'irregularlysampledsignal').items():
+            setattr(signal, key, value)
+
+        signal.annotations = Reader.Help.read_annotations(nix_da.metadata, 'irregularlysampledsignal')
 
         return signal
 
@@ -425,7 +451,7 @@ class Writer:
         def get_obj_nix_name(neo_obj):
             obj_type = Writer.Help.get_classname(neo_obj)
 
-            if obj_type in ['analogsignal', 'spiketrain']:
+            if obj_type in ['analogsignal', 'irregularlysampledsignal', 'spiketrain']:
                 return str(hash(neo_obj.tostring()))
             elif obj_type in ['event', 'epoch']:
                 return str(hash(neo_obj.times.tostring()))
@@ -557,6 +583,7 @@ class Writer:
 
         if recursive:
             write_multiple(segment.analogsignals, nix_tag.references, 'analogsignal')
+            write_multiple(segment.irregularlysampledsignals, nix_tag.references, 'irregularlysampledsignal')
             write_multiple(segment.spiketrains, nix_tag.references, 'spiketrain')
             write_multiple(segment.events, nix_tag.references, 'event')
             write_multiple(segment.epochs, nix_tag.references, 'epoch')
@@ -591,6 +618,20 @@ class Writer:
             for nix_da in to_append:
                 nix_block.data_arrays[nix_da].sources.append(nix_source)
 
+        def write_irrsignals(signals):
+            existing = filter(lambda x: x.type == 'irregularlysampledsignal', nix_block.data_arrays)
+            existing = [x for x in existing if nix_source in x.sources]
+            to_remove, to_append = Writer.Help.compare(signals, existing)
+
+            for signal in signals:
+                Writer.write_irregularlysampledsignal(nix_block, signal)
+
+            for nix_da in to_remove:
+                del nix_block.data_arrays[nix_da].sources[nix_source.name]
+
+            for nix_da in to_append:
+                nix_block.data_arrays[nix_da].sources.append(nix_source)
+
         try:
             nix_source = nix_block.sources[rcg.name]
         except KeyError:
@@ -602,6 +643,7 @@ class Writer:
         if recursive:
             write_units(rcg.units)
             write_signals(rcg.analogsignals)
+            write_irrsignals(rcg.irregularlysampledsignals)
 
         Writer.Help.clean(nix_block)
         return nix_source
@@ -665,6 +707,33 @@ class Writer:
         metadata['t_start__unit'] = signal.t_start.units.dimensionality.string
 
         nix_array.metadata = Writer.Help.get_or_create_section(nix_block.metadata, 'analogsignal', obj_name)
+        Writer.Help.write_metadata(nix_array.metadata, metadata)
+
+        return nix_array
+
+    @staticmethod
+    def write_irregularlysampledsignal(nix_block, signal):
+        obj_name = Writer.Help.get_obj_nix_name(signal)
+
+        try:
+            nix_array = nix_block.data_arrays[obj_name]
+
+            # TODO update data?
+
+        except KeyError:
+            args = (obj_name, 'irregularlysampledsignal', signal.dtype, (0,1))
+            nix_array = nix_block.create_data_array(*args)
+            nix_array.append(signal)
+
+        nix_array.unit = signal.units.dimensionality.string
+
+        if not nix_array.dimensions:
+            nix_array.append_range_dimension(np.array(signal.times))  # fix in NIX?
+        nix_array.dimensions[0].unit = signal.times.units.dimensionality.string
+
+        metadata = Writer.Help.extract_metadata(signal)
+
+        nix_array.metadata = Writer.Help.get_or_create_section(nix_block.metadata, 'irregularlysampledsignal', obj_name)
         Writer.Help.write_metadata(nix_array.metadata, metadata)
 
         return nix_array

@@ -44,7 +44,6 @@ class TestWriter(unittest.TestCase):
                 v_new = nix_block.metadata[attr_name]
                 assert v_new == v_old, "%s != %s" % (str(v_old), str(v_new))
 
-        neo_block.description = 'foo'
         del neo_block.segments[0]
         del neo_block.recordingchannelgroups[0]
         nix_block = Writer.write_block(self.f, neo_block, True)
@@ -67,6 +66,7 @@ class TestWriter(unittest.TestCase):
         assert nix_tag.metadata is not None
 
         assert len(seg.analogsignals) == len([x for x in nix_block.data_arrays if x.type == 'analogsignal'])
+        assert len(seg.irregularlysampledsignals) == len([x for x in nix_block.data_arrays if x.type == 'irregularlysampledsignal'])
         assert len(seg.spiketrains) == len([x for x in nix_block.data_arrays if x.type == 'spiketrain'])
         assert len(seg.events) == len([x for x in nix_block.data_arrays if x.type == 'event'])
         assert len(seg.epochs) == len([x for x in nix_block.data_arrays if x.type == 'epoch'])
@@ -77,8 +77,8 @@ class TestWriter(unittest.TestCase):
                 v_new = nix_tag.metadata[attr_name]
                 assert v_new == v_old, "%s != %s" % (str(v_old), str(v_new))
 
-        seg.description = 'foo'
         del seg.analogsignals[0]
+        del seg.irregularlysampledsignals[0]
         del seg.spiketrains[0]
         del seg.events[0]
         del seg.epochs[0]
@@ -86,6 +86,7 @@ class TestWriter(unittest.TestCase):
 
         assert len(nix_block.tags) == 1
         assert len(seg.analogsignals) == len([x for x in nix_block.data_arrays if x.type == 'analogsignal'])
+        assert len(seg.irregularlysampledsignals) == len([x for x in nix_block.data_arrays if x.type == 'irregularlysampledsignal'])
         assert len(seg.spiketrains) == len([x for x in nix_block.data_arrays if x.type == 'spiketrain'])
         assert len(seg.events) == len([x for x in nix_block.data_arrays if x.type == 'event'])
         assert len(seg.epochs) == len([x for x in nix_block.data_arrays if x.type == 'epoch'])

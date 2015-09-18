@@ -19,6 +19,13 @@ def build_fake_block():
     }
 
     # FIXME remove this when Neo is fixed (RCG - Unit branch)
+    irr1 = IrregularlySampledSignal([5, 6, 7], [2, 3, 4], 'mV', 'ms')
+    irr2 = IrregularlySampledSignal([7, 8, 9], [1, 5, 9], 'mV', 'ms')
+    irr3 = IrregularlySampledSignal([0, 1, 2], [2, 5, 1], 'mV', 'ms')
+
+    b.segments[0].irregularlysampledsignals.append(irr1)
+    b.segments[0].irregularlysampledsignals.append(irr2)
+    b.segments[1].irregularlysampledsignals.append(irr3)
 
     inds = [x for x in range(10)]
     names = ['foo' + str(x) for x in inds]
