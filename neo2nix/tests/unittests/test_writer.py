@@ -2,12 +2,10 @@ import unittest
 import os
 
 from neo2nix.nixio import Writer, simple_attrs
+import numpy as np
 import nix
 
 from ..utils import build_fake_block
-
-
-neo_block = build_fake_block()  # to increase speed
 
 
 class TestWriter(unittest.TestCase):
@@ -20,6 +18,7 @@ class TestWriter(unittest.TestCase):
     def setUp(self):
         self.filename = "/tmp/unittest.h5"
         self.f = nix.File.open(self.filename, nix.FileMode.Overwrite)
+        self.b = build_fake_block()  # to increase speed
 
     def tearDown(self):
         self.f.close()
@@ -28,32 +27,32 @@ class TestWriter(unittest.TestCase):
     def test_write_block(self):
         assert len(self.f.blocks) == 0
 
-        nix_block = Writer.write_block(self.f, neo_block, True)
+        nix_block = Writer.write_block(self.f, self.b, True)
 
         assert len(self.f.blocks) == 1
 
-        assert nix_block.name == neo_block.name
+        assert nix_block.name == Writer.Help.get_obj_nix_name(self.b)
         assert nix_block.metadata is not None
 
-        assert len(neo_block.segments) == len(nix_block.tags)
-        assert len(neo_block.recordingchannelgroups) == len(nix_block.sources)
+        assert len(self.b.segments) == len(nix_block.tags)
+        assert len(self.b.recordingchannelgroups) == len(nix_block.sources)
 
         for attr_name in simple_attrs['default'] + simple_attrs['block']:
-            v_old = getattr(neo_block, attr_name)
+            v_old = getattr(self.b, attr_name)
             if v_old is not None:
                 v_new = nix_block.metadata[attr_name]
                 assert v_new == v_old, "%s != %s" % (str(v_old), str(v_new))
 
-        del neo_block.segments[0]
-        del neo_block.recordingchannelgroups[0]
-        nix_block = Writer.write_block(self.f, neo_block, True)
+        del self.b.segments[0]
+        del self.b.recordingchannelgroups[0]
+        nix_block = Writer.write_block(self.f, self.b, True)
 
         assert len(self.f.blocks) == 1
-        assert len(neo_block.segments) == len(nix_block.tags)
-        assert len(neo_block.recordingchannelgroups) == len(nix_block.sources)
+        assert len(self.b.segments) == len(nix_block.tags)
+        assert len(self.b.recordingchannelgroups) == len(nix_block.sources)
 
     def test_write_segment(self):
-        seg = neo_block.segments[0]
+        seg = self.b.segments[0]
 
         nix_block = self.f.create_block('foo', 'bar')
         nix_block.metadata = self.f.create_section('foo', 'bar')
@@ -62,7 +61,7 @@ class TestWriter(unittest.TestCase):
 
         assert len(nix_block.tags) == 1
 
-        assert nix_tag.name == seg.name
+        assert nix_tag.name == Writer.Help.get_obj_nix_name(seg)
         assert nix_tag.metadata is not None
 
         assert len(seg.analogsignals) == len([x for x in nix_block.data_arrays if x.type == 'analogsignal'])
@@ -90,6 +89,76 @@ class TestWriter(unittest.TestCase):
         assert len(seg.spiketrains) == len([x for x in nix_block.data_arrays if x.type == 'spiketrain'])
         assert len(seg.events) == len([x for x in nix_block.data_arrays if x.type == 'event'])
         assert len(seg.epochs) == len([x for x in nix_block.data_arrays if x.type == 'epoch'])
+
+    def test_write_analogsignal(self):
+        seg = self.b.segments[0]
+        signal = seg.analogsignals[0]
+
+        nix_block = self.f.create_block('foo', 'bar')
+        nix_block.metadata = self.f.create_section('foo', 'bar')
+
+        nix_array = Writer.write_analogsignal(nix_block, signal)
+
+        assert len(nix_block.data_arrays) == 1
+
+        assert nix_array.name == Writer.Help.get_obj_nix_name(signal)
+        assert nix_array.metadata is not None
+        assert 't_start' in nix_array.metadata
+        assert 't_start__unit' in nix_array.metadata
+        assert all(nix_array[:] == np.array(signal))
+
+        for attr_name in simple_attrs['default'] + simple_attrs['analogsignal']:
+            v_old = getattr(signal, attr_name)
+            if v_old is not None:
+                v_new = nix_array.metadata[attr_name]
+                assert v_new == v_old, "%s != %s" % (str(v_old), str(v_new))
+
+    def test_write_irregularlysampledsignal(self):
+        seg = self.b.segments[0]
+        signal = seg.irregularlysampledsignals[0]
+
+        nix_block = self.f.create_block('foo', 'bar')
+        nix_block.metadata = self.f.create_section('foo', 'bar')
+
+        nix_array = Writer.write_irregularlysampledsignal(nix_block, signal)
+
+        assert len(nix_block.data_arrays) == 1
+
+        assert nix_array.name == Writer.Help.get_obj_nix_name(signal)
+        assert nix_array.metadata is not None
+        assert all(nix_array[:] == np.array(signal))
+        assert all(np.array(nix_array.dimensions[0].ticks) == signal.times)
+
+        for attr_name in simple_attrs['default'] + simple_attrs['irregularlysampledsignal']:
+            v_old = getattr(signal, attr_name)
+            if v_old is not None:
+                v_new = nix_array.metadata[attr_name]
+                assert v_new == v_old, "%s != %s" % (str(v_old), str(v_new))
+
+    def test_write_spiketrain(self):
+        seg = self.b.segments[0]
+        st = seg.spiketrains[0]
+
+        nix_block = self.f.create_block('foo', 'bar')
+        nix_block.metadata = self.f.create_section('foo', 'bar')
+
+        nix_array = Writer.write_spiketrain(nix_block, st)
+
+        assert len(nix_block.data_arrays) == 1
+
+        assert nix_array.name == Writer.Help.get_obj_nix_name(st)
+        assert nix_array.metadata is not None
+        assert 't_start' in nix_array.metadata
+        assert 't_start__unit' in nix_array.metadata
+        assert 't_stop' in nix_array.metadata
+        assert 't_stop__unit' in nix_array.metadata
+        assert all(nix_array[:] == st.times)
+
+        for attr_name in simple_attrs['default'] + simple_attrs['analogsignal']:
+            v_old = getattr(st, attr_name)
+            if v_old is not None:
+                v_new = nix_array.metadata[attr_name]
+                assert v_new == v_old, "%s != %s" % (str(v_old), str(v_new))
 
     def test_clean(self):
         nix_block = self.f.create_block('foo', 'bar')

@@ -183,6 +183,18 @@ class Reader:
 
             return result
 
+        """
+        @staticmethod
+        def read_many_template(fh, block_id, get_collection, obj_type):
+
+            collection = get_collection(fh.handle.blocks[block_id])
+            objs = filter(lambda x: x.type == obj_type, collection)
+
+            read_func = getattr(Reader, 'read_' + obj_type)
+
+            return [read_func(fh, block_id, obj.name) for obj in objs]
+        """
+
         @staticmethod
         def read_quantity(nix_section, qname):
             value = nix_section[qname]
@@ -232,7 +244,7 @@ class Reader:
         seg.annotations = Reader.Help.read_annotations(nix_tag.metadata, 'segment')
 
         setattr(seg, 'analogsignals', ProxyList(fh, lambda f: read_multiple(f, 'analogsignal')))
-        setattr(seg, 'irregularlysampledsignals', ProxyList(fh, lambda f: read_multiple(f, 'irregularlysampledsignals')))
+        setattr(seg, 'irregularlysampledsignals', ProxyList(fh, lambda f: read_multiple(f, 'irregularlysampledsignal')))
         setattr(seg, 'spiketrains', ProxyList(fh, lambda f: read_multiple(f, 'spiketrain')))
         setattr(seg, 'events', ProxyList(fh, lambda f: read_multiple(f, 'event')))
         setattr(seg, 'epochs', ProxyList(fh, lambda f: read_multiple(f, 'epoch')))
@@ -241,15 +253,11 @@ class Reader:
 
     @staticmethod
     def read_RCG(fh, block_id, rcg_id):
-        def read_analogsignals(nix_file):
-            signals = filter(lambda x: x.type == 'analogsignal', nix_file.blocks[block_id].data_arrays)
+        def read_multiple(nix_file, obj_type):
+            signals = filter(lambda x: x.type == obj_type, nix_file.blocks[block_id].data_arrays)
             signals = [x for x in signals if nsn in [y.name for y in x.sources]]
-            return [Reader.read_analogsignal(fh, block_id, da.name) for da in signals]
-
-        def read_irregularlysampledsignals(nix_file):
-            signals = filter(lambda x: x.type == 'irregularlysampledsignal', nix_file.blocks[block_id].data_arrays)
-            signals = [x for x in signals if nsn in [y.name for y in x.sources]]
-            return [Reader.read_analogsignal(fh, block_id, da.name) for da in signals]
+            read_func = getattr(Reader, 'read_' + obj_type)
+            return [read_func(fh, block_id, da.name) for da in signals]
 
         def read_units(nix_file):
             units = filter(lambda x: x.type == 'unit', nix_file.blocks[block_id].sources[nsn].sources)
@@ -270,8 +278,8 @@ class Reader:
 
         rcg.annotations = Reader.Help.read_annotations(nix_source.metadata, 'recordingchannelgroup')
 
-        setattr(rcg, 'analogsignals', ProxyList(fh, read_analogsignals))
-        setattr(rcg, 'irregularlysampledsignals', ProxyList(fh, read_irregularlysampledsignals))
+        setattr(rcg, 'analogsignals', ProxyList(fh, lambda f: read_multiple(f, 'analogsignal')))
+        setattr(rcg, 'irregularlysampledsignals', ProxyList(fh, lambda f: read_multiple(f, 'irregularlysampledsignal')))
         setattr(rcg, 'units', ProxyList(fh, read_units))
 
         return rcg
@@ -437,7 +445,7 @@ class Reader:
 
 class Writer:
     """
-    An interface to write Neo objects to NIX
+    Class to write Neo objects to NIX
 
     Fully static
     """
@@ -506,13 +514,59 @@ class Writer:
                     p = nix_section.create_property(attr_name, values)
 
         @staticmethod
-        def compare(neo_objs, nix_objs):
-            conv = Writer.Help.get_obj_nix_name  # convert NIX to Neo name if needed
+        def write_many(nix_block, parent, neo_objs):
 
-            to_remove = set([x.name for x in nix_objs]) - set([conv(x) for x in neo_objs])
-            to_append = set([conv(x) for x in neo_objs]) - set([x.name for x in nix_objs])
+            def update_references():
+                for name in to_remove:
+                    del parent.references[name]
 
-            return to_remove, to_append
+                for name in to_append:
+                    parent.references.append(nix_objs[name])
+
+            def update_sources():
+                for name in to_remove:
+                    del nix_objs[name].sources[parent.name]
+
+                for name in to_append:
+                    nix_objs[name].sources.append(parent)
+
+            if not len(neo_objs):
+                return
+            obj_type = Writer.Help.get_classname(neo_objs[0])
+
+            containers = {
+                'segment': nix_block.tags,
+                'recordingchannelgroup': nix_block.sources,
+                'unit': parent.sources,
+                'other': nix_block.data_arrays,
+            }
+
+            nix_objs = containers[obj_type] if obj_type in containers else containers['other']
+            existing = list(filter(lambda x: x.type == obj_type, nix_objs))
+            if isinstance(parent, nix.Source) and not obj_type == 'unit':
+                existing = [x for x in existing if parent in x.sources]
+            elif isinstance(parent, nix.Tag):
+                existing = [x for x in existing if x in parent.references]
+
+            conv = Writer.Help.get_obj_nix_name
+            to_remove = set([x.name for x in existing]) - set([conv(x) for x in neo_objs])
+            to_append = set([conv(x) for x in neo_objs]) - set([x.name for x in existing])
+
+            write_func = getattr(Writer, 'write_' + obj_type)
+            args = (nix_block, parent.name) if obj_type == 'unit' else (nix_block,)
+            for obj in neo_objs:
+                all_args = args + (obj,)
+                write_func(*all_args)
+
+            if isinstance(parent, nix.Source) and not obj_type == 'unit':
+                update_sources()
+
+            elif isinstance(parent, nix.Tag):  # All data objects
+                update_references()
+
+            else:  # Segments, RCGs, Units
+                for name in to_remove:
+                    del nix_objs[name]
 
         @staticmethod
         def clean(nix_block):
@@ -531,17 +585,6 @@ class Writer:
 
     @staticmethod
     def write_block(nix_file, block, recursive=True):
-        def write_multiple(neo_objs, nix_objs, obj_type):
-            existing = filter(lambda x: x.type == obj_type, nix_objs)
-            to_remove, to_append = Writer.Help.compare(neo_objs, existing)
-
-            func = getattr(Writer, 'write_' + obj_type)
-            for obj in neo_objs:
-                func(nix_block, obj, recursive=recursive)
-
-            for name in to_remove:
-                del nix_objs[name]
-
         try:
             nix_block = nix_file.blocks[block.name]
         except KeyError:
@@ -551,28 +594,13 @@ class Writer:
         Writer.Help.write_metadata(nix_block.metadata, Writer.Help.extract_metadata(block))
 
         if recursive:
-            write_multiple(block.segments, nix_block.tags, 'segment')
-            write_multiple(block.recordingchannelgroups, nix_block.sources, 'recordingchannelgroup')
+            Writer.Help.write_many(nix_block, nix_block, block.segments)
+            Writer.Help.write_many(nix_block, nix_block, block.recordingchannelgroups)
 
         return nix_block
 
     @staticmethod
     def write_segment(nix_block, segment, recursive=True):
-        def write_multiple(neo_objs, nix_objs, obj_type):
-            existing = list(filter(lambda x: x.type == obj_type, nix_objs))
-            to_remove, to_append = Writer.Help.compare(neo_objs, existing)
-
-            func = getattr(Writer, 'write_' + obj_type)
-            for obj in neo_objs:
-                func(nix_block, obj)
-
-            names = [da.name for da in nix_objs if da.name in to_remove]
-            for da_name in names:
-                del nix_objs[da_name]
-
-            for name in to_append:
-                nix_objs.append(nix_block.data_arrays[name])
-
         try:
             nix_tag = nix_block.tags[segment.name]
         except KeyError:
@@ -582,56 +610,17 @@ class Writer:
         Writer.Help.write_metadata(nix_tag.metadata, Writer.Help.extract_metadata(segment))
 
         if recursive:
-            write_multiple(segment.analogsignals, nix_tag.references, 'analogsignal')
-            write_multiple(segment.irregularlysampledsignals, nix_tag.references, 'irregularlysampledsignal')
-            write_multiple(segment.spiketrains, nix_tag.references, 'spiketrain')
-            write_multiple(segment.events, nix_tag.references, 'event')
-            write_multiple(segment.epochs, nix_tag.references, 'epoch')
+            Writer.Help.write_many(nix_block, nix_tag, segment.analogsignals)
+            Writer.Help.write_many(nix_block, nix_tag, segment.irregularlysampledsignals)
+            Writer.Help.write_many(nix_block, nix_tag, segment.spiketrains)
+            Writer.Help.write_many(nix_block, nix_tag, segment.events)
+            Writer.Help.write_many(nix_block, nix_tag, segment.epochs)
 
         Writer.Help.clean(nix_block)
         return nix_tag
 
-
     @staticmethod
     def write_recordingchannelgroup(nix_block, rcg, recursive=True):
-        def write_units(units):
-            existing = filter(lambda x: x.type == 'unit', nix_source.sources)
-            to_remove, to_append = Writer.Help.compare(units, existing)
-
-            for unit in units:
-                Writer.write_unit(nix_block, nix_source.name, unit, recursive=recursive)
-
-            for name in to_remove:
-                del nix_source.sources[name]
-
-        def write_signals(signals):
-            existing = filter(lambda x: x.type == 'analogsignal', nix_block.data_arrays)
-            existing = [x for x in existing if nix_source in x.sources]
-            to_remove, to_append = Writer.Help.compare(signals, existing)
-
-            for signal in signals:
-                Writer.write_analogsignal(nix_block, signal)
-
-            for nix_da in to_remove:
-                del nix_block.data_arrays[nix_da].sources[nix_source.name]
-
-            for nix_da in to_append:
-                nix_block.data_arrays[nix_da].sources.append(nix_source)
-
-        def write_irrsignals(signals):
-            existing = filter(lambda x: x.type == 'irregularlysampledsignal', nix_block.data_arrays)
-            existing = [x for x in existing if nix_source in x.sources]
-            to_remove, to_append = Writer.Help.compare(signals, existing)
-
-            for signal in signals:
-                Writer.write_irregularlysampledsignal(nix_block, signal)
-
-            for nix_da in to_remove:
-                del nix_block.data_arrays[nix_da].sources[nix_source.name]
-
-            for nix_da in to_append:
-                nix_block.data_arrays[nix_da].sources.append(nix_source)
-
         try:
             nix_source = nix_block.sources[rcg.name]
         except KeyError:
@@ -641,29 +630,15 @@ class Writer:
         Writer.Help.write_metadata(nix_source.metadata, Writer.Help.extract_metadata(rcg))
 
         if recursive:
-            write_units(rcg.units)
-            write_signals(rcg.analogsignals)
-            write_irrsignals(rcg.irregularlysampledsignals)
+            Writer.Help.write_many(nix_block, nix_source, rcg.units)
+            Writer.Help.write_many(nix_block, nix_source, rcg.analogsignals)
+            Writer.Help.write_many(nix_block, nix_source, rcg.irregularlysampledsignals)
 
         Writer.Help.clean(nix_block)
         return nix_source
 
     @staticmethod
     def write_unit(nix_block, source_id, unit, recursive=True):
-        def write_spiketrains(sts):
-            existing = filter(lambda x: x.type == 'spiketrain', nix_block.data_arrays)
-            existing = [x for x in existing if nix_source in x.sources]
-            to_remove, to_append = Writer.Help.compare(sts, existing)
-
-            for st in sts:
-                Writer.write_spiketrain(nix_block, st)
-
-            for nix_da in to_remove:
-                del nix_block.data_arrays[nix_da].sources[nix_source.name]
-
-            for nix_da in to_append:
-                nix_block.data_arrays[nix_da].sources.append(nix_source)
-
         nix_rcg_source = nix_block.sources[source_id]
 
         try:
@@ -675,7 +650,7 @@ class Writer:
         Writer.Help.write_metadata(nix_source.metadata, Writer.Help.extract_metadata(unit))
 
         if recursive:
-            write_spiketrains(unit.spiketrains)
+            Writer.Help.write_many(nix_block, nix_source, unit.spiketrains)
 
         Writer.Help.clean(nix_block)
         return nix_source
