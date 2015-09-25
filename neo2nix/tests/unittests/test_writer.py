@@ -24,6 +24,16 @@ class TestWriter(unittest.TestCase):
         self.f.close()
         os.remove(self.filename)
 
+    @staticmethod
+    def _validate_attrs(neo_obj, nix_obj):
+        obj_type = Writer.Help.get_classname(neo_obj)
+
+        for attr_name in simple_attrs['default'] + simple_attrs[obj_type]:
+            v_old = getattr(neo_obj, attr_name)
+            if v_old is not None:
+                v_new = nix_obj.metadata[attr_name]
+                assert v_new == v_old, "%s != %s" % (str(v_old), str(v_new))
+
     def test_write_block(self):
         assert len(self.f.blocks) == 0
 
@@ -37,11 +47,7 @@ class TestWriter(unittest.TestCase):
         assert len(self.b.segments) == len(nix_block.tags)
         assert len(self.b.recordingchannelgroups) == len(nix_block.sources)
 
-        for attr_name in simple_attrs['default'] + simple_attrs['block']:
-            v_old = getattr(self.b, attr_name)
-            if v_old is not None:
-                v_new = nix_block.metadata[attr_name]
-                assert v_new == v_old, "%s != %s" % (str(v_old), str(v_new))
+        TestWriter._validate_attrs(self.b, nix_block)
 
         del self.b.segments[0]
         del self.b.recordingchannelgroups[0]
@@ -50,6 +56,60 @@ class TestWriter(unittest.TestCase):
         assert len(self.f.blocks) == 1
         assert len(self.b.segments) == len(nix_block.tags)
         assert len(self.b.recordingchannelgroups) == len(nix_block.sources)
+
+    def test_write_recordingchannelgroup(self):
+        rcg = self.b.recordingchannelgroups[0]
+
+        nix_block = self.f.create_block('foo', 'bar')
+        nix_block.metadata = self.f.create_section('foo', 'bar')
+
+        nix_source = Writer.write_recordingchannelgroup(nix_block, rcg, True)
+
+        assert len(nix_block.sources) == 1
+
+        assert nix_source.name == Writer.Help.get_obj_nix_name(rcg)
+        assert nix_source.metadata is not None
+
+        assert len(rcg.analogsignals) == len([x for x in nix_block.data_arrays if x.type == 'analogsignal'])
+        assert len(rcg.irregularlysampledsignals) == len([x for x in nix_block.data_arrays if x.type == 'irregularlysampledsignal'])
+        assert len(rcg.units) == len([x for x in nix_source.sources if x.type == 'unit'])
+
+        TestWriter._validate_attrs(rcg, nix_source)
+
+        del rcg.analogsignals[0]
+        del rcg.irregularlysampledsignals[0]
+        del rcg.units[0]
+        nix_source = Writer.write_recordingchannelgroup(nix_block, rcg, True)
+
+        assert len(nix_block.sources) == 1
+        assert len(rcg.analogsignals) == len([x for x in nix_block.data_arrays if x.type == 'analogsignal'])
+        assert len(rcg.irregularlysampledsignals) == len([x for x in nix_block.data_arrays if x.type == 'irregularlysampledsignal'])
+        assert len(rcg.units) == len([x for x in nix_source.sources if x.type == 'unit'])
+
+    def test_write_unit(self):
+        rcg = self.b.recordingchannelgroups[0]
+        unit = rcg.units[0]
+
+        nix_block = self.f.create_block('foo', 'bar')
+        nix_block.metadata = self.f.create_section('foo', 'bar')
+        nix_rcg = nix_block.create_source('rcg', 'bar')
+        nix_rcg.metadata = self.f.create_section('rcg', 'bar')
+
+        nix_source = Writer.write_unit(nix_block, nix_rcg.name, unit, True)
+
+        assert len(nix_rcg.sources) == 1
+        assert nix_source.name == Writer.Help.get_obj_nix_name(unit)
+        assert nix_source.metadata is not None
+
+        assert len(unit.spiketrains) == len([x for x in nix_block.data_arrays if x.type == 'spiketrain'])
+
+        TestWriter._validate_attrs(unit, nix_source)
+
+        del unit.spiketrains[0]
+        nix_source = Writer.write_unit(nix_block, nix_rcg.name, unit, True)
+
+        assert len(nix_rcg.sources) == 1
+        assert len(unit.spiketrains) == len([x for x in nix_block.data_arrays if x.type == 'spiketrain'])
 
     def test_write_segment(self):
         seg = self.b.segments[0]
@@ -70,11 +130,7 @@ class TestWriter(unittest.TestCase):
         assert len(seg.events) == len([x for x in nix_block.data_arrays if x.type == 'event'])
         assert len(seg.epochs) == len([x for x in nix_block.data_arrays if x.type == 'epoch'])
 
-        for attr_name in simple_attrs['default'] + simple_attrs['segment']:
-            v_old = getattr(seg, attr_name)
-            if v_old is not None:
-                v_new = nix_tag.metadata[attr_name]
-                assert v_new == v_old, "%s != %s" % (str(v_old), str(v_new))
+        TestWriter._validate_attrs(seg, nix_tag)
 
         del seg.analogsignals[0]
         del seg.irregularlysampledsignals[0]
@@ -107,11 +163,7 @@ class TestWriter(unittest.TestCase):
         assert 't_start__unit' in nix_array.metadata
         assert all(nix_array[:] == np.array(signal))
 
-        for attr_name in simple_attrs['default'] + simple_attrs['analogsignal']:
-            v_old = getattr(signal, attr_name)
-            if v_old is not None:
-                v_new = nix_array.metadata[attr_name]
-                assert v_new == v_old, "%s != %s" % (str(v_old), str(v_new))
+        TestWriter._validate_attrs(signal, nix_array)
 
     def test_write_irregularlysampledsignal(self):
         seg = self.b.segments[0]
@@ -129,11 +181,7 @@ class TestWriter(unittest.TestCase):
         assert all(nix_array[:] == np.array(signal))
         assert all(np.array(nix_array.dimensions[0].ticks) == signal.times)
 
-        for attr_name in simple_attrs['default'] + simple_attrs['irregularlysampledsignal']:
-            v_old = getattr(signal, attr_name)
-            if v_old is not None:
-                v_new = nix_array.metadata[attr_name]
-                assert v_new == v_old, "%s != %s" % (str(v_old), str(v_new))
+        TestWriter._validate_attrs(signal, nix_array)
 
     def test_write_spiketrain(self):
         seg = self.b.segments[0]
@@ -154,11 +202,48 @@ class TestWriter(unittest.TestCase):
         assert 't_stop__unit' in nix_array.metadata
         assert all(nix_array[:] == st.times)
 
-        for attr_name in simple_attrs['default'] + simple_attrs['analogsignal']:
-            v_old = getattr(st, attr_name)
-            if v_old is not None:
-                v_new = nix_array.metadata[attr_name]
-                assert v_new == v_old, "%s != %s" % (str(v_old), str(v_new))
+        TestWriter._validate_attrs(st, nix_array)
+
+    def test_write_event(self):
+        seg = self.b.segments[0]
+        event = seg.events[0]
+
+        nix_block = self.f.create_block('foo', 'bar')
+        nix_block.metadata = self.f.create_section('foo', 'bar')
+
+        nix_array = Writer.write_event(nix_block, event)
+
+        assert len(nix_block.data_arrays) == 1
+
+        assert nix_array.name == Writer.Help.get_obj_nix_name(event)
+        assert nix_array.metadata is not None
+        assert all(nix_array[:] == event.times)
+
+        for i, value in enumerate(event.labels):
+            assert nix_array.dimensions[0].labels[i].encode('UTF-8') == value
+
+        TestWriter._validate_attrs(event, nix_array)
+
+    def test_write_epoch(self):
+        seg = self.b.segments[0]
+        epoch = seg.epochs[0]
+
+        nix_block = self.f.create_block('foo', 'bar')
+        nix_block.metadata = self.f.create_section('foo', 'bar')
+
+        nix_array = Writer.write_epoch(nix_block, epoch)
+
+        assert len(nix_block.data_arrays) == 1
+
+        assert nix_array.name == Writer.Help.get_obj_nix_name(epoch)
+        assert nix_array.metadata is not None
+        assert all(nix_array[0] == epoch.times)
+        assert all(nix_array[1] == epoch.durations)
+
+        for i, value in enumerate(epoch.labels):
+            assert nix_array.dimensions[0].labels[i].encode('UTF-8') == value
+
+        TestWriter._validate_attrs(epoch, nix_array)
 
     def test_clean(self):
         nix_block = self.f.create_block('foo', 'bar')

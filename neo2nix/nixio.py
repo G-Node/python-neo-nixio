@@ -401,7 +401,7 @@ class Reader:
 
         params = {
             'times': nix_da[:],  # TODO think about lazy data loading
-            'labels': nix_da.dimensions[0].labels
+            'labels': [x.encode('UTF-8') for x in nix_da.dimensions[0].labels]
         }
 
         name = Reader.Help.get_obj_neo_name(nix_da)
@@ -426,7 +426,7 @@ class Reader:
         params = {
             'times': nix_da[0],  # TODO think about lazy data loading
             'durations': nix_da[1],  # TODO think about lazy data loading
-            'labels': nix_da.dimensions[0].labels
+            'labels': [x.encode('UTF-8') for x in nix_da.dimensions[0].labels]
         }
 
         name = Reader.Help.get_obj_neo_name(nix_da)

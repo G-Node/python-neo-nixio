@@ -53,6 +53,12 @@ def build_fake_block():
     for sig in b.segments[1].analogsignals:
         rcg2.analogsignals.append(sig)
 
+    for sig in b.segments[0].irregularlysampledsignals:
+        rcg1.irregularlysampledsignals.append(sig)
+
+    for sig in b.segments[1].irregularlysampledsignals:
+        rcg2.irregularlysampledsignals.append(sig)
+
     b.recordingchannelgroups = [rcg1, rcg2]
 
     return b
