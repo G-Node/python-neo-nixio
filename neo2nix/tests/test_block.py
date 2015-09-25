@@ -1,41 +1,59 @@
 import unittest
-import nix
+import os
 
-from neo2nix.block import Block
-from utils import build_fake_block
+from .utils import build_fake_block
+from neo2nix.nixio import NixIO, simple_attrs
 
 
 class TestBlock(unittest.TestCase):
 
     def setUp(self):
-        self.neo_block = build_fake_block()
+        self.filename = "/tmp/unittest.h5"
+        self.neob = build_fake_block()
 
-        f = nix.File.open("/tmp/unittest.h5", nix.FileMode.Overwrite)
-        Block.write_block(f, self.neo_block, recursive=False)
-        f.close()
-
-        self.f = nix.File.open("/tmp/unittest.h5", nix.FileMode.ReadWrite)
+        self.io = NixIO(self.filename)
+        self.io.write_block(self.neob, recursive=False)
 
     def tearDown(self):
-        self.f.close()
+        if os.path.exists(self.filename):
+            os.remove(self.filename)
 
     def test_attributes(self):
-        b = Block(self.f, self.f.blocks[0])
+        b1 = self.io.read_block(self.neob.name)
 
-        assert b.type == 'neo_block'
-        assert len(b.segments) == 0
+        assert len(b1.segments) == 0
 
-        for name in Block._get_metadata_attr_names() + ('name',):
-            v_old = getattr(self.neo_block, name)
-            v_new = getattr(b, name)
+        attrs = simple_attrs['default'] + simple_attrs['block']
+        for attr_name in attrs + ('name',):
+            v_old = getattr(self.neob, attr_name)
+            v_new = getattr(b1, attr_name)
             assert v_new == v_old, "%s != %s" % (str(v_old), str(v_new))
+
+    def test_annotations(self):
+        annotations = self.io.read_block(self.neob.name).annotations
+
+        assert type(annotations) == dict
+        assert type(annotations['string']) == str
+        assert type(annotations['int']) == int
+        assert type(annotations['float']) == float
+        assert type(annotations['bool']) == bool
+
+    def test_change_name(self):
+        b1 = self.io.read_block(self.neob.name)
+
+        b1.name += 'foo'
+
+        self.io.write_block(b1)
+
+        assert self.io.read_block(b1.name).name == b1.name
+        assert len(self.io.read_all_blocks()) == 2
 
     def test_change(self):
         description = 'hello, world!'
 
-        b = Block(self.f, self.f.blocks[0])
-        b.description = description  # TODO add more attributes
+        b1 = self.io.read_block(self.neob.name)
+        b1.description = description  # TODO add more attributes
+        self.io.write_block(b1, recursive=False)
 
-
-        b1 = Block(self.f, self.f.blocks[0])
-        assert b1.description == description
+        b2 = self.io.read_block(self.neob.name)
+        assert b2.description == description
