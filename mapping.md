@@ -80,6 +80,18 @@ Maps to nix.Source with `type = neo.recordingchannelgroup`.
       This is stored in the Source.sources list.
       The child Source object contains a metadata (**Section**) reference which is also referenced by the relevant `DataArray`.
 
+## neo.AnalogSignal
+
+## neo.IrregularlySampledSignal
+
+## neo.Epoch
+
+## neo.Event
+
+## neo.SpikeTrain
+
+## neo.Unit
+
 ## Notes:
   1. The NIX objects each hold only one `metadata` attribute.
   Neo attributes such as `file_datetime` and `file_origin` are mapped to properties within the same `nix.Section` to which the `metadata` attribute refers.
