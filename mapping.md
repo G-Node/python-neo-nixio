@@ -34,24 +34,54 @@ Maps directly to nix.Group.
 
   - Objects
     - Segment.analogsignals(**AnalogSignal**[]) & Segment.irregularlysampledsignals(**IrregularlySampledSignal**[]):  
-    For each item in both lists, a neo.DataArray is created which holds the signal data and attributes.
-    See the [neo.AnalogSignal](#neo.Analogsignal) and [neo.IrregularlySampledSignal](neo.IrregularlySampledSignal) sections for details.
+    For each item in both lists, a nix.DataArray is created which holds the signal data and attributes.
+    The `type` attribute of the `DataArray` is set to `neo.analogsignal` or `neo.irregularlysampledsignal` accordingly.
+    These are stored in the Group.data_arrays list.
+    See the [neo.AnalogSignal](#neo.AnalogSignal) and [neo.IrregularlySampledSignal](neo.IrregularlySampledSignal) sections for details.
       - Signal objects in Neo can be grouped, e.g., `Segment.analogsignals` is a list of `AnalogSignal` objects, each of which can hold multiple signals.
       In order to be able to reconstruct the original signal groupings, all `DataArray` objects that belong to the same `AnalogSignal` (or `IrregularlySampledSignal`) have their `metadata` attribute point to the same `Section`.
     - Segment.epochs(**Epoch**[]):  
-    For each item in Group.epochs, a neo.MultiTag is created with `type = neo.epoch`.
+    For each item in Segment.epochs, a nix.MultiTag is created with `type = neo.epoch`.
+    This is stored in the Group.multi_tags list.
     See the [neo.Epoch](#neo.Epoch) section for details.
     - Segment.events(**Event**[]):  
-    For each item in Group.epochs, a neo.MultiTag is created with `type = neo.event`.
+    For each item in Segment.events, a nix.MultiTag is created with `type = neo.event`.
+    This is stored in the Group.multi_tags list.
     See the [neo.Event](#neo.Event) section for details.
     - Segment.spiketrains(**SpikeTrain**[]):  
-    For each item in Group.epochs, a neo.MultiTag is created with `type = neo.spiketrain`.
+    For each item in Segment.spiketrains, a nix.MultiTag is created with `type = neo.spiketrain`.
+    This is stored in the Group.multi_tags list.
     See the [neo.SpikeTrain](#neo.SpikeTrain) section for details.
 
 ## neo.RecordingChannelGroup
+Maps to nix.Source with `type = neo.recordingchannelgroup`.
+  - Attributes
 
+    | Neo                                       | NIX                                   |
+    |-------------------------------------------|---------------------------------------|
+    | RecordingChannelGroup.name(string)        | Source.name(string)                   |
+    | RecordingChannelGroup.description(string) | Source.definition(string)             |
+    | RecordingChannelGroup.file_origin         | Source.metadata(**Section**) [Note 1] |
+    | RecordingChannelGroup.coordinates(Quantity2D) | Source.metadata(**Section**) [Note 1] |
+    | RecordingChannelGroup.channel_names(np.ndarray) | Source.metadata(**Section**) [Note 1] |
+    | RecordingChannelGroup.channel_indexes(np.ndarray) | Source.metadata(**Section**) [Note 1] |
+
+  - Objects
+      - RecordingChannelGroup.units(**Unit**[]):  
+      For each item in RecordingChannelGroup.units, a nix.Source is created with `type = neo.unit`.
+      This is stored in the Source.sources list.
+      See the [neo.Unit](#neo.Unit) section for details.
+      - RecordingChannelGroup.analogsignals(**AnalogSignal**[]):  
+      For each item in RecordingChannelGroup.analogsignals, a nix.Source is created with `type = neo.recordingchannelgroup`.
+      This is stored in the Source.sources list.
+      The child Source object contains a metadata (**Section**) reference which is also referenced by the relevant `DataArray`.
+      - RecordingChannelGroup.irregularlysampledsignals(**IrregularlySampledSignal**[]):  
+      For each item in RecordingChannelGroup.IrregularlySampledSignal, a nix.Source is created with `type = neo.irregularlysampledsignals`.
+      This is stored in the Source.sources list.
+      The child Source object contains a metadata (**Section**) reference which is also referenced by the relevant `DataArray`.
 
 ## Notes:
-  1. The nix objects each hold only one `metadata` attribute.
-  The `file_datetime` and `file_origin` Neo attributes are mapped to two properties within the same `nix.Section`.
+  1. The NIX objects each hold only one `metadata` attribute.
+  Neo attributes such as `file_datetime` and `file_origin` are mapped to properties within the same `nix.Section` to which the `metadata` attribute refers.
+  A metadata section is only created for a NIX object if necessary, i.e., it is not created if the Neo object attributes are not set.
   The `Section.name` should match the corresponding NIX object `name`.
