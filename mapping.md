@@ -87,10 +87,25 @@ Maps to nix.Source with `type = neo.recordingchannelgroup`.
 
 When it is a child of a `neo.Segment`, maps to a `nix.DataArray` with `type = neo.analogsignal`.
 
+  - Attributes
+
+    | Neo                           | NIX                                  |
+    |-------------------------------|--------------------------------------|
+    | AnalogSignal.name(string)            | DataArray.name(string)                   |
+    | AnalogSignal.description(string)     | DataArray.definition(string)             |
+    | AnalogSignal.file_origin             | DataArray.metadata(**Section**) [[1]](#notes) |
+
+  - Objects
+    - AnalogSignal.signal(Quantity 2D):  
+      - Maps directly to `DataArray.data(DataType[])`.
+      - Based on the units of the Quantity, `DataArray.unit(string)` is set.
+      - `DataArray.dimensions(Dimension[])` contains two objects, a `Sample` and a `Set` to denote that the first dimension of the data in the array represents regularly sampled data (`AnalogSignal`) and the second dimension simply represents a set of signals.
+    - AnalogSignal.sampling_rate(Quantity scalar)
+      - Maps to `DataArray.dimensions[0].sampling_interval`.
+    - AnalogSignal.t_start(Quantity scalar)
+
 When it is a child of a `neo.RecordingChannelGroup`, maps to a `nix.Source` with `type = neo.analogsignal` [[2]](#notes).
 The `nix.Source` object references a `nix.Section` in its `metadata` attribute, which is also referenced by the corresponding `nix.DataArray`.
-
-
 
 
 ## neo.IrregularlySampledSignal
