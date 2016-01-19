@@ -10,8 +10,8 @@ Maps directly to `nix.Block`.
     | Block.name(string)            | Block.name(string)                   |
     | Block.description(string)     | Block.definition(string)             |
     | Block.rec_datetime(datetime)  | Block.date(date)                     |
-    | Block.file_datetime(datetime) | Block.metadata(**Section**) [Note 1] |
-    | Block.file_origin             | Block.metadata(**Section**) [Note 1] |
+    | Block.file_datetime(datetime) | Block.metadata(**Section**) [[1]](#notes) |
+    | Block.file_origin             | Block.metadata(**Section**) [[1]](#notes) |
 
   - Objects
     - neo.Block.segments(**Segment**[]):  
@@ -31,8 +31,8 @@ Maps directly to `nix.Group`.
     | Segment.name(string)            | Group.name(string)                   |
     | Segment.description(string)     | Group.definition(string)             |
     | Segment.rec_datetime(datetime)  | Group.date(date)                     |
-    | Segment.file_datetime(datetime) | Group.metadata(**Section**) [Note 1] |
-    | Segment.file_origin             | Group.metadata(**Section**) [Note 1] |
+    | Segment.file_datetime(datetime) | Group.metadata(**Section**) [[1]](#notes) |
+    | Segment.file_origin             | Group.metadata(**Section**) [[1]](#notes) |
 
   - Objects
     - Segment.analogsignals(**AnalogSignal**[]) & Segment.irregularlysampledsignals(**IrregularlySampledSignal**[]):  
@@ -64,10 +64,10 @@ Maps to nix.Source with `type = neo.recordingchannelgroup`.
     |-------------------------------------------|---------------------------------------|
     | RecordingChannelGroup.name(string)        | Source.name(string)                   |
     | RecordingChannelGroup.description(string) | Source.definition(string)             |
-    | RecordingChannelGroup.file_origin         | Source.metadata(**Section**) [Note 1] |
-    | RecordingChannelGroup.coordinates(Quantity2D) | Source.metadata(**Section**) [Note 1] |
-    | RecordingChannelGroup.channel_names(np.ndarray) | Source.metadata(**Section**) [Note 1] |
-    | RecordingChannelGroup.channel_indexes(np.ndarray) | Source.metadata(**Section**) [Note 1] |
+    | RecordingChannelGroup.file_origin         | Source.metadata(**Section**) [[1]](#notes) |
+    | RecordingChannelGroup.coordinates(Quantity2D) | Source.metadata(**Section**) [[1]](#notes) |
+    | RecordingChannelGroup.channel_names(np.ndarray) | Source.metadata(**Section**) [[1]](#notes) |
+    | RecordingChannelGroup.channel_indexes(np.ndarray) | Source.metadata(**Section**) [[1]](#notes) |
 
   - Objects
       - RecordingChannelGroup.units(**Unit**[]):  
@@ -88,7 +88,7 @@ Maps to nix.Source with `type = neo.recordingchannelgroup`.
 When it is a child of a `neo.Segment`, maps to a `nix.DataArray` with `type = neo.analogsignal`.
 
 When it is a child of a `neo.RecordingChannelGroup`, maps to a `nix.Source` with `type = neo.analogsignal`.
-The `nix.Source` object references a `nix.Section` in its `metadata` attribute, which is also referenced by the corresponding `nix.DataArray` [Note 2].
+The `nix.Source` object references a `nix.Section` in its `metadata` attribute, which is also referenced by the corresponding `nix.DataArray` [[2]](#notes).
 
 
 
