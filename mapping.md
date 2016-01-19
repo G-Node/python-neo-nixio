@@ -15,10 +15,10 @@ Maps directly to nix.Block.
   - Objects
     - neo.Block.segments(**Segment**[]):  
     Maps directly to nix.Block.groups(**Group**[]).
-    See neo.Segment section for details.
+    See [neo.Segment](#neo.segment) section for details.
     - neo.Block.recordingchannelgroups(**RecordingChannelGroup**[]):  
     Maps to neo.Block.sources(**Source**[]) with `type = "neo.recordingchannelgroup"`.
-    See neo.RecordingChannelGroup section for details.
+    See [neo.RecordingChannelGroup](#neo.recordingchannelgroup) section for details.
 
 ## neo.Segment
 Maps directly to nix.Group.
@@ -47,6 +47,8 @@ Maps directly to nix.Group.
     - Segment.spiketrains(**SpikeTrain**[]):  
     For each item in Group.epochs, a neo.MultiTag is created with `type = neo.spiketrain`.
     See the neo.Event section for details.
+
+## neo.RecordingChannelGroup
 
 
 ## Notes:
