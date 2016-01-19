@@ -1,5 +1,0 @@
-Some notes:
-
-- name is immutable for all objects
-
-- neo2nix should be in pythonpath to run tests
