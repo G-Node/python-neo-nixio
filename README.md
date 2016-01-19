@@ -1,2 +1,3 @@
-# neo2nix
-Neo bindings to the NIX format
+# python-neo-nixio
+
+NIX IO for python-neo.
