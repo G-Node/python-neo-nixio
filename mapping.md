@@ -1,7 +1,8 @@
 # Data model mapping between Neo and NIX
 
 ## neo.Block
-Maps directly to nix.Block.
+
+Maps directly to `nix.Block`.
   - Attributes
 
     | Neo                           | NIX                                  |
@@ -21,7 +22,8 @@ Maps directly to nix.Block.
     See the [neo.RecordingChannelGroup](#neorecordingchannelgroup) section for details.
 
 ## neo.Segment
-Maps directly to nix.Group.
+
+Maps directly to `nix.Group`.
   - Attributes
 
     | Neo                             | NIX                                  |
@@ -34,26 +36,27 @@ Maps directly to nix.Group.
 
   - Objects
     - Segment.analogsignals(**AnalogSignal**[]) & Segment.irregularlysampledsignals(**IrregularlySampledSignal**[]):  
-    For each item in both lists, a nix.DataArray is created which holds the signal data and attributes.
+    For each item in both lists, a `nix.DataArray` is created which holds the signal data and attributes.
     The `type` attribute of the `DataArray` is set to `neo.analogsignal` or `neo.irregularlysampledsignal` accordingly.
-    These are stored in the Group.data_arrays list.
+    These are stored in the `Group.data_arrays` list.
     See the [neo.AnalogSignal](#neoanalogsignal) and [neo.IrregularlySampledSignal](#neoirregularlysampledsignal) sections for details.
       - Signal objects in Neo can be grouped, e.g., `Segment.analogsignals` is a list of `AnalogSignal` objects, each of which can hold multiple signals.
       In order to be able to reconstruct the original signal groupings, all `DataArray` objects that belong to the same `AnalogSignal` (or `IrregularlySampledSignal`) have their `metadata` attribute point to the same `Section`.
     - Segment.epochs(**Epoch**[]):  
-    For each item in Segment.epochs, a nix.MultiTag is created with `type = neo.epoch`.
-    This is stored in the Group.multi_tags list.
+    For each item in `Segment.epochs`, a `nix.MultiTag` is created with `type = neo.epoch`.
+    This is stored in the `Group.multi_tags` list.
     See the [neo.Epoch](#neoepoch) section for details.
     - Segment.events(**Event**[]):  
-    For each item in Segment.events, a nix.MultiTag is created with `type = neo.event`.
-    This is stored in the Group.multi_tags list.
+    For each item in `Segment.events`, a `nix.MultiTag` is created with `type = neo.event`.
+    This is stored in the `Group.multi_tags` list.
     See the [neo.Event](#neoevent) section for details.
     - Segment.spiketrains(**SpikeTrain**[]):  
-    For each item in Segment.spiketrains, a nix.MultiTag is created with `type = neo.spiketrain`.
-    This is stored in the Group.multi_tags list.
+    For each item in `Segment.spiketrains`, a `nix.MultiTag` is created with `type = neo.spiketrain`.
+    This is stored in the `Group.multi_tags` list.
     See the [neo.SpikeTrain](#neospiketrain) section for details.
 
 ## neo.RecordingChannelGroup
+
 Maps to nix.Source with `type = neo.recordingchannelgroup`.
   - Attributes
 
@@ -68,16 +71,16 @@ Maps to nix.Source with `type = neo.recordingchannelgroup`.
 
   - Objects
       - RecordingChannelGroup.units(**Unit**[]):  
-      For each item in RecordingChannelGroup.units, a nix.Source is created with `type = neo.unit`.
-      This is stored in the Source.sources list.
+      For each item in `RecordingChannelGroup.units`, a `nix.Source` is created with `type = neo.unit`.
+      This is stored in the `Source.sources` list.
       See the [neo.Unit](#neounit) section for details.
       - RecordingChannelGroup.analogsignals(**AnalogSignal**[]):  
-      For each item in RecordingChannelGroup.analogsignals, a nix.Source is created with `type = neo.recordingchannelgroup`.
-      This is stored in the Source.sources list.
+      For each item in `RecordingChannelGroup.analogsignals`, a `nix.Source` is created with `type = neo.recordingchannelgroup`.
+      This is stored in the `Source.sources` list.
       The child Source object contains a metadata (**Section**) reference which is also referenced by the relevant `DataArray`.
       - RecordingChannelGroup.irregularlysampledsignals(**IrregularlySampledSignal**[]):  
-      For each item in RecordingChannelGroup.IrregularlySampledSignal, a nix.Source is created with `type = neo.irregularlysampledsignals`.
-      This is stored in the Source.sources list.
+      For each item in `RecordingChannelGroup.IrregularlySampledSignal`, a `nix.Source` is created with `type = neo.irregularlysampledsignals`.
+      This is stored in the `Source.sources` list.
       The child Source object contains a metadata (**Section**) reference which is also referenced by the relevant `DataArray`.
 
 ## neo.AnalogSignal
