@@ -87,8 +87,8 @@ Maps to nix.Source with `type = neo.recordingchannelgroup`.
 
 When it is a child of a `neo.Segment`, maps to a `nix.DataArray` with `type = neo.analogsignal`.
 
-When it is a child of a `neo.RecordingChannelGroup`, maps to a `nix.Source` with `type = neo.analogsignal`.
-The `nix.Source` object references a `nix.Section` in its `metadata` attribute, which is also referenced by the corresponding `nix.DataArray` [[2]](#notes).
+When it is a child of a `neo.RecordingChannelGroup`, maps to a `nix.Source` with `type = neo.analogsignal` [[2]](#notes).
+The `nix.Source` object references a `nix.Section` in its `metadata` attribute, which is also referenced by the corresponding `nix.DataArray`.
 
 
 
