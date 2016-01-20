@@ -142,6 +142,17 @@ Maps to a `nix.DataArray` with `type = neo.irregularlysampledsignal`.
 
 ## neo.SpikeTrain
 
+Maps to a `nix.MultiTag` with `type = neo.spiketrain`.
+
+  - Objects
+    - SpikeTrain.times(Quantity 1D):  
+    Maps directly to `MultiTag.positions(DataArray)`.
+      - The positions `DataArray` is of type `neo.spiketrain` and has a single `SetDimension`.
+    - SpikeTrain.t_start(Quantity scalar) [...]
+    - SpikeTrain.left_sweep(Quantity scalar) [...]
+    - SpikeTrain.sampling_rate(Quantity scalar) [...]
+
+
 ## neo.Unit
 
 ## Notes:
