@@ -74,14 +74,15 @@ Maps to nix.Source with `type = neo.recordingchannelgroup`.
     Are not mapped into any NIX object or attribute.
     When converting from NIX to Neo, the channel indexes are reconstructed from the contained `nix.Source` objects [[2]](#notes).
 
-For contained object in the group (`units`, `analogsignals`, `irregularlysampledsignals`), a child nix.Source is created with `type = neo.recordingchannel`.
+For each object contained in the group lists (`units`, `analogsignals`, `irregularlysampledsignals`), a child nix.Source is created with `type = neo.recordingchannel`.
 Each `Source.name` is taken from the `RecordingChannelGroup.channel_names` array.
 The sources also inherit the container's `date` and `metadata`.
 The `Source.definition` string is constructed by appending the `Source.name` to container's `Source.definition`.
 
-Each of the `nix.Source` objects that are created as children of a `neo.RecordingChannelGroup` are referenced by
+Each of the `nix.Source` objects that are created as children of a `neo.RecordingChannelGroup` are referenced by:
   - The corresponding `DataArray`, in the case of sources which were created from the `analogsignals` and `irregularlysampledsignals` lists.
   - The corresponding `MultiTag`, in the case of sources which were created from the `units` list.
+      - These `MultiTag` objects also contain a second `Source` with type `neo.unit`.
 
 
 ## neo.AnalogSignal
