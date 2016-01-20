@@ -100,13 +100,14 @@ Maps to a `nix.DataArray` with `type = neo.analogsignal`.
   - Objects
     - AnalogSignal.signal(Quantity 2D):  
       - Maps directly to `DataArray.data(DataType[])`.
-      - Based on the units of the Quantity, `DataArray.unit(string)` is set.
-      - `DataArray.dimensions(Dimension[])` contains two objects, a `Sample` and a `Set` to denote that the first dimension of the data in the array represents regularly sampled data (`AnalogSignal`) and the second dimension simply represents a set of signals.
-    - AnalogSignal.sampling_rate(Quantity scalar)
-      - Maps to `DataArray.dimensions[0].sampling_interval`.
-    - AnalogSignal.t_start(Quantity scalar)
-    - AnalogSignal.channel_indexes(
-
+      - `DataArray.unit(string)` is set based on the units of the Quantity array (`AnalogSignal.signal`).
+      - `DataArray.dimensions(Dimension[])` contains two objects:
+          - A `SampledDimension` to denote that the signals are regularly sampled.
+          The attributes of this dimension are:
+              - `sampling_interval` assigned from the value of `AnalogSignal.sampling_rate(Quantity scalar)`
+              - `offset` assigned from the value of `AnalogSignal.t_start(Quantity scalar)`
+              - `unit` inheriting the value of the `DataArray.unit`.
+        - A `SetDimension` to denote that the second dimension represents a set (collection) of signals.
 
 ## neo.IrregularlySampledSignal
 
