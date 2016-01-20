@@ -21,6 +21,7 @@ Maps directly to `nix.Block`.
     Maps to neo.Block.sources(**Source**[]) with `type = "neo.recordingchannelgroup"`.
     See the [neo.RecordingChannelGroup](#neorecordingchannelgroup) section for details.
 
+
 ## neo.Segment
 
 Maps directly to `nix.Group`.
@@ -54,6 +55,7 @@ Maps directly to `nix.Group`.
     For each item in `Segment.spiketrains`, a `nix.MultiTag` is created with `type = neo.spiketrain`.
     This is stored in the `Group.multi_tags` list.
     See the [neo.SpikeTrain](#neospiketrain) section for details.
+
 
 ## neo.RecordingChannelGroup
 
@@ -104,12 +106,35 @@ Maps to a `nix.DataArray` with `type = neo.analogsignal`.
       - `DataArray.dimensions(Dimension[])` contains two objects:
           - A `SampledDimension` to denote that the signals are regularly sampled.
           The attributes of this dimension are:
-              - `sampling_interval` assigned from the value of `AnalogSignal.sampling_rate(Quantity scalar)`
-              - `offset` assigned from the value of `AnalogSignal.t_start(Quantity scalar)`
+              - `sampling_interval` assigned from the value of `AnalogSignal.sampling_rate(Quantity scalar)`.
+              - `offset` assigned from the value of `AnalogSignal.t_start(Quantity scalar)`.
               - `unit` inheriting the value of the `DataArray.unit`.
         - A `SetDimension` to denote that the second dimension represents a set (collection) of signals.
 
+
 ## neo.IrregularlySampledSignal
+
+Maps to a `nix.DataArray` with `type = neo.irregularlysampledsignal`.
+
+  - Attributes
+
+    | Neo                           | NIX                                  |
+    |-------------------------------|--------------------------------------|
+    | IrregularlySampledSignal.name(string)            | DataArray.name(string)                   |
+    | IrregularlySampledSignal.description(string)     | DataArray.definition(string)             |
+    | IrregularlySampledSignal.file_origin             | DataArray.metadata(**Section**) [[1]](#notes) |
+
+  - Objects
+    - IrregularlySampledSignal.signal(Quantity 2D):  
+      - Maps directly to `DataArray.data(DataType[])`.
+      - `DataArray.unit(string)` is set based on the units of the Quantity array (`IrregularlySampledSignal.signal`).
+      - `DataArray.dimensions(Dimension[])` contains two objects:
+          - A `RangeDimension` to denote that the signals are irregularly sampled.
+          The attributes of this dimension are:
+              - `ticks` assigned from the value of `IrregularlySampledSignal.times(Quantity 1D)`.
+              - `unit` inheriting the value of the `DataArray.unit`.
+        - A `SetDimension` to denote that the second dimension represents a set (collection) of signals.
+
 
 ## neo.Epoch
 
