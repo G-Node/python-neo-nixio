@@ -9,9 +9,9 @@ Maps directly to `nix.Block`.
     |-------------------------------|--------------------------------------|
     | Block.name(string)            | Block.name(string)                   |
     | Block.description(string)     | Block.definition(string)             |
-    | Block.rec_datetime(datetime)  | Block.date(date)                     |
-    | Block.file_datetime(datetime) | Block.metadata(**Section**) [[1]](#notes) |
-    | Block.file_origin(string)     | Block.metadata(**Section**) [[1]](#notes) |
+    | Block.rec\_datetime(datetime)  | Block.created\_at(int)                |
+    | Block.file\_datetime(datetime) | Block.metadata(**Section**) [[1]](#notes) |
+    | Block.file\_origin(string)     | Block.metadata(**Section**) [[1]](#notes) |
 
   - Objects
     - neo.Block.segments(**Segment**[]):  
@@ -27,13 +27,13 @@ Maps directly to `nix.Block`.
 Maps directly to `nix.Group`.
   - Attributes
 
-    | Neo                             | NIX                                  |
-    |---------------------------------|--------------------------------------|
-    | Segment.name(string)            | Group.name(string)                   |
-    | Segment.description(string)     | Group.definition(string)             |
-    | Segment.rec_datetime(datetime)  | Group.date(date)                     |
-    | Segment.file_datetime(datetime) | Group.metadata(**Section**) [[1]](#notes) |
-    | Segment.file_origin(string)     | Group.metadata(**Section**) [[1]](#notes) |
+    | Neo                              | NIX                                  |
+    |----------------------------------|--------------------------------------|
+    | Segment.name(string)             | Group.name(string)                   |
+    | Segment.description(string)      | Group.definition(string)             |
+    | Segment.rec\_datetime(datetime)  | Group.created\_at(int)              |
+    | Segment.file\_datetime(datetime) | Group.metadata(**Section**) [[1]](#notes) |
+    | Segment.file\_origin(string)     | Group.metadata(**Section**) [[1]](#notes) |
 
   - Objects
     - Segment.analogsignals(**AnalogSignal**[]) & Segment.irregularlysampledsignals(**IrregularlySampledSignal**[]):  
@@ -70,15 +70,13 @@ Maps to nix.Source with `type = neo.recordingchannelgroup`.
     | RecordingChannelGroup.file_origin(string) | Source.metadata(**Section**) [[1]](#notes) |
     | RecordingChannelGroup.coordinates(Quantity 2D) | Source.metadata(**Section**) [[1]](#notes) |
 
-    - nix.Source requires a date attribute.
-    This is inherited from the parent nix.Block.
     - RecordingChannelGroup.channel_indexes:  
     Are not mapped into any NIX object or attribute.
     When converting from NIX to Neo, the channel indexes are reconstructed from the contained `nix.Source` objects [[2]](#notes).
 
 For each object contained in the group lists (`units`, `analogsignals`, `irregularlysampledsignals`), a child nix.Source is created with `type = neo.recordingchannel`.
 Each `Source.name` is taken from the `RecordingChannelGroup.channel_names` array.
-The sources also inherit the container's `date` and `metadata`.
+The sources also inherit the container's `metadata`.
 The `Source.definition` string is constructed by appending the `Source.name` to container's `Source.definition`.
 
 Each of the `nix.Source` objects that are created as children of a `neo.RecordingChannelGroup` are referenced by:
