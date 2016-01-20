@@ -58,6 +58,7 @@ Maps directly to `nix.Group`.
 ## neo.RecordingChannelGroup
 
 Maps to nix.Source with `type = neo.recordingchannelgroup`.
+
   - Attributes
 
     | Neo                                       | NIX                                   |
@@ -65,27 +66,27 @@ Maps to nix.Source with `type = neo.recordingchannelgroup`.
     | RecordingChannelGroup.name(string)        | Source.name(string)                   |
     | RecordingChannelGroup.description(string) | Source.definition(string)             |
     | RecordingChannelGroup.file_origin         | Source.metadata(**Section**) [[1]](#notes) |
-    | RecordingChannelGroup.coordinates(Quantity2D) | Source.metadata(**Section**) [[1]](#notes) |
-    | RecordingChannelGroup.channel_names(np.ndarray) | Source.metadata(**Section**) [[1]](#notes) |
-    | RecordingChannelGroup.channel_indexes(np.ndarray) | Source.metadata(**Section**) [[1]](#notes) |
+    | RecordingChannelGroup.coordinates         | Source.metadata(**Section**) [[1]](#notes) |
 
-  - Objects
-      - RecordingChannelGroup.units(**Unit**[]):  
-      For each item in `RecordingChannelGroup.units`, a `nix.Source` is created with `type = neo.unit`.
-      This is stored in the `Source.sources` list.
-      See the [neo.Unit](#neounit) section for details.
-      - RecordingChannelGroup.analogsignals(**AnalogSignal**[]):  
-      For each item in `RecordingChannelGroup.analogsignals`, a `nix.Source` is created with `type = neo.recordingchannelgroup`.
-      This is stored in the `Source.sources` list.
-      The child Source object contains a metadata (**Section**) reference which is also referenced by the relevant `DataArray`.
-      - RecordingChannelGroup.irregularlysampledsignals(**IrregularlySampledSignal**[]):  
-      For each item in `RecordingChannelGroup.IrregularlySampledSignal`, a `nix.Source` is created with `type = neo.irregularlysampledsignals`.
-      This is stored in the `Source.sources` list.
-      The child Source object contains a metadata (**Section**) reference which is also referenced by the relevant `DataArray`.
+    - nix.Source requires a date attribute.
+    This is inherited from the parent nix.Block.
+    - RecordingChannelGroup.channel_indexes:  
+    Are not mapped into any NIX object or attribute.
+    When converting from NIX to Neo, the channel indexes are reconstructed from the contained `nix.Source` objects [[2]](#notes).
+
+For contained object in the group (`units`, `analogsignals`, `irregularlysampledsignals`), a child nix.Source is created with `type = neo.recordingchannel`.
+Each `Source.name` is taken from the `RecordingChannelGroup.channel_names` array.
+The sources also inherit the container's `date` and `metadata`.
+The `Source.definition` string is constructed by appending the `Source.name` to container's `Source.definition`.
+
+Each of the `nix.Source` objects that are created as children of a `neo.RecordingChannelGroup` are referenced by
+  - The corresponding `DataArray`, in the case of sources which were created from the `analogsignals` and `irregularlysampledsignals` lists.
+  - The corresponding `MultiTag`, in the case of sources which were created from the `units` list.
+
 
 ## neo.AnalogSignal
 
-When it is a child of a `neo.Segment`, maps to a `nix.DataArray` with `type = neo.analogsignal`.
+Maps to a `nix.DataArray` with `type = neo.analogsignal`.
 
   - Attributes
 
@@ -103,9 +104,7 @@ When it is a child of a `neo.Segment`, maps to a `nix.DataArray` with `type = ne
     - AnalogSignal.sampling_rate(Quantity scalar)
       - Maps to `DataArray.dimensions[0].sampling_interval`.
     - AnalogSignal.t_start(Quantity scalar)
-
-When it is a child of a `neo.RecordingChannelGroup`, maps to a `nix.Source` with `type = neo.analogsignal` [[2]](#notes).
-The `nix.Source` object references a `nix.Section` in its `metadata` attribute, which is also referenced by the corresponding `nix.DataArray`.
+    - AnalogSignal.channel_indexes(
 
 
 ## neo.IrregularlySampledSignal
@@ -123,6 +122,5 @@ The `nix.Source` object references a `nix.Section` in its `metadata` attribute, 
   Neo attributes such as `file_datetime` and `file_origin` are mapped to properties within the same `nix.Section` to which the `metadata` attribute refers.
   A metadata section is only created for a NIX object if necessary, i.e., it is not created if the Neo object attributes are not set.
   The `Section.name` should match the corresponding NIX object `name`.
-  2. It may be useful if nix.Source objects which are used to refer to DataArrays have a suffix which denotes they are references.
-  For example, a nix.Source which is created to refer to a DataArray with type `neo.analogsignal`, would have a type attribute with value `neo.analogsignal_ref`.
-  The same rule could be applied to metadata sections.
+  2. The role of `channel_indexes` in `neo.RecordingChannelGroup` is still unclear.
+  The mapping is still not complete and is therefore subject to change.
