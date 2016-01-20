@@ -149,12 +149,27 @@ Maps to a `nix.MultiTag` with `type = neo.epoch`.
     | Epoch.file_origin(string)     | MultiTag.metadata(**Section**) [[1]](#notes) |
 
   - Objects
-    - Epoch.times(Quantity 1D) maps to `MultiTag.positions(DataArray)` with type `neo.epoch_times`.
-    - Epoch.durations(Quantity 1D) maps to `MultiTag.extents(DataArray)` with type `neo.epoch_durations`.
+    - Epoch.times(Quantity 1D) maps to `MultiTag.positions(DataArray)` with type `neo.epoch.times`.
+    - Epoch.durations(Quantity 1D) maps to `MultiTag.extents(DataArray)` with type `neo.epoch.durations`.
     - Epoch.labels(string[]) maps to the `label` attribute of each `DataArray` referenced by `MultiTag.positions`.
 
 
 ## neo.Event
+
+Maps to a `nix.MultiTag` with `type = neo.event`.
+
+  - Attributes
+
+    | Neo                           | NIX                                  |
+    |-------------------------------|--------------------------------------|
+    | Event.name(string)            | MultiTag.name(string)                   |
+    | Event.description(string)     | MultiTag.definition(string)             |
+    | Event.file_origin(string)     | MultiTag.metadata(**Section**) [[1]](#notes) |
+
+  - Objects
+    - Event.times(Quantity 1D) maps to `MultiTag.positions(DataArray)` with type `neo.event.times`.
+    - Event.labels(string[]) maps to the `label` attribute of each `DataArray` referenced by `MultiTag.positions`.
+
 
 ## neo.SpikeTrain
 
