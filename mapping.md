@@ -138,6 +138,22 @@ Maps to a `nix.DataArray` with `type = neo.irregularlysampledsignal`.
 
 ## neo.Epoch
 
+Maps to a `nix.MultiTag` with `type = neo.epoch`.
+
+  - Attributes
+
+    | Neo                           | NIX                                  |
+    |-------------------------------|--------------------------------------|
+    | Epoch.name(string)            | MultiTag.name(string)                   |
+    | Epoch.description(string)     | MultiTag.definition(string)             |
+    | Epoch.file_origin(string)     | MultiTag.metadata(**Section**) [[1]](#notes) |
+
+  - Objects
+    - Epoch.times(Quantity 1D) maps to `MultiTag.positions(DataArray)` with type `neo.epoch_times`.
+    - Epoch.durations(Quantity 1D) maps to `MultiTag.extents(DataArray)` with type `neo.epoch_durations`.
+    - Epoch.labels(string[]) maps to the `label` attribute of each `DataArray` referenced by `MultiTag.positions`.
+
+
 ## neo.Event
 
 ## neo.SpikeTrain
