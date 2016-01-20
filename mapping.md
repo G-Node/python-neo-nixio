@@ -152,6 +152,8 @@ Maps to a `nix.MultiTag` with `type = neo.spiketrain`.
     | SpikeTrain.description(string)         | MultiTag.definition(string)             |
     | SpikeTrain.file_origin(string)         | MultiTag.metadata(**Section**) [[1]](#notes) |
     | SpikeTrain.t_start(Quantity scalar)    | MultiTag.metadata(**Section**) [[1]](#notes) |
+    | SpikeTrain.t_stop(Quantity scalar)     | MultiTag.metadata(**Section**) [[1]](#notes) |
+    | SpikeTrain.left_sweep(Quantity scalar) | MultiTag.metadata(**Section**) [[1]](#notes) |
 
   - Objects
     - SpikeTrain.times(Quantity 1D):  
