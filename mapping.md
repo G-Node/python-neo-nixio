@@ -204,6 +204,23 @@ Maps to a `nix.MultiTag` with `type = neo.spiketrain`.
 
 ## neo.Unit
 
+Maps to a `nix.Source` with `type = neo.unit`.
+
+  - Attributes
+
+    | Neo                           | NIX                                  |
+    |-------------------------------|--------------------------------------|
+    | Unit.name(string)                | Source.name(string)                   |
+    | Unit.description(string)         | Source.definition(string)             |
+    | Unit.file_origin(string)         | Source.metadata(**Section**) [[1]](#notes) |
+
+  - Objects
+    - Unit.spiketrains is represented by the `MultiTag` which references a given `nix.Source` object.
+    See the description of the mapping for [neo.RecordingChannelGroup](#neorecordingchannelgroup).
+
+
+-------
+
 ## Notes:
   1. The NIX objects each hold only one `metadata` attribute.
   Neo attributes such as `file_datetime` and `file_origin` are mapped to properties within the same `nix.Section` to which the `metadata` attribute refers.
