@@ -11,7 +11,7 @@ Maps directly to `nix.Block`.
     | Block.description(string)     | Block.definition(string)             |
     | Block.rec_datetime(datetime)  | Block.date(date)                     |
     | Block.file_datetime(datetime) | Block.metadata(**Section**) [[1]](#notes) |
-    | Block.file_origin             | Block.metadata(**Section**) [[1]](#notes) |
+    | Block.file_origin(string)     | Block.metadata(**Section**) [[1]](#notes) |
 
   - Objects
     - neo.Block.segments(**Segment**[]):  
@@ -33,7 +33,7 @@ Maps directly to `nix.Group`.
     | Segment.description(string)     | Group.definition(string)             |
     | Segment.rec_datetime(datetime)  | Group.date(date)                     |
     | Segment.file_datetime(datetime) | Group.metadata(**Section**) [[1]](#notes) |
-    | Segment.file_origin             | Group.metadata(**Section**) [[1]](#notes) |
+    | Segment.file_origin(string)     | Group.metadata(**Section**) [[1]](#notes) |
 
   - Objects
     - Segment.analogsignals(**AnalogSignal**[]) & Segment.irregularlysampledsignals(**IrregularlySampledSignal**[]):  
@@ -67,8 +67,8 @@ Maps to nix.Source with `type = neo.recordingchannelgroup`.
     |-------------------------------------------|---------------------------------------|
     | RecordingChannelGroup.name(string)        | Source.name(string)                   |
     | RecordingChannelGroup.description(string) | Source.definition(string)             |
-    | RecordingChannelGroup.file_origin         | Source.metadata(**Section**) [[1]](#notes) |
-    | RecordingChannelGroup.coordinates         | Source.metadata(**Section**) [[1]](#notes) |
+    | RecordingChannelGroup.file_origin(string) | Source.metadata(**Section**) [[1]](#notes) |
+    | RecordingChannelGroup.coordinates(Quantity 2D) | Source.metadata(**Section**) [[1]](#notes) |
 
     - nix.Source requires a date attribute.
     This is inherited from the parent nix.Block.
@@ -84,7 +84,7 @@ The `Source.definition` string is constructed by appending the `Source.name` to 
 Each of the `nix.Source` objects that are created as children of a `neo.RecordingChannelGroup` are referenced by:
   - The corresponding `DataArray`, in the case of sources which were created from the `analogsignals` and `irregularlysampledsignals` lists.
   - The corresponding `MultiTag`, in the case of sources which were created from the `units` list.
-      - These `MultiTag` objects also contain a second `Source` with type `neo.unit`.
+      - These `MultiTag` objects also contain a second `Source` of type `neo.unit`.
 
 
 ## neo.AnalogSignal
@@ -97,7 +97,7 @@ Maps to a `nix.DataArray` with `type = neo.analogsignal`.
     |-------------------------------|--------------------------------------|
     | AnalogSignal.name(string)            | DataArray.name(string)                   |
     | AnalogSignal.description(string)     | DataArray.definition(string)             |
-    | AnalogSignal.file_origin             | DataArray.metadata(**Section**) [[1]](#notes) |
+    | AnalogSignal.file_origin(string)     | DataArray.metadata(**Section**) [[1]](#notes) |
 
   - Objects
     - AnalogSignal.signal(Quantity 2D):  
@@ -122,7 +122,7 @@ Maps to a `nix.DataArray` with `type = neo.irregularlysampledsignal`.
     |-------------------------------|--------------------------------------|
     | IrregularlySampledSignal.name(string)            | DataArray.name(string)                   |
     | IrregularlySampledSignal.description(string)     | DataArray.definition(string)             |
-    | IrregularlySampledSignal.file_origin             | DataArray.metadata(**Section**) [[1]](#notes) |
+    | IrregularlySampledSignal.file_origin(string)     | DataArray.metadata(**Section**) [[1]](#notes) |
 
   - Objects
     - IrregularlySampledSignal.signal(Quantity 2D):  
@@ -144,13 +144,31 @@ Maps to a `nix.DataArray` with `type = neo.irregularlysampledsignal`.
 
 Maps to a `nix.MultiTag` with `type = neo.spiketrain`.
 
+  - Attributes
+
+    | Neo                           | NIX                                  |
+    |-------------------------------|--------------------------------------|
+    | SpikeTrain.name(string)                | MultiTag.name(string)                   |
+    | SpikeTrain.description(string)         | MultiTag.definition(string)             |
+    | SpikeTrain.file_origin(string)         | MultiTag.metadata(**Section**) [[1]](#notes) |
+    | SpikeTrain.t_start(Quantity scalar)    | MultiTag.metadata(**Section**) [[1]](#notes) |
+    | SpikeTrain.left_sweep(Quantity scalar) | MultiTag.metadata(**Section**) [[1]](#notes) |
+    | SpikeTrain.sampling_rate(Quantity scalar) | MultiTag.metadata(**Section**) [[1]](#notes) |
+
   - Objects
     - SpikeTrain.times(Quantity 1D):  
     Maps directly to `MultiTag.positions(DataArray)`.
       - The positions `DataArray` is of type `neo.spiketrain` and has a single `SetDimension`.
-    - SpikeTrain.t_start(Quantity scalar) [...]
-    - SpikeTrain.left_sweep(Quantity scalar) [...]
-    - SpikeTrain.sampling_rate(Quantity scalar) [...]
+    - SpikeTrain.waveforms(Quantity 3D):  
+    Waveform data and metadata associated with spikes are stored in a `DataArray` of type `neo.waveforms`.
+    The `DataArray` is associated with the spiketrain `MultiTag` via a `nix.Feature`.
+    Specifically, `MultiTag.features` holds a reference to a single `Feature` with `link_type = indexed`.
+    `Feature.data` refers to the `DataArray` where the waveforms are stored.
+    The `DataArray` also refers to a `metadata` Section that stores the `left_sweep` value.
+    The `DataArray` has 3 dimensions:
+      - `SetDimension`.
+      - `SetDimension`.
+      - `SampledDimension`: The `SpikeTrain.sampling_rate` is stored in this dimension's `sampling_interval` and the `unit` is set accordingly.
 
 
 ## neo.Unit
