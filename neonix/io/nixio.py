@@ -51,6 +51,9 @@ class NixIO(BaseIO):
         :param block: Block to write
         :return:
         """
-        with nix.File.open(self.filename, nix.FileMode.Overwrite) as nixfile:
-            nixfile.create_block("test block", "test")
+        nixname = block.name
+        nixtype = block.description
+        nixfile = nix.File.open(self.filename, nix.FileMode.Overwrite)
+        nixfile.create_block(nixname, nixtype)
+        nixfile.close()
 
