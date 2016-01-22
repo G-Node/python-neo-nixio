@@ -52,8 +52,10 @@ class NixIO(BaseIO):
         :return:
         """
         nixname = block.name
-        nixtype = block.description
+        nixtype = "neo.block"
+        nixdefinition = block.description
         nixfile = nix.File.open(self.filename, nix.FileMode.Overwrite)
-        nixfile.create_block(nixname, nixtype)
+        nixblock = nixfile.create_block(nixname, nixtype)
+        nixblock.definition = nixdefinition
         nixfile.close()
 

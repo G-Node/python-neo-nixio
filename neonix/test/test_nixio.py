@@ -32,7 +32,8 @@ class NixIOTest(unittest.TestCase):
         nixfile = nix.File.open(self.filename, nix.FileMode.ReadOnly)
         nixblock = nixfile.blocks[0]
         self.assertEqual(nixblock.name, neoblock.name)
-        self.assertEqual(nixblock.type, neoblock.description)
+        self.assertEqual(nixblock.type, "neo.block")
+        self.assertEqual(nixblock.definition, neoblock.description)
         nixfile.close()
 
 
