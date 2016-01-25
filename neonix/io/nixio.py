@@ -64,27 +64,29 @@ class NixIO(BaseIO):
         """
         BaseIO.__init__(self, filename=filename)
 
-    def write_block(self, neoblock, cascade=True):
+    def write_block(self, neo_block, cascade=True):
         """
         Write the provided block to the self.filename
 
-        :param neoblock: Neo block to be written
+        :param neo_block: Neo block to be written
+        :param cascade: True/False save all child objects
         :return:
         """
-        nixname = neoblock.name
-        nixtype = "neo.block"
-        nixdefinition = neoblock.description
-        nixfile = nix.File.open(self.filename, nix.FileMode.Overwrite)
-        nixblock = nixfile.create_block(nixname, nixtype)
-        nixblock.definition = nixdefinition
+        nix_name = neo_block.name
+        nix_type = "neo.block"
+        nix_definition = neo_block.description
+        nix_file = nix.File.open(self.filename, nix.FileMode.Overwrite)
+        nix_block = nix_file.create_block(nix_name, nix_type)
+        nix_block.definition = nix_definition
         if cascade:
-            for segment in neoblock.segments:
+            for segment in neo_block.segments:
                 nix_group_name = segment.name
                 nix_group_type = "neo.segment"
                 nix_group_definition = segment.description
-                nixgroup = nixblock.create_group(nix_group_name, nix_group_type)
-                nixgroup.definition = nix_group_definition
-        nixfile.close()
+                nix_group = nix_block.create_group(nix_group_name,
+                                                   nix_group_type)
+                nix_group.definition = nix_group_definition
+        nix_file.close()
 
     def write_segment(self, segment, parent_block):
         """
@@ -94,19 +96,19 @@ class NixIO(BaseIO):
         :param parent_block: The parent neo block of the provided segment
         :return:
         """
-        nixname = segment.name
-        nixtype = "neo.segment"
-        nixdefinition = segment.description
-        nixfile = nix.File.open(self.filename, nix.FileMode.ReadWrite)
-        for nixblock in nixfile.blocks:
-            if equals(parent_block, nixblock):
-                nixblock = nixfile.blocks[0]
-                nixgroup = nixblock.create_group(nixname, nixtype)
-                nixgroup.definition = nixdefinition
+        nix_name = segment.name
+        nix_type = "neo.segment"
+        nix_definition = segment.description
+        nix_file = nix.File.open(self.filename, nix.FileMode.ReadWrite)
+        for nix_block in nix_file.blocks:
+            if equals(parent_block, nix_block):
+                nix_block = nix_file.blocks[0]
+                nix_group = nix_block.create_group(nix_name, nix_type)
+                nix_group.definition = nix_definition
                 break
         else:
             raise LookupError("Parent block with name '{}' for segment with "
                               "name '{}' does not exist in file '{}'.".format(
                                 parent_block.name, segment.name, self.filename))
-        nixfile.close()
+        nix_file.close()
 
