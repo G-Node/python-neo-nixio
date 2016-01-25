@@ -64,19 +64,26 @@ class NixIO(BaseIO):
         """
         BaseIO.__init__(self, filename=filename)
 
-    def write_block(self, block):
+    def write_block(self, neoblock, cascade=True):
         """
         Write the provided block to the self.filename
 
-        :param block: Neo block to be written
+        :param neoblock: Neo block to be written
         :return:
         """
-        nixname = block.name
+        nixname = neoblock.name
         nixtype = "neo.block"
-        nixdefinition = block.description
+        nixdefinition = neoblock.description
         nixfile = nix.File.open(self.filename, nix.FileMode.Overwrite)
         nixblock = nixfile.create_block(nixname, nixtype)
         nixblock.definition = nixdefinition
+        if cascade:
+            for segment in neoblock.segments:
+                nix_group_name = segment.name
+                nix_group_type = "neo.segment"
+                nix_group_definition = segment.description
+                nixgroup = nixblock.create_group(nix_group_name, nix_group_type)
+                nixgroup.definition = nix_group_definition
         nixfile.close()
 
     def write_segment(self, segment, parent_block):
