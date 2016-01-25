@@ -36,6 +36,23 @@ class NixIOTest(unittest.TestCase):
         self.assertEqual(nix_block.definition, neo_block.description)
         nix_file.close()
 
+    def test_block_cascade(self):
+        neo_block = Block(name="test_block", description="block for testing")
+        neo_segment = Segment(name="test_segment",
+                              description="segment for testing")
+        neo_block.segments.append(neo_segment)
+        self.io.write_block(neo_block, cascade=True)
+        nix_file = nix.File.open(self.filename, nix.FileMode.ReadOnly)
+        nix_block = nix_file.blocks[0]
+        self.assertEqual(nix_block.name, neo_block.name)
+        self.assertEqual(nix_block.type, "neo.block")
+        self.assertEqual(nix_block.definition, neo_block.description)
+        nix_group = nix_block.groups[0]
+        self.assertEqual(nix_group.name, neo_segment.name)
+        self.assertEqual(nix_group.type, "neo.segment")
+        self.assertEqual(nix_group.definition, neo_segment.description)
+        nix_file.close()
+
     def test_segment(self):
         neo_block = Block(name="test_block", description="block for testing")
         self.io.write_block(neo_block)
