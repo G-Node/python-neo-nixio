@@ -10,7 +10,7 @@
 import os
 import unittest
 
-from neo.core import Block
+from neo.core import Block, Segment
 
 from neonix.io.nixio import NixIO
 import nix
@@ -36,6 +36,15 @@ class NixIOTest(unittest.TestCase):
         self.assertEqual(nixblock.definition, neoblock.description)
         nixfile.close()
 
+    def test_segment(self):
+        neosegment = Segment(name="test_segment",
+                             description="segment for testing")
+        self.io.write_segment(neosegment)
+        nixfile = nix.File.open(self.filename, nix.FileMode.ReadOnly)
+        nixsegment = nixfile.segments[0]
+        self.assertEqual(nixsegment.name, neosegment.name)
+        self.assertEqual(nixsegment.type, "neo.segment")
+        self.assertEqual(nixsegment.definition, neosegment.description)
 
 if __name__ == "__main__":
     unittest.main()
