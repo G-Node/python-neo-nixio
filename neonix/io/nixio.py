@@ -26,18 +26,18 @@ common_attribute_mappings = {"name": "name",
                              "description": "definition"}
 
 
-def equals(neoobj, nixobj):
+def equals(neo_obj, nix_obj):
     """
-    Returns 'true' if the attributes of the neo object (neoobj) match the
-    attributes of the nix object (nixobj)
+    Returns 'true' if the attributes of the neo object (neo_obj) match the
+    attributes of the nix object (nix_obj)
 
-    :param neoobj: a neo object (block, segment, etc.)
-    :param nixobj: a nix object to compare to (block, group, etc.)
+    :param neo_obj: a neo object (block, segment, etc.)
+    :param nix_obj: a nix object to compare to (block, group, etc.)
     :return: true if the attributes of the two objects, as defined in the
      object mapping, are identical
     """
-    for neoattr, nixattr in common_attribute_mappings.items():
-        if getattr(neoobj, neoattr) != getattr(nixobj, nixattr):
+    for neo_attr, nix_attr in common_attribute_mappings.items():
+        if getattr(neo_obj, neo_attr) != getattr(nix_obj, nix_attr):
             return False
     return True
 
