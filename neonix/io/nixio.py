@@ -26,22 +26,6 @@ common_attribute_mappings = {"name": "name",
                              "description": "definition"}
 
 
-def equals(neo_obj, nix_obj):
-    """
-    Returns 'true' if the attributes of the neo object (neo_obj) match the
-    attributes of the nix object (nix_obj)
-
-    :param neo_obj: a neo object (block, segment, etc.)
-    :param nix_obj: a nix object to compare to (block, group, etc.)
-    :return: true if the attributes of the two objects, as defined in the
-     object mapping, are identical
-    """
-    for neo_attr, nix_attr in common_attribute_mappings.items():
-        if getattr(neo_obj, neo_attr) != getattr(nix_obj, nix_attr):
-            return False
-    return True
-
-
 class NixIO(BaseIO):
     """
     Class for reading and writing NIX files.
@@ -100,7 +84,7 @@ class NixIO(BaseIO):
         nix_definition = segment.description
         nix_file = nix.File.open(self.filename, nix.FileMode.ReadWrite)
         for nix_block in nix_file.blocks:
-            if equals(parent_block, nix_block):
+            if NixIO._equals(parent_block, nix_block):
                 nix_block = nix_file.blocks[0]
                 nix_group = nix_block.create_group(nix_name, nix_type)
                 nix_group.definition = nix_definition
@@ -110,4 +94,21 @@ class NixIO(BaseIO):
                               "name '{}' does not exist in file '{}'.".format(
                                 parent_block.name, segment.name, self.filename))
         nix_file.close()
+
+    @staticmethod
+    def _equals(neo_obj, nix_obj):
+        """
+        Returns 'true' if the attributes of the neo object (neo_obj) match the
+        attributes of the nix object (nix_obj)
+
+        :param neo_obj: a neo object (block, segment, etc.)
+        :param nix_obj: a nix object to compare to (block, group, etc.)
+        :return: true if the attributes of the two objects, as defined in the
+         object mapping, are identical
+        """
+        for neo_attr, nix_attr in common_attribute_mappings.items():
+            if getattr(neo_obj, neo_attr) != getattr(nix_obj, nix_attr):
+                return False
+        return True
+
 
