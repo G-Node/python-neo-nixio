@@ -48,14 +48,20 @@ class NixIO(BaseIO):
     extensions = ["h5"]
     mode = "file"
 
-    def __init__(self, filename=None):
+    def __init__(self, filename):
         """
-        Initialise IO instance.
+        Initialise IO instance and NIX file.
 
         :param filename: full path to the file
         :return:
         """
-        BaseIO.__init__(self, filename=filename)
+        BaseIO.__init__(self, filename=None)
+        self.filename = filename
+        if self.filename:
+            self.nix_file = nix.File.open(self.filename, nix.FileMode.Overwrite)
+
+    def __del__(self):
+        self.nix_file.close()
 
     def write_block(self, neo_block, cascade=True):
         """
@@ -68,15 +74,13 @@ class NixIO(BaseIO):
         nix_name = neo_block.name
         nix_type = "neo.block"
         nix_definition = neo_block.description
-        nix_file = nix.File.open(self.filename, nix.FileMode.Overwrite)
-        nix_block = nix_file.create_block(nix_name, nix_type)
+        nix_block = self.nix_file.create_block(nix_name, nix_type)
         nix_block.definition = nix_definition
         if hasattr(neo_block, "rec_datetime"):
             nix_block.created_at = neo_block.rec_datetime.timestamp()
         if cascade:
             for segment in neo_block.segments:
                 self.write_segment(segment, neo_block)
-        nix_file.close()
 
     def write_segment(self, segment, parent_block, cascade=True):
         """
@@ -90,10 +94,9 @@ class NixIO(BaseIO):
         nix_name = segment.name
         nix_type = "neo.segment"
         nix_definition = segment.description
-        nix_file = nix.File.open(self.filename, nix.FileMode.ReadWrite)
-        for nix_block in nix_file.blocks:
+        for nix_block in self.nix_file.blocks:
             if NixIO._equals(parent_block, nix_block, False):
-                nix_block = nix_file.blocks[0]
+                nix_block = self.nix_file.blocks[0]
                 nix_group = nix_block.create_group(nix_name, nix_type)
                 nix_group.definition = nix_definition
                 break
