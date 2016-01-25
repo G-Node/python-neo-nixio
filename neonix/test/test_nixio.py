@@ -27,7 +27,7 @@ class NixIOTest(unittest.TestCase):
             os.remove(self.filename)
 
     def test_block(self):
-        neoblock = Block(name="test", description="test description")
+        neoblock = Block(name="test_block", description="block for testing")
         self.io.write_block(neoblock)
         nixfile = nix.File.open(self.filename, nix.FileMode.ReadOnly)
         nixblock = nixfile.blocks[0]
