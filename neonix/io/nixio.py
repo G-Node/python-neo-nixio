@@ -48,7 +48,7 @@ class NixIO(BaseIO):
         """
         Write the provided block to the self.filename
 
-        :param block: Block to write
+        :param block: Neo block to be written
         :return:
         """
         nixname = block.name
@@ -60,6 +60,12 @@ class NixIO(BaseIO):
         nixfile.close()
 
     def write_segment(self, segment):
+        """
+        Write the provided segment to the self.filename
+
+        :param segment: Neo segment to be written
+        :return:
+        """
         nixname = segment.name
         nixtype = "neo.segment"
         nixdefinition = segment.description
