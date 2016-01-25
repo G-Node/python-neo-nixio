@@ -65,5 +65,13 @@ class NixIOTest(unittest.TestCase):
         self.assertEqual(nix_group.type, "neo.segment")
         self.assertEqual(nix_group.definition, neo_segment.description)
 
+    def test_missing_block(self):
+        neo_block = Block(name="test_block", description="block for testing")
+        neo_segment = Segment(name="test_segment",
+                              description="segment for testing")
+        with self.assertRaises(LookupError):
+            self.io.write_segment(neo_segment, neo_block)
+
+
 if __name__ == "__main__":
     unittest.main()
