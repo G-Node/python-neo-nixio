@@ -22,8 +22,9 @@ except ImportError:
                       "The NixIO requires the Python bindings for NIX.")
 
 
-common_attribute_mappings = {"name": "name",
-                             "description": "definition"}
+attribute_mappings = {"name": "name",
+                      "description": "definition"}
+container_mappings = {"segments": "groups"}
 
 
 class NixIO(BaseIO):
@@ -56,7 +57,7 @@ class NixIO(BaseIO):
         Write the provided block to the self.filename
 
         :param neo_block: Neo block to be written
-        :param cascade: True/False save all child objects (default: True)
+        :param cascade: save all child objects (default: True)
         :return:
         """
         nix_name = neo_block.name
@@ -84,7 +85,7 @@ class NixIO(BaseIO):
         nix_definition = segment.description
         nix_file = nix.File.open(self.filename, nix.FileMode.ReadWrite)
         for nix_block in nix_file.blocks:
-            if NixIO._equals(parent_block, nix_block):
+            if NixIO._equals(parent_block, nix_block, False):
                 nix_block = nix_file.blocks[0]
                 nix_group = nix_block.create_group(nix_name, nix_type)
                 nix_group.definition = nix_definition
@@ -96,19 +97,35 @@ class NixIO(BaseIO):
         nix_file.close()
 
     @staticmethod
-    def _equals(neo_obj, nix_obj):
+    def _equals(neo_obj, nix_obj, cascade=True):
         """
         Returns 'true' if the attributes of the neo object (neo_obj) match the
         attributes of the nix object (nix_obj)
 
         :param neo_obj: a neo object (block, segment, etc.)
         :param nix_obj: a nix object to compare to (block, group, etc.)
+        :param cascade: test all child objects for equivalence recursively
+                        (default: True)
         :return: true if the attributes of the two objects, as defined in the
          object mapping, are identical
         """
-        for neo_attr, nix_attr in common_attribute_mappings.items():
-            if getattr(neo_obj, neo_attr) != getattr(nix_obj, nix_attr):
+        for neo_attr_name, nix_attr_name in attribute_mappings.items():
+            neo_attr = getattr(neo_obj, neo_attr_name, None)
+            nix_attr = getattr(nix_obj, nix_attr_name, None)
+            if neo_attr != nix_attr:
                 return False
+        if cascade:
+            for neo_container_name, nix_container_name\
+                    in container_mappings.items():
+                neo_container = getattr(neo_obj, neo_container_name, None)
+                nix_container = getattr(nix_obj, nix_container_name, None)
+                if not (neo_container is nix_container is None):
+                    if len(neo_container) != len(nix_container):
+                        return False
+                    for neo_child_obj, nix_child_obj in zip(neo_container,
+                                                            nix_container):
+                        if not NixIO._equals(neo_child_obj, nix_child_obj):
+                            return False
         return True
 
 
