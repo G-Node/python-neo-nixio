@@ -81,7 +81,7 @@ class NixIO(BaseIO):
         if neo_block.file_datetime:
             block_metadata = self._get_or_init_metadata(nix_block)
             block_metadata.create_property("neo.file_datetime",
-                                           neo_block.file_datetime)
+                                           neo_block.file_datetime.timestamp())
         if neo_block.file_origin:
             block_metadata = self._get_or_init_metadata(nix_block)
             block_metadata.create_property("neo.file_origin",
