@@ -15,8 +15,11 @@ import quantities as pq
 from neo.io.baseio import BaseIO
 from neo.core import Block
 
-import nix
-# TODO: Check if NIX was imported successfully and throw ImportError if not
+try:
+    import nix
+except ImportError:
+    raise ImportError("Failed to import NIX (NIXPY not found). "
+                      "The NixIO requires the Python bindings for NIX.")
 
 
 common_attribute_mappings = {"name": "name",
