@@ -19,6 +19,26 @@ import nix
 # TODO: Check if NIX was imported successfully and throw ImportError if not
 
 
+common_attribute_mappings = {"name": "name",
+                             "description": "definition"}
+
+
+def neo_equals_nix(neoobj, nixobj):
+    """
+    Returns 'true' if the attributes of the neo object (neoobj) match the
+    attributes of the nix object (nixobj)
+
+    :param neoobj: a neo object (block, segment, etc.)
+    :param nixobj: a nix object to compare to (block, group, etc.)
+    :return: true if the attributes of the two objects, as defined in the
+     object mapping, are identical
+    """
+    for neoattr, nixattr in common_attribute_mappings.items():
+        if getattr(neoobj, neoattr) != getattr(nixobj, nixattr):
+            return False
+    return True
+
+
 class NixIO(BaseIO):
     """
     Class for reading and writing NIX files.
