@@ -109,23 +109,35 @@ class NixIO(BaseIO):
         :return: true if the attributes and child objects (if cascade=True)
          of the two objects, as defined in the object mapping, are equal.
         """
+        if not NixIO._equals_attribs(neo_obj, nix_obj):
+            return False
+        if cascade:
+            return NixIO._equals_child_objects(neo_obj, nix_obj)
+        else:
+            return True
+
+    @staticmethod
+    def _equals_attribs(neo_obj, nix_obj):
         for neo_attr_name, nix_attr_name in attribute_mappings.items():
             neo_attr = getattr(neo_obj, neo_attr_name, None)
             nix_attr = getattr(nix_obj, nix_attr_name, None)
             if neo_attr != nix_attr:
                 return False
-        if cascade:
-            for neo_container_name, nix_container_name\
-                    in container_mappings.items():
-                neo_container = getattr(neo_obj, neo_container_name, None)
-                nix_container = getattr(nix_obj, nix_container_name, None)
-                if not (neo_container is nix_container is None):
-                    if len(neo_container) != len(nix_container):
+        else:
+            return True
+
+    @staticmethod
+    def _equals_child_objects(neo_obj, nix_obj):
+        for neo_container_name, nix_container_name \
+                in container_mappings.items():
+            neo_container = getattr(neo_obj, neo_container_name, None)
+            nix_container = getattr(nix_obj, nix_container_name, None)
+            if not (neo_container is nix_container is None):
+                if len(neo_container) != len(nix_container):
+                    return False
+                for neo_child_obj, nix_child_obj in zip(neo_container,
+                                                        nix_container):
+                    if not NixIO._equals(neo_child_obj, nix_child_obj):
                         return False
-                    for neo_child_obj, nix_child_obj in zip(neo_container,
-                                                            nix_container):
-                        if not NixIO._equals(neo_child_obj, nix_child_obj):
-                            return False
-        return True
-
-
+        else:
+            return True
