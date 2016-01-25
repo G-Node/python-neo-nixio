@@ -41,10 +41,10 @@ class NixIOTest(unittest.TestCase):
                              description="segment for testing")
         self.io.write_segment(neosegment)
         nixfile = nix.File.open(self.filename, nix.FileMode.ReadOnly)
-        nixsegment = nixfile.segments[0]
-        self.assertEqual(nixsegment.name, neosegment.name)
-        self.assertEqual(nixsegment.type, "neo.segment")
-        self.assertEqual(nixsegment.definition, neosegment.description)
+        nixgroup = nixfile.groups[0]
+        self.assertEqual(nixgroup.name, neosegment.name)
+        self.assertEqual(nixgroup.type, "neo.segment")
+        self.assertEqual(nixgroup.definition, neosegment.description)
 
 if __name__ == "__main__":
     unittest.main()
