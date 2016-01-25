@@ -11,6 +11,7 @@ from __future__ import absolute_import
 
 import numpy as np
 import quantities as pq
+from datetime import datetime
 
 from neo.io.baseio import BaseIO
 from neo.core import Block, Segment
@@ -22,6 +23,10 @@ except ImportError:
                       "The NixIO requires the Python bindings for NIX.")
 
 
+# NOTE: Relying on the following dictionary breaks down once we have even the
+#  slightest bit of deviation from direct mapping. For instance, even though
+#  neo.Block.rec_datetime maps directly to nix.Block.created_at, the mapping
+#  relies on a conversion between a datetime object and an integer timestamp
 attribute_mappings = {"name": "name",
                       "description": "definition"}
 container_mappings = {"segments": "groups"}
@@ -66,6 +71,8 @@ class NixIO(BaseIO):
         nix_file = nix.File.open(self.filename, nix.FileMode.Overwrite)
         nix_block = nix_file.create_block(nix_name, nix_type)
         nix_block.definition = nix_definition
+        if hasattr(neo_block, "rec_datetime"):
+            nix_block.created_at = neo_block.rec_datetime.timestamp()
         if cascade:
             for segment in neo_block.segments:
                 self.write_segment(segment, neo_block)
