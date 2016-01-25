@@ -59,3 +59,13 @@ class NixIO(BaseIO):
         nixblock.definition = nixdefinition
         nixfile.close()
 
+    def write_segment(self, segment):
+        nixname = segment.name
+        nixtype = "neo.segment"
+        nixdefinition = segment.description
+        nixfile = nix.File.open(self.filename, nix.FileMode.ReadWrite)
+        # NOTE: assuming 1 existing block and adding to it
+        nixblock = nixfile.blocks[0]
+        nixgroup = nixblock.create_group(nixname, nixtype)
+        nixgroup.definition = nixdefinition
+        nixfile.close()

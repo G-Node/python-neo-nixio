@@ -37,6 +37,8 @@ class NixIOTest(unittest.TestCase):
         nixfile.close()
 
     def test_segment(self):
+        neoblock = Block(name="test_block", description="block for testing")
+        self.io.write_block(neoblock)
         neosegment = Segment(name="test_segment",
                              description="segment for testing")
         self.io.write_segment(neosegment)
