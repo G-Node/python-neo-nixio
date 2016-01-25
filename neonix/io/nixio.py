@@ -13,7 +13,7 @@ import numpy as np
 import quantities as pq
 
 from neo.io.baseio import BaseIO
-from neo.core import Block
+from neo.core import Block, Segment
 
 try:
     import nix
@@ -50,9 +50,9 @@ class NixIO(BaseIO):
     is_readable = False  # for now
     is_writable = True
 
-    supported_objects = [Block]
+    supported_objects = [Block, Segment]
     readable_objects = []
-    writeable_objects = [Block]
+    writeable_objects = [Block, Segment]
 
     name = "NIX"
     extensions = ["h5"]
