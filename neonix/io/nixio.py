@@ -83,12 +83,13 @@ class NixIO(BaseIO):
                 self.write_segment(segment, neo_block)
         nix_file.close()
 
-    def write_segment(self, segment, parent_block):
+    def write_segment(self, segment, parent_block, cascade=True):
         """
         Write the provided segment to the self.filename
 
         :param segment: Neo segment to be written
         :param parent_block: The parent neo block of the provided segment
+        :param cascade: True/False save all child objects (default: True)
         :return:
         """
         nix_name = segment.name
