@@ -106,8 +106,8 @@ class NixIO(BaseIO):
         :param nix_obj: a nix object to compare to (block, group, etc.)
         :param cascade: test all child objects for equivalence recursively
                         (default: True)
-        :return: true if the attributes of the two objects, as defined in the
-         object mapping, are identical
+        :return: true if the attributes and child objects (if cascade=True)
+         of the two objects, as defined in the object mapping, are equal.
         """
         for neo_attr_name, nix_attr_name in attribute_mappings.items():
             neo_attr = getattr(neo_obj, neo_attr_name, None)
