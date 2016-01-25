@@ -23,7 +23,7 @@ common_attribute_mappings = {"name": "name",
                              "description": "definition"}
 
 
-def neo_equals_nix(neoobj, nixobj):
+def equals(neoobj, nixobj):
     """
     Returns 'true' if the attributes of the neo object (neoobj) match the
     attributes of the nix object (nixobj)
@@ -79,19 +79,27 @@ class NixIO(BaseIO):
         nixblock.definition = nixdefinition
         nixfile.close()
 
-    def write_segment(self, segment):
+    def write_segment(self, segment, parent_block):
         """
         Write the provided segment to the self.filename
 
         :param segment: Neo segment to be written
+        :param parent_block: The parent neo block of the provided segment
         :return:
         """
         nixname = segment.name
         nixtype = "neo.segment"
         nixdefinition = segment.description
         nixfile = nix.File.open(self.filename, nix.FileMode.ReadWrite)
-        # NOTE: assuming 1 existing block and adding to it
-        nixblock = nixfile.blocks[0]
-        nixgroup = nixblock.create_group(nixname, nixtype)
-        nixgroup.definition = nixdefinition
+        for nixblock in nixfile.blocks:
+            if equals(parent_block, nixblock):
+                nixblock = nixfile.blocks[0]
+                nixgroup = nixblock.create_group(nixname, nixtype)
+                nixgroup.definition = nixdefinition
+                break
+        else:
+            raise LookupError("Parent block with name '{}' for segment with "
+                              "name '{}' does not exist in file '{}'.".format(
+                                parent_block.name, segment.name, self.filename))
         nixfile.close()
+
