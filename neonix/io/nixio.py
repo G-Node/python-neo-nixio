@@ -69,7 +69,7 @@ class NixIO(BaseIO):
         Write the provided block to the self.filename
 
         :param neo_block: Neo block to be written
-        :param cascade: True/False save all child objects
+        :param cascade: True/False save all child objects (default: True)
         :return:
         """
         nix_name = neo_block.name
@@ -80,12 +80,7 @@ class NixIO(BaseIO):
         nix_block.definition = nix_definition
         if cascade:
             for segment in neo_block.segments:
-                nix_group_name = segment.name
-                nix_group_type = "neo.segment"
-                nix_group_definition = segment.description
-                nix_group = nix_block.create_group(nix_group_name,
-                                                   nix_group_type)
-                nix_group.definition = nix_group_definition
+                self.write_segment(segment, neo_block)
         nix_file.close()
 
     def write_segment(self, segment, parent_block):
