@@ -76,8 +76,16 @@ class NixIO(BaseIO):
         nix_definition = neo_block.description
         nix_block = self.nix_file.create_block(nix_name, nix_type)
         nix_block.definition = nix_definition
-        if hasattr(neo_block, "rec_datetime"):
+        if neo_block.rec_datetime:
             nix_block.created_at = neo_block.rec_datetime.timestamp()
+        if neo_block.file_datetime:
+            block_metadata = self._get_or_init_metadata(nix_block)
+            block_metadata.create_property("neo.file_datetime",
+                                           neo_block.file_datetime)
+        if neo_block.file_origin:
+            block_metadata = self._get_or_init_metadata(nix_block)
+            block_metadata.create_property("neo.file_origin",
+                                           neo_block.file_origin)
         if cascade:
             for segment in neo_block.segments:
                 self.write_segment(segment, neo_block)
@@ -104,7 +112,20 @@ class NixIO(BaseIO):
             raise LookupError("Parent block with name '{}' for segment with "
                               "name '{}' does not exist in file '{}'.".format(
                                 parent_block.name, segment.name, self.filename))
-        nix_file.close()
+
+    def _get_or_init_metadata(self, nix_obj):
+        """
+        Creates a metadata Section for the provided NIX object if it doesn't
+        have one already. Returns the new or existing metadata section.
+
+        :param nix_obj: The object to which the Section is attached.
+        :return: The metadata section of the provided object.
+        """
+        if not hasattr(nix_obj, "metadata"):
+            metadata = self.nix_file.create_section(
+                    nix_obj.name, nix_obj.type+".metadata")
+            nix_obj.metadata = metadata
+        return nix_obj.metadata
 
     @staticmethod
     def _equals(neo_obj, nix_obj, cascade=True):
