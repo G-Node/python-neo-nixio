@@ -22,10 +22,6 @@ except ImportError:
                       "The NixIO requires the Python bindings for NIX.")
 
 
-# NOTE: Relying on the following dictionary breaks down once we have even the
-#  slightest bit of deviation from direct mapping. For instance, even though
-#  neo.Block.rec_datetime maps directly to nix.Block.created_at, the mapping
-#  relies on a conversion between a datetime object and an integer timestamp
 attribute_mappings = {"name": "name",
                       "description": "definition"}
 container_mappings = {"segments": "groups",
