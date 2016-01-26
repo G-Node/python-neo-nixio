@@ -61,6 +61,9 @@ class NixIOTest(unittest.TestCase):
         self.assertEqual(nix_group.definition, neo_segment.description)
         self.assertTrue(NixIO._equals(neo_segment, nix_group))
 
+    def test_recording_channel_group(self):
+        self.fail("Implement RCG write test.")
+
     def test_missing_block(self):
         neo_block = Block(name="test_block", description="block for testing")
         neo_segment = Segment(name="test_segment",
