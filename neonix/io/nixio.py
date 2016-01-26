@@ -14,7 +14,7 @@ import quantities as pq
 from datetime import datetime
 
 from neo.io.baseio import BaseIO
-from neo.core import Block, Segment
+from neo.core import Block, Segment, RecordingChannelGroup
 
 try:
     import nix
@@ -40,9 +40,9 @@ class NixIO(BaseIO):
     is_readable = False  # for now
     is_writable = True
 
-    supported_objects = [Block, Segment]
+    supported_objects = [Block, Segment, RecordingChannelGroup]
     readable_objects = []
-    writeable_objects = [Block, Segment]
+    writeable_objects = [Block, Segment, RecordingChannelGroup]
 
     name = "NIX"
     extensions = ["h5"]
