@@ -53,7 +53,6 @@ class NixIO(BaseIO):
         Initialise IO instance and NIX file.
 
         :param filename: full path to the file
-        :return:
         """
         BaseIO.__init__(self, filename=None)
         self.filename = filename
@@ -65,11 +64,11 @@ class NixIO(BaseIO):
 
     def write_block(self, neo_block, cascade=True):
         """
-        Write the provided block to the self.filename
+        Convert ``neo_block`` to the NIX equivalent and write it to file.
+        If ``cascade`` is True write all the block's child objects as well.
 
         :param neo_block: Neo block to be written
         :param cascade: save all child objects (default: True)
-        :return:
         """
         nix_name = neo_block.name
         nix_type = "neo.block"
@@ -97,8 +96,11 @@ class NixIO(BaseIO):
 
     def write_segment(self, segment, parent_block):
         """
-        Write the provided Segment to the NIX file as a child of the equivalent
-        NIX block to the provided Neo parent_block.
+        Write the provided ``segment`` Neo object to the NIX file.
+        Neo ``segment`` objects are converted to ``Group`` objects in NIX.
+        The ``parent_block`` must be a Neo Block object, which is used to
+        find the equivalent NIX ``Block`` in the file where the NIX ``Group``
+        will be added.
 
         :param segment: Neo Segment to be written
         :param parent_block: The parent neo block of the provided Segment
@@ -117,13 +119,15 @@ class NixIO(BaseIO):
 
     def write_recordingchannelgroup(self, rcg, parent_block):
         """
-        Write the provided RecordingChannelGroup to the NIX file as a child of
-        the equivalent NIX block to the provided Neo parent_block.
+        Write the provided ``rcg`` (RecordingChannelGroup) Neo object to the
+        NIX file. Neo ``RecordingChannelGroup`` objects are converted to
+        ``Source`` objects in NIX. The ``parent_block`` must be a Neo Block
+        object, which is used to find the equivalent NIX ``Block`` in the file
+         where the NIX ``Source`` will be added.
 
         :param rcg: Neo RecordingChannelGroup to be written
         :param parent_block: The parent neo block of the provided
             RecordingChannelGroup
-        :return:
         """
         for nix_block in self.nix_file.blocks:
             if NixIO._equals(parent_block, nix_block, False):
@@ -139,12 +143,11 @@ class NixIO(BaseIO):
     @staticmethod
     def add_segment(segment, parent_block):
         """
-        Write the provided segment to the NIX file as a child of parent_block.
-        The neo.Segment object is added to the nix.Block as a nix.Group object.
+        Write the provided ``segment`` to the NIX file as a child of
+        parent_block after converting to a ``Group`` object.
 
         :param segment: Neo segment to be written
         :param parent_block: The parent NIX block
-        :return:
         """
         nix_name = segment.name
         nix_type = "neo.segment"
@@ -155,13 +158,11 @@ class NixIO(BaseIO):
     @staticmethod
     def add_recordingchannelgroup(rcg, parent_block):
         """
-        Write the provided RecordingChannelGroup (rcg) to the NIX file as a
-        child of parent_block. The neo.RecordingChannelGroup is added to the
-        nix.Block as a nix.Source object.
+        Write the provided ``rcg`` (RecordingChannelGroup) to the NIX file as
+        a child of ``parent_block`` after converting to a ``Source`` object.
 
         :param rcg: The Neo rcg to be written
         :param parent_block: The parent neo block of the provided rcg
-        :return:
         """
         nix_name = rcg.name
         nix_type = "neo.recordingchannelgroup"
@@ -185,11 +186,11 @@ class NixIO(BaseIO):
     @staticmethod
     def _equals(neo_obj, nix_obj, cascade=True):
         """
-        Returns 'true' if the attributes of the neo object (neo_obj) match the
-        attributes of the nix object (nix_obj)
+        Returns ``True`` if the attributes of ``neo_obj`` match the attributes
+        of the ``nix_obj``.
 
-        :param neo_obj: a neo object (block, segment, etc.)
-        :param nix_obj: a nix object to compare to (block, group, etc.)
+        :param neo_obj: a Neo object (block, segment, etc.)
+        :param nix_obj: a NIX object to compare to (block, group, etc.)
         :param cascade: test all child objects for equivalence recursively
                         (default: True)
         :return: true if the attributes and child objects (if cascade=True)
