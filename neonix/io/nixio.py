@@ -155,14 +155,14 @@ class NixIO(BaseIO):
             # Truncating timestamp to seconds
             nix_group.force_created_at(int(segment.rec_datetime.timestamp()))
         if segment.file_datetime:
-            block_metadata = self._get_or_init_metadata(parent_block)
+            group_metadata = self._get_or_init_metadata(nix_group)
             # Truncating timestamp to seconds
-            block_metadata.create_property(
+            group_metadata .create_property(
                     "neo.file_datetime",
                     nix.Value(int(segment.file_datetime.timestamp())))
         if segment.file_origin:
-            block_metadata = self._get_or_init_metadata(parent_block)
-            block_metadata.create_property("neo.file_origin",
+            group_metadata = self._get_or_init_metadata(nix_group)
+            group_metadata.create_property("neo.file_origin",
                                            nix.Value(segment.file_origin))
         return nix_group
 
@@ -181,9 +181,9 @@ class NixIO(BaseIO):
         nix_source = parent_block.create_source(nix_name, nix_type)
         nix_source.definition = nix_definition
         if rcg.file_origin:
-            block_metadata = self._get_or_init_metadata(parent_block)
-            block_metadata.create_property("neo.file_origin",
-                                           nix.Value(rcg.file_origin))
+            source_metadata = self._get_or_init_metadata(nix_source)
+            source_metadata.create_property("neo.file_origin",
+                                            nix.Value(rcg.file_origin))
         if hasattr(rcg, "coordinates"):
             source_metadata = self._get_or_init_metadata(nix_source)
             coordinates = rcg.coordinates  # should this be copied?
