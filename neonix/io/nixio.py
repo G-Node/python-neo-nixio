@@ -103,7 +103,6 @@ class NixIO(BaseIO):
 
         :param segment: Neo Segment to be written
         :param parent_block: The parent neo block of the provided Segment
-        :return:
         """
         for nix_block in self.nix_file.blocks:
             if NixIO._equals(parent_block, nix_block, False):
