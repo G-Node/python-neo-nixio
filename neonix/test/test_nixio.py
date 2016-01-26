@@ -15,8 +15,6 @@ from neo.core import Block, Segment, RecordingChannelGroup
 
 from neonix.io.nixio import NixIO
 
-# TODO: Test for basic attribute equivalence in all objects
-#  (name, definition, etc).
 
 class NixIOTest(unittest.TestCase):
 
