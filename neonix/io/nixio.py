@@ -95,8 +95,49 @@ class NixIO(BaseIO):
             for rcg in neo_block.recordingchannelgroups:
                 NixIO.write_rcg(rcg, nix_block)
 
+    def write_segment(self, segment, parent_block):
+        """
+        Write the provided Segment to the NIX file as a child of the equivalent
+        NIX block to the provided Neo parent_block.
+
+        :param segment: Neo Segment to be written
+        :param parent_block: The parent neo block of the provided Segment
+        :return:
+        """
+        for nix_block in self.nix_file.blocks:
+            if NixIO._equals(parent_block, nix_block, False):
+                nix_block = self.nix_file.blocks[0]
+                NixIO.add_segment(segment, nix_block)
+                break
+        else:
+            raise LookupError(
+                    "Parent Block with name '{}' for Segment with "
+                    "name '{}' does not exist in file '{}'.".format(
+                            parent_block.name, segment.name, self.filename))
+
+    def write_recordingchannelgroup(self, rcg, parent_block):
+        """
+        Write the provided RecordingChannelGroup to the NIX file as a child of
+        the equivalent NIX block to the provided Neo parent_block.
+
+        :param rcg: Neo RecordingChannelGroup to be written
+        :param parent_block: The parent neo block of the provided
+            RecordingChannelGroup
+        :return:
+        """
+        for nix_block in self.nix_file.blocks:
+            if NixIO._equals(parent_block, nix_block, False):
+                nix_block = self.nix_file.blocks[0]
+                NixIO.add_recordingchannelgroup(rcg, nix_block)
+                break
+        else:
+            raise LookupError(
+                    "Parent Block with name '{}' for RecordingChannelGroup "
+                    "with name '{}' does not exist in file '{}'.".format(
+                            parent_block.name, rcg.name, self.filename))
+
     @staticmethod
-    def write_segment(segment, parent_block):
+    def add_segment(segment, parent_block):
         """
         Write the provided segment to the NIX file as a child of parent_block.
         The neo.Segment object is added to the nix.Block as a nix.Group object.
@@ -112,7 +153,7 @@ class NixIO(BaseIO):
         nix_group.definition = nix_definition
 
     @staticmethod
-    def write_rcg(rcg, parent_block):
+    def add_recordingchannelgroup(rcg, parent_block):
         """
         Write the provided RecordingChannelGroup (rcg) to the NIX file as a
         child of parent_block. The neo.RecordingChannelGroup is added to the
