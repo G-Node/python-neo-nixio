@@ -184,6 +184,11 @@ class NixIO(BaseIO):
             block_metadata = self._get_or_init_metadata(parent_block)
             block_metadata.create_property("neo.file_origin",
                                            nix.Value(rcg.file_origin))
+        if hasattr(rcg, "coordinates"):
+            source_metadata = self._get_or_init_metadata(nix_source)
+            coordinates = rcg.coordinates  # should this be copied?
+            source_metadata.create_property("neo.coordinates",
+                                            nix.Value(coordinates))
         return nix_source
 
     def _get_or_init_metadata(self, nix_obj):
