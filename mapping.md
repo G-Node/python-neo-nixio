@@ -18,7 +18,7 @@ Maps directly to `nix.Block`.
     Maps directly to nix.Block.groups(**Group**[]).
     See the [neo.Segment](#neosegment) section for details.
     - neo.Block.recordingchannelgroups(**RecordingChannelGroup**[]):  
-    Maps to neo.Block.sources(**Source**[]) with `type = "neo.recordingchannelgroup"`.
+    Maps to nix.Block.sources(**Source**[]) with `type = "neo.recordingchannelgroup"`.
     See the [neo.RecordingChannelGroup](#neorecordingchannelgroup) section for details.
 
 
