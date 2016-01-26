@@ -156,8 +156,21 @@ class NixIO(BaseIO):
             nix_attr = getattr(nix_obj, nix_attr_name, None)
             if neo_attr != nix_attr:
                 return False
-        else:
-            return True
+
+        if neo_obj.rec_datetime and\
+                (int(neo_obj.rec_datetime.timestamp()) != nix_obj.created_at):
+            return False
+
+        if neo_obj.file_datetime and\
+                (int(neo_obj.file_datetime.timestamp()) !=
+                 nix_obj.metadata["neo.file_datetime"]):
+            return False
+
+        if neo_obj.file_origin and\
+                neo_obj.file_origin != nix_obj.metadata["neo.file_origin"]:
+            return False
+
+        return True
 
     @staticmethod
     def _equals_child_objects(neo_obj, nix_obj):
