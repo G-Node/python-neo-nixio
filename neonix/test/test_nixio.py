@@ -54,8 +54,9 @@ class NixIOTest(unittest.TestCase):
         self.io.write_block(neo_block)
         neo_segment = Segment(name="test_segment",
                               description="segment for testing")
-        self.io.write_segment(neo_segment, neo_block)
-        nix_group = self.io.nix_file.blocks[0].groups[0]
+        nix_block = self.io.nix_file.blocks[0]
+        NixIO.write_segment(neo_segment, nix_block)
+        nix_group = nix_block.groups[0]
         self.assertEqual(nix_group.name, neo_segment.name)
         self.assertEqual(nix_group.type, "neo.segment")
         self.assertEqual(nix_group.definition, neo_segment.description)
@@ -63,13 +64,6 @@ class NixIOTest(unittest.TestCase):
 
     def test_recording_channel_group(self):
         self.fail("Implement RCG write test.")
-
-    def test_missing_block(self):
-        neo_block = Block(name="test_block", description="block for testing")
-        neo_segment = Segment(name="test_segment",
-                              description="segment for testing")
-        with self.assertRaises(LookupError):
-            self.io.write_segment(neo_segment, neo_block)
 
     def test_block_neq(self):
         neo_block = Block(name="test_block_neq",

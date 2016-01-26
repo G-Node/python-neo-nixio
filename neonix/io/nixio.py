@@ -91,41 +91,35 @@ class NixIO(BaseIO):
                                            nix.Value(neo_block.file_origin))
         if cascade:
             for segment in neo_block.segments:
-                self.write_segment(segment, neo_block)
+                NixIO.write_segment(segment, nix_block)
             for rcg in neo_block.recordingchannelgroups:
-                self.write_rcg(rcg, neo_block)
+                NixIO.write_rcg(rcg, nix_block)
 
-    def write_segment(self, segment, parent_block, cascade=True):
+    @staticmethod
+    def write_segment(segment, parent_block):
         """
-        Write the provided segment to the NIX file, as a child of parent_block
+        Write the provided segment to the NIX file as a child of parent_block.
+        The neo.Segment object is added to the nix.Block as a nix.Group object.
 
         :param segment: Neo segment to be written
-        :param parent_block: The parent neo block of the provided segment
-        :param cascade: Save all child objects (default: True)
+        :param parent_block: The parent NIX block
         :return:
         """
         nix_name = segment.name
         nix_type = "neo.segment"
         nix_definition = segment.description
-        for nix_block in self.nix_file.blocks:
-            if NixIO._equals(parent_block, nix_block, False):
-                nix_block = self.nix_file.blocks[0]
-                nix_group = nix_block.create_group(nix_name, nix_type)
-                nix_group.definition = nix_definition
-                break
-        else:
-            raise LookupError("Parent block with name '{}' for segment with "
-                              "name '{}' does not exist in file '{}'.".format(
-                                parent_block.name, segment.name, self.filename))
+        nix_group = parent_block.create_group(nix_name, nix_type)
+        nix_group.definition = nix_definition
 
-    def write_rcg(self, rcg, parent_block, cascade=True):
+    @staticmethod
+    def write_rcg(rcg, parent_block):
         """
         Write the provided RecordingChannelGroup (rcg) to the NIX file as a
-        child of parent_block
+        child of parent_block. The neo.RecordingChannelGroup is added to the
+        nix.Block as a nix.Source object.
 
         :param rcg: The Neo rcg to be written
         :param parent_block: The parent neo block of the provided rcg
-        :param cascade: Save all child objects (default: True)
         :return:
         """
         nix_name = rcg.name
