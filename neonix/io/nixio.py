@@ -77,15 +77,18 @@ class NixIO(BaseIO):
         nix_block = self.nix_file.create_block(nix_name, nix_type)
         nix_block.definition = nix_definition
         if neo_block.rec_datetime:
-            nix_block.created_at = neo_block.rec_datetime.timestamp()
+            # Truncating timestamp to seconds
+            nix_block.force_created_at(int(neo_block.rec_datetime.timestamp()))
         if neo_block.file_datetime:
             block_metadata = self._get_or_init_metadata(nix_block)
-            block_metadata.create_property("neo.file_datetime",
-                                           neo_block.file_datetime.timestamp())
+            # Truncating timestamp to seconds
+            block_metadata.create_property(
+                    "neo.file_datetime",
+                    nix.Value(int(neo_block.file_datetime.timestamp())))
         if neo_block.file_origin:
             block_metadata = self._get_or_init_metadata(nix_block)
             block_metadata.create_property("neo.file_origin",
-                                           neo_block.file_origin)
+                                           nix.Value(neo_block.file_origin))
         if cascade:
             for segment in neo_block.segments:
                 self.write_segment(segment, neo_block)
@@ -121,10 +124,9 @@ class NixIO(BaseIO):
         :param nix_obj: The object to which the Section is attached.
         :return: The metadata section of the provided object.
         """
-        if not hasattr(nix_obj, "metadata"):
-            metadata = self.nix_file.create_section(
+        if nix_obj.metadata is None:
+            nix_obj.metadata = self.nix_file.create_section(
                     nix_obj.name, nix_obj.type+".metadata")
-            nix_obj.metadata = metadata
         return nix_obj.metadata
 
     @staticmethod
