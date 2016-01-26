@@ -28,7 +28,8 @@ except ImportError:
 #  relies on a conversion between a datetime object and an integer timestamp
 attribute_mappings = {"name": "name",
                       "description": "definition"}
-container_mappings = {"segments": "groups"}
+container_mappings = {"segments": "groups",
+                      "recordingchannelgroups": "sources"}
 
 
 class NixIO(BaseIO):
@@ -182,6 +183,10 @@ class NixIO(BaseIO):
         return nix_obj.metadata
 
     @staticmethod
+    def _base_mapping(neo_obj):
+        pass
+
+    @staticmethod
     def _equals(neo_obj, nix_obj, cascade=True):
         """
         Returns ``True`` if the attributes of ``neo_obj`` match the attributes
@@ -230,12 +235,14 @@ class NixIO(BaseIO):
                 in container_mappings.items():
             neo_container = getattr(neo_obj, neo_container_name, None)
             nix_container = getattr(nix_obj, nix_container_name, None)
-            if not (neo_container is nix_container is None):
-                if len(neo_container) != len(nix_container):
+            if not (neo_container or nix_container):
+                # both are empty or undefined (None)
+                continue
+            if len(neo_container) != len(nix_container):
+                return False
+            for neo_child_obj, nix_child_obj in zip(neo_container,
+                                                    nix_container):
+                if not NixIO._equals(neo_child_obj, nix_child_obj):
                     return False
-                for neo_child_obj, nix_child_obj in zip(neo_container,
-                                                        nix_container):
-                    if not NixIO._equals(neo_child_obj, nix_child_obj):
-                        return False
         else:
             return True
