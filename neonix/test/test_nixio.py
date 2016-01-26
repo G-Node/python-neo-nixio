@@ -37,16 +37,35 @@ class NixIOTest(unittest.TestCase):
         neo_block = Block(name="test_block", description="block for testing")
         neo_segment = Segment(name="test_segment",
                               description="segment for testing")
+        neo_rcg = RecordingChannelGroup(name="test_rcg",
+                                        description="rcg for testing",
+                                        channel_indexes=[])
         neo_block.segments.append(neo_segment)
+        neo_block.recordingchannelgroups.append(neo_rcg)
         self.io.write_block(neo_block, cascade=True)
+
         nix_block = self.io.nix_file.blocks[0]
+        nix_group = nix_block.groups[0]
+        nix_source = nix_block.sources[0]
+
+        # block -> block base attr
         self.assertEqual(nix_block.name, neo_block.name)
         self.assertEqual(nix_block.type, "neo.block")
         self.assertEqual(nix_block.definition, neo_block.description)
-        nix_group = nix_block.groups[0]
+
+        # segment -> group base attr
         self.assertEqual(nix_group.name, neo_segment.name)
         self.assertEqual(nix_group.type, "neo.segment")
         self.assertEqual(nix_group.definition, neo_segment.description)
+
+        # rcg -> source base attr
+        self.assertEqual(nix_source.name, neo_rcg.name)
+        self.assertEqual(nix_source.type, "neo.recordingchannelgroup")
+        self.assertEqual(nix_source.definition, neo_rcg.description)
+
+        # Using _equals
+        self.assertTrue(NixIO._equals(neo_segment, nix_group))
+        self.assertTrue(NixIO._equals(neo_rcg, nix_source))
         self.assertTrue(NixIO._equals(neo_block, nix_block))
 
     def test_segment(self):
@@ -54,6 +73,7 @@ class NixIOTest(unittest.TestCase):
         self.io.write_block(neo_block)
         neo_segment = Segment(name="test_segment",
                               description="segment for testing")
+        neo_block.segments.append(neo_segment)
         nix_block = self.io.nix_file.blocks[0]
         self.io.write_segment(neo_segment, neo_block)
         nix_group = nix_block.groups[0]
@@ -61,20 +81,21 @@ class NixIOTest(unittest.TestCase):
         self.assertEqual(nix_group.type, "neo.segment")
         self.assertEqual(nix_group.definition, neo_segment.description)
         self.assertTrue(NixIO._equals(neo_segment, nix_group))
+        self.assertTrue(NixIO._equals(neo_block, nix_block))
 
     def test_recording_channel_group(self):
         neo_block = Block(name="test_block", description="block for testing")
         self.io.write_block(neo_block)
-        neo_rcg = RecordingChannelGroup(name="test_segment",
-                                        description="segment for testing",
+        neo_rcg = RecordingChannelGroup(name="test_rcg",
+                                        description="rcg for testing",
                                         channel_indexes=[])
         nix_block = self.io.nix_file.blocks[0]
-        self.io.write_segment(neo_rcg, neo_block)
-        nix_group = nix_block.groups[0]
-        self.assertEqual(nix_group.name, neo_rcg.name)
-        self.assertEqual(nix_group.type, "neo.segment")
-        self.assertEqual(nix_group.definition, neo_rcg.description)
-        self.assertTrue(NixIO._equals(neo_rcg, nix_group))
+        self.io.write_recordingchannelgroup(neo_rcg, neo_block)
+        nix_source = nix_block.sources[0]
+        self.assertEqual(nix_source.name, neo_rcg.name)
+        self.assertEqual(nix_source.type, "neo.recordingchannelgroup")
+        self.assertEqual(nix_source.definition, neo_rcg.description)
+        self.assertTrue(NixIO._equals(neo_rcg, nix_source))
 
     def test_block_neq(self):
         neo_block = Block(name="test_block_neq",
