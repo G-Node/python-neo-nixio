@@ -91,9 +91,9 @@ class NixIO(BaseIO):
                                            nix.Value(neo_block.file_origin))
         if cascade:
             for segment in neo_block.segments:
-                NixIO.write_segment(segment, nix_block)
+                NixIO.add_segment(segment, nix_block)
             for rcg in neo_block.recordingchannelgroups:
-                NixIO.write_rcg(rcg, nix_block)
+                NixIO.add_recordingchannelgroup(rcg, nix_block)
 
     def write_segment(self, segment, parent_block):
         """
