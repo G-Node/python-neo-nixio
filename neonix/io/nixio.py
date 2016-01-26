@@ -92,14 +92,16 @@ class NixIO(BaseIO):
         if cascade:
             for segment in neo_block.segments:
                 self.write_segment(segment, neo_block)
+            for rcg in neo_block.recordingchannelgroups:
+                self.write_rcg(rcg, neo_block)
 
     def write_segment(self, segment, parent_block, cascade=True):
         """
-        Write the provided segment to the self.filename
+        Write the provided segment to the NIX file, as a child of parent_block
 
         :param segment: Neo segment to be written
         :param parent_block: The parent neo block of the provided segment
-        :param cascade: True/False save all child objects (default: True)
+        :param cascade: Save all child objects (default: True)
         :return:
         """
         nix_name = segment.name
@@ -115,6 +117,22 @@ class NixIO(BaseIO):
             raise LookupError("Parent block with name '{}' for segment with "
                               "name '{}' does not exist in file '{}'.".format(
                                 parent_block.name, segment.name, self.filename))
+
+    def write_rcg(self, rcg, parent_block, cascade=True):
+        """
+        Write the provided RecordingChannelGroup (rcg) to the NIX file as a
+        child of parent_block
+
+        :param rcg: The Neo rcg to be written
+        :param parent_block: The parent neo block of the provided rcg
+        :param cascade: Save all child objects (default: True)
+        :return:
+        """
+        nix_name = rcg.name
+        nix_type = "neo.recordingchannelgroup"
+        nix_definition = rcg.description
+        nix_source = parent_block.create_source(nix_name, nix_type)
+        nix_source.definition = nix_definition
 
     def _get_or_init_metadata(self, nix_obj):
         """
