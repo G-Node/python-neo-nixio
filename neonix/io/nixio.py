@@ -194,7 +194,7 @@ class NixIO(BaseIO):
         :return: true if the attributes and child objects (if cascade=True)
          of the two objects, as defined in the object mapping, are equal.
         """
-        if not NixIO._equals_attribs(neo_obj, nix_obj):
+        if not NixIO._equals_attr(neo_obj, nix_obj):
             return False
         if cascade:
             return NixIO._equals_child_objects(neo_obj, nix_obj)
@@ -202,7 +202,7 @@ class NixIO(BaseIO):
             return True
 
     @staticmethod
-    def _equals_attribs(neo_obj, nix_obj):
+    def _equals_attr(neo_obj, nix_obj):
         for neo_attr_name, nix_attr_name in attribute_mappings.items():
             neo_attr = getattr(neo_obj, neo_attr_name, None)
             nix_attr = getattr(nix_obj, nix_attr_name, None)
