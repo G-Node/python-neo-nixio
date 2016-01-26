@@ -11,7 +11,6 @@ from __future__ import absolute_import
 
 import numpy as np
 import quantities as pq
-from datetime import datetime
 
 from neo.io.baseio import BaseIO
 from neo.core import Block, Segment, RecordingChannelGroup
