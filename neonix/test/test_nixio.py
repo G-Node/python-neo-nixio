@@ -8,6 +8,7 @@
 # LICENSE file in the root of the Project.
 
 import os
+import datetime
 import unittest
 
 from neo.core import Block, Segment
@@ -98,6 +99,12 @@ class NixIOTest(unittest.TestCase):
         self.assertFalse(NixIO._equals(neo_block, nix_block))
 
     def test_metadata(self):
-        self.fail("Implement metadata test")
-        pass
-
+        neo_block = Block(name="test_block", description="block for testing")
+        neo_block.rec_datetime = datetime.datetime(year=2015, month=12, day=18,
+                                                   hour=20)
+        neo_block.file_datetime = datetime.datetime(year=2016, month=1, day=1,
+                                                    hour=15)
+        neo_block.file_origin = "test_file_origin"
+        self.io.write_block(neo_block, cascade=True)
+        nix_block = self.io.nix_file.blocks[0]
+        self.assertTrue(NixIO._equals(neo_block, nix_block))
