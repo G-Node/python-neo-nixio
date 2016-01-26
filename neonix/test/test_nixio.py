@@ -66,7 +66,8 @@ class NixIOTest(unittest.TestCase):
         neo_block = Block(name="test_block", description="block for testing")
         self.io.write_block(neo_block)
         neo_rcg = RecordingChannelGroup(name="test_segment",
-                                        description="segment for testing")
+                                        description="segment for testing",
+                                        channel_indexes=[])
         nix_block = self.io.nix_file.blocks[0]
         self.io.write_segment(neo_rcg, neo_block)
         nix_group = nix_block.groups[0]
