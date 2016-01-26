@@ -210,11 +210,11 @@ class NixIO(BaseIO):
             if neo_attr != nix_attr:
                 return False
 
-        if neo_obj.rec_datetime and\
+        if hasattr(neo_obj, "rec_datetime") and neo_obj.rec_datetime and\
                 (int(neo_obj.rec_datetime.timestamp()) != nix_obj.created_at):
             return False
 
-        if neo_obj.file_datetime and\
+        if hasattr(neo_obj, "file_datetime") and neo_obj.file_datetime and\
                 (int(neo_obj.file_datetime.timestamp()) !=
                  nix_obj.metadata["neo.file_datetime"]):
             return False
