@@ -90,9 +90,9 @@ class NixIO(BaseIO):
                                            nix.Value(neo_block.file_origin))
         if cascade:
             for segment in neo_block.segments:
-                NixIO.add_segment(segment, nix_block)
+                self.add_segment(segment, nix_block)
             for rcg in neo_block.recordingchannelgroups:
-                NixIO.add_recordingchannelgroup(rcg, nix_block)
+                self.add_recordingchannelgroup(rcg, nix_block)
 
     def write_segment(self, segment, parent_block):
         """
@@ -104,11 +104,12 @@ class NixIO(BaseIO):
 
         :param segment: Neo Segment to be written
         :param parent_block: The parent neo block of the provided Segment
+        :return: The newly created NIX Group
         """
         for nix_block in self.nix_file.blocks:
             if NixIO._equals(parent_block, nix_block, False):
                 nix_block = self.nix_file.blocks[0]
-                NixIO.add_segment(segment, nix_block)
+                return self.add_segment(segment, nix_block)
                 break
         else:
             raise LookupError(
@@ -127,11 +128,12 @@ class NixIO(BaseIO):
         :param rcg: Neo RecordingChannelGroup to be written
         :param parent_block: The parent neo block of the provided
             RecordingChannelGroup
+        :return: The newly created NIX Source
         """
         for nix_block in self.nix_file.blocks:
             if NixIO._equals(parent_block, nix_block, False):
                 nix_block = self.nix_file.blocks[0]
-                NixIO.add_recordingchannelgroup(rcg, nix_block)
+                return self.add_recordingchannelgroup(rcg, nix_block)
                 break
         else:
             raise LookupError(
@@ -139,35 +141,54 @@ class NixIO(BaseIO):
                     "with name '{}' does not exist in file '{}'.".format(
                             parent_block.name, rcg.name, self.filename))
 
-    @staticmethod
-    def add_segment(segment, parent_block):
+    def add_segment(self, segment, parent_block):
         """
         Write the provided ``segment`` to the NIX file as a child of
         parent_block after converting to a ``Group`` object.
 
         :param segment: Neo segment to be written
-        :param parent_block: The parent NIX block
+        :param parent_block: The parent NIX Block
+        :return: The newly created NIX Group
         """
         nix_name = segment.name
         nix_type = "neo.segment"
         nix_definition = segment.description
         nix_group = parent_block.create_group(nix_name, nix_type)
         nix_group.definition = nix_definition
+        if segment.rec_datetime:
+            # Truncating timestamp to seconds
+            nix_group.force_created_at(int(segment.rec_datetime.timestamp()))
+        if segment.file_datetime:
+            block_metadata = self._get_or_init_metadata(parent_block)
+            # Truncating timestamp to seconds
+            block_metadata.create_property(
+                    "neo.file_datetime",
+                    nix.Value(int(segment.file_datetime.timestamp())))
+        if segment.file_origin:
+            block_metadata = self._get_or_init_metadata(parent_block)
+            block_metadata.create_property("neo.file_origin",
+                                           nix.Value(segment.file_origin))
+        return nix_group
 
-    @staticmethod
-    def add_recordingchannelgroup(rcg, parent_block):
+    def add_recordingchannelgroup(self, rcg, parent_block):
         """
         Write the provided ``rcg`` (RecordingChannelGroup) to the NIX file as
         a child of ``parent_block`` after converting to a ``Source`` object.
 
         :param rcg: The Neo rcg to be written
         :param parent_block: The parent neo block of the provided rcg
+        :return: The newly created NIX Source.
         """
         nix_name = rcg.name
         nix_type = "neo.recordingchannelgroup"
         nix_definition = rcg.description
         nix_source = parent_block.create_source(nix_name, nix_type)
         nix_source.definition = nix_definition
+        if rcg.file_origin:
+            block_metadata = self._get_or_init_metadata(parent_block)
+            block_metadata.create_property("neo.file_origin",
+                                           nix.Value(rcg.file_origin))
+        return nix_source
 
     def _get_or_init_metadata(self, nix_obj):
         """
