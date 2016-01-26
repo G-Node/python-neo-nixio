@@ -101,5 +101,3 @@ class NixIOTest(unittest.TestCase):
         self.fail("Implement metadata test")
         pass
 
-if __name__ == "__main__":
-    unittest.main()
