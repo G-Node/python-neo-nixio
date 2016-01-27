@@ -207,27 +207,72 @@ class NixIO(BaseIO):
 
         :param anasig: The Neo AnalogSignal to be written
         :param parent_group: The parent NIX Group
+        :param parent_block: The parent NIX Block under which the DataArray is
+            created
         :return: The newly created NIX DataArray.
         """
         nix_name = anasig.name
         nix_type = "neo.analogsignal"
         nix_definition = anasig.description
         nix_data_array = parent_block.create_data_array(nix_name, nix_type)
+        parent_group.data_arrays.append(nix_data_array)
         nix_data_array.definition = nix_definition
         if anasig.file_origin:
             darray_metadata = self._get_or_init_metadata(nix_data_array)
             darray_metadata.create_property("file_origin",
                                             nix.Value(anasig.file_origin))
-        data = NixIO._convert_signal_data(anasig)
-        units = str(anasig.units)
-        offset = anasig.t_start.rescale(units).item()
-        sampling_interval = anasig.sampling_period.rescale(units).item()
 
+        # data
+        data = NixIO._convert_signal_data(anasig)
+        data.unit = str(anasig.units)
         nix_data_array.append(data)
+
+        # dimensions
+        time_units = str(anasig.sampling_period.units)
+        offset = anasig.t_start.rescale(time_units).item()
+        sampling_interval = anasig.sampling_period.item()
+
         timedim = nix_data_array.append_sampled_dimension(sampling_interval)
-        timedim.unit = units
+        timedim.unit = time_units
         timedim.label = "time"
         timedim.offset = offset
+        chandim = nix_data_array.append_set_dimension()
+        return nix_data_array
+
+    def add_irregularlysampledsignal(self, irsig, parent_group, parent_block):
+        """
+        Write the provided ``irsig`` (IrregularlySampledSignal) to the NIX file
+        as a child of ``parent_group`` after converting to a ``DataArray``
+        object.
+
+        :param irsig: The Neo IrregularlySampledSignal to be written
+        :param parent_group: The parent NIX Group
+        :param parent_block: The parent NIX Block under which the DataArray is
+            created
+        :return: The newly created NIX DataArray.
+        """
+        nix_name = irsig.name
+        nix_type = "neo.irregularlysampledsignal"
+        nix_definition = irsig.description
+        nix_data_array = parent_block.create_data_array(nix_name, nix_type)
+        parent_group.data_arrays.append(nix_data_array)
+        nix_data_array.definition = nix_definition
+        if irsig.file_origin:
+            darray_metadata = self._get_or_init_metadata(nix_data_array)
+            darray_metadata.create_property("file_origin",
+                                            nix.Value(irsig.file_origin))
+
+        # data
+        data = NixIO._convert_signal_data(irsig)
+        data.unit = str(irsig.units)
+        nix_data_array.append(data)
+
+        # dimensions
+        times = irsig.times.magnitude.tolist()
+        time_units = str(irsig.times.units)
+        timedim = nix_data_array.append_range_dimension(times)
+        timedim.unit = time_units
+        timedim.label = "time"
         chandim = nix_data_array.append_set_dimension()
         return nix_data_array
 
