@@ -195,9 +195,9 @@ class NixIO(BaseIO):
                                             nix.Value(rcg.file_origin))
         if hasattr(rcg, "coordinates"):
             source_metadata = self._get_or_init_metadata(nix_source)
-            coordinates = rcg.coordinates  # should this be copied?
+            nix_coordinates = NixIO._copy_coordinates(rcg.coordinates)
             source_metadata.create_property("coordinates",
-                                            nix.Value(coordinates))
+                                            nix_coordinates)
         return nix_source
 
     def add_analogsignal(self, anasig, parent_group, parent_block):
@@ -293,3 +293,8 @@ class NixIO(BaseIO):
                     return False
         else:
             return True
+
+    @staticmethod
+    def _copy_coordinates(neo_coords):
+        nix_coords = nix.Value(0)
+        return nix_coords

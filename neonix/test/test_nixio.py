@@ -40,6 +40,7 @@ class NixIOTest(unittest.TestCase):
         neo_rcg = RecordingChannelGroup(name="test_rcg",
                                         description="rcg for testing",
                                         channel_indexes=[])
+        neo_rcg.coordinates = []
         neo_block.segments.append(neo_segment)
         neo_block.recordingchannelgroups.append(neo_rcg)
         self.io.write_block(neo_block, cascade=True)
