@@ -113,30 +113,6 @@ class NixIO(BaseIO):
                     "name '{}' does not exist in file '{}'.".format(
                             parent_block.name, segment.name, self.filename))
 
-    def write_recordingchannelgroup(self, rcg, parent_block):
-        """
-        Write the provided ``rcg`` (RecordingChannelGroup) Neo object to the
-        NIX file. Neo ``RecordingChannelGroup`` objects are converted to
-        ``Source`` objects in NIX. The ``parent_block`` must be a Neo Block
-        object, which is used to find the equivalent NIX ``Block`` in the file
-         where the NIX ``Source`` will be added.
-
-        :param rcg: Neo RecordingChannelGroup to be written
-        :param parent_block: The parent neo block of the provided
-            RecordingChannelGroup
-        :return: The newly created NIX Source
-        """
-        for nix_block in self.nix_file.blocks:
-            if NixIO._equals(parent_block, nix_block, False):
-                nix_block = self.nix_file.blocks[0]
-                return self.add_recordingchannelgroup(rcg, nix_block)
-                break
-        else:
-            raise LookupError(
-                    "Parent Block with name '{}' for RecordingChannelGroup "
-                    "with name '{}' does not exist in file '{}'.".format(
-                            parent_block.name, rcg.name, self.filename))
-
     def add_segment(self, segment, parent_block):
         """
         Write the provided ``segment`` to the NIX file as a child of
@@ -165,6 +141,30 @@ class NixIO(BaseIO):
             group_metadata.create_property("neo.file_origin",
                                            nix.Value(segment.file_origin))
         return nix_group
+
+    def write_recordingchannelgroup(self, rcg, parent_block):
+        """
+        Write the provided ``rcg`` (RecordingChannelGroup) Neo object to the
+        NIX file. Neo ``RecordingChannelGroup`` objects are converted to
+        ``Source`` objects in NIX. The ``parent_block`` must be a Neo Block
+        object, which is used to find the equivalent NIX ``Block`` in the file
+         where the NIX ``Source`` will be added.
+
+        :param rcg: Neo RecordingChannelGroup to be written
+        :param parent_block: The parent neo block of the provided
+            RecordingChannelGroup
+        :return: The newly created NIX Source
+        """
+        for nix_block in self.nix_file.blocks:
+            if NixIO._equals(parent_block, nix_block, False):
+                nix_block = self.nix_file.blocks[0]
+                return self.add_recordingchannelgroup(rcg, nix_block)
+                break
+        else:
+            raise LookupError(
+                    "Parent Block with name '{}' for RecordingChannelGroup "
+                    "with name '{}' does not exist in file '{}'.".format(
+                            parent_block.name, rcg.name, self.filename))
 
     def add_recordingchannelgroup(self, rcg, parent_block):
         """
