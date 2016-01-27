@@ -332,6 +332,7 @@ class NixIO(BaseIO):
         :param nix_obj: The object to which the Section is attached.
         :return: The metadata section of the provided object.
         """
+        # TODO: Metadata section tree should mirror neo object structure
         if nix_obj.metadata is None:
             nix_obj.metadata = self.nix_file.create_section(
                     nix_obj.name, nix_obj.type+".metadata")
