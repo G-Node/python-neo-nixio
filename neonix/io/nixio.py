@@ -60,8 +60,8 @@ class NixIO(BaseIO):
 
     def write_block(self, neo_block, cascade=True):
         """
-        Convert ``neo_block`` to the NIX equivalent and write it to file.
-        If ``cascade`` is True write all the block's child objects as well.
+        Convert ``neo_block`` to the NIX equivalent and write it to the file.
+        If ``cascade`` is True, write all the block's child objects as well.
 
         :param neo_block: Neo block to be written
         :param cascade: save all child objects (default: True)
@@ -89,6 +89,17 @@ class NixIO(BaseIO):
                 self.add_segment(segment, nix_block)
             for rcg in neo_block.recordingchannelgroups:
                 self.add_recordingchannelgroup(rcg, nix_block)
+
+    def write_all_blocks(self, neo_blocks, cascade=True):
+        """
+        Convert all ``neo_blocks`` to the NIX equivalent and write them to the
+        file. If ``cascade`` is True, write all child objects as well.
+
+        :param neo_blocks: list (or iterable) containing Neo blocks
+        :param cascade: save all child objects (default: True)
+        """
+        for nb in neo_blocks:
+            self.write_block(nb, cascade)
 
     def write_segment(self, segment, parent_block):
         """

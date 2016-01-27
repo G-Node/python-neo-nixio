@@ -68,6 +68,9 @@ class NixIOTest(unittest.TestCase):
         self.assertTrue(NixIO._equals(neo_rcg, nix_source))
         self.assertTrue(NixIO._equals(neo_block, nix_block))
 
+    def test_multiple_blocks_cascade(self):
+        self.fail("Implement multiple blocks test")
+
     def test_segment(self):
         neo_block = Block(name="test_block", description="block for testing")
         self.io.write_block(neo_block)
