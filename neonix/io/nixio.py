@@ -113,11 +113,10 @@ class NixIO(BaseIO):
         :param parent_block: The parent neo block of the provided Segment
         :return: The newly created NIX Group
         """
-        for nix_block in self.nix_file.blocks:
-            if NixIO._equals(parent_block, nix_block, False):
-                nix_block = self.nix_file.blocks[0]
-                return self.add_segment(segment, nix_block)
-                break
+        parent_name = parent_block.name
+        if parent_name in self.nix_file.blocks:
+            nix_block = self.nix_file.blocks[parent_name]
+            return self.add_segment(segment, nix_block)
         else:
             raise LookupError(
                     "Parent Block with name '{}' for Segment with "
@@ -166,11 +165,10 @@ class NixIO(BaseIO):
             RecordingChannelGroup
         :return: The newly created NIX Source
         """
-        for nix_block in self.nix_file.blocks:
-            if NixIO._equals(parent_block, nix_block, False):
-                nix_block = self.nix_file.blocks[0]
-                return self.add_recordingchannelgroup(rcg, nix_block)
-                break
+        parent_name = parent_block.name
+        if parent_name in self.nix_file.blocks:
+            nix_block = self.nix_file.blocks[parent_name]
+            return self.add_recordingchannelgroup(rcg, nix_block)
         else:
             raise LookupError(
                     "Parent Block with name '{}' for RecordingChannelGroup "
