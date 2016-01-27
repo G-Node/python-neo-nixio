@@ -214,10 +214,6 @@ class NixIO(BaseIO):
         return nix_obj.metadata
 
     @staticmethod
-    def _base_mapping(neo_obj):
-        pass
-
-    @staticmethod
     def _equals(neo_obj, nix_obj, cascade=True):
         """
         Returns ``True`` if the attributes of ``neo_obj`` match the attributes
