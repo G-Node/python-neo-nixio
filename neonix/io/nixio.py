@@ -312,4 +312,7 @@ class NixIO(BaseIO):
 
     @staticmethod
     def _convert_signal_data(signal):
-        return []
+        data = []
+        for chan in signal:
+            data.append(chan.magnitude)
+        return np.array(data)
