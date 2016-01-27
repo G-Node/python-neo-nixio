@@ -180,8 +180,8 @@ class NixIO(BaseIO):
         Write the provided ``rcg`` (RecordingChannelGroup) to the NIX file as
         a child of ``parent_block`` after converting to a ``Source`` object.
 
-        :param rcg: The Neo rcg to be written
-        :param parent_block: The parent neo block of the provided rcg
+        :param rcg: The Neo RecordingChannelGroup to be written
+        :param parent_block: The parent NIX Block
         :return: The newly created NIX Source.
         """
         nix_name = rcg.name
@@ -199,6 +199,26 @@ class NixIO(BaseIO):
             source_metadata.create_property("neo.coordinates",
                                             nix.Value(coordinates))
         return nix_source
+
+    def add_analogsignal(self, anasig, parent_group, parent_block):
+        """
+        Write the provided ``anasig`` (AnalogSignal) to the NIX file as a child
+        of ``parent_group`` after converting to a ``DataArray`` object.
+
+        :param anasig: The Neo AnalogSignal to be written
+        :param parent_group: The parent NIX Group
+        :return: The newly created NIX DataArray.
+        """
+        nix_name = anasig.name
+        nix_type = "neo.analogsignal"
+        nix_definition = anasig.description
+        nix_data_array = parent_block.create_data_array(nix_name, nix_type)
+        nix_data_array.definition = nix_definition
+        if anasig.file_origin:
+            darray_metadata = self._get_or_init_metadata(nix_data_array)
+            darray_metadata.create_property("file_origin",
+                                            nix.Value(anasig.file_origin))
+        return nix_data_array
 
     def _get_or_init_metadata(self, nix_obj):
         """
