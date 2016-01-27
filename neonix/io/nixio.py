@@ -277,6 +277,53 @@ class NixIO(BaseIO):
         chandim = nix_data_array.append_set_dimension()
         return nix_data_array
 
+    def add_epoch(self, ep, parent_group, parent_block):
+        """
+        Write the provided ``ep`` (Epoch) to the NIX file as a child of
+        ``parent_group`` after converting to a ``MultiTag`` object.
+
+        :param ep: The Neo Epoch to be written
+        :param parent_group: The parent NIX Group
+        :param parent_block: The parent NIX Block under which the DataArray is
+            created
+        :return: The newly created NIX MultiTag.
+        """
+
+    def add_event(self, ev, parent_group, parent_block):
+        """
+        Write the provided ``ev`` (Event) to the NIX file as a child of
+        ``parent_group`` after converting to a ``MultiTag`` object.
+
+        :param ev: The Neo Event to be written
+        :param parent_group: The parent NIX Group
+        :param parent_block: The parent NIX Block under which the DataArray is
+            created
+        :return: The newly created NIX MultiTag.
+        """
+
+    def add_spiketrain(self, sptr, parent_group, parent_block):
+        """
+        Write the provided ``sptr`` (SpikeTrain) to the NIX file as a child of
+        ``parent_group`` after converting to a ``MultiTag`` object.
+
+        :param sptr: The Neo SpikeTrain to be written
+        :param parent_group: The parent NIX Group
+        :param parent_block: The parent NIX Block under which the DataArray is
+            created
+        :return: The newly created NIX MultiTag.
+        """
+
+    def add_unit(self, ut, parent_block):
+        """
+        Write the provided ``ut`` (Unit) to the NIX file as a child of
+        ``parent_block`` after converting to a ``Source`` object.
+
+        :param ut: The Neo Unit to be written
+        :param parent_block: The parent NIX Block under which the DataArray is
+            created
+        :return: The newly created NIX Source.
+        """
+
     def _get_or_init_metadata(self, nix_obj):
         """
         Creates a metadata Section for the provided NIX object if it doesn't
