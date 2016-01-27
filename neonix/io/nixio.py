@@ -78,11 +78,11 @@ class NixIO(BaseIO):
             block_metadata = self._get_or_init_metadata(nix_block)
             # Truncating timestamp to seconds
             block_metadata.create_property(
-                    "neo.file_datetime",
+                    "file_datetime",
                     nix.Value(int(neo_block.file_datetime.timestamp())))
         if neo_block.file_origin:
             block_metadata = self._get_or_init_metadata(nix_block)
-            block_metadata.create_property("neo.file_origin",
+            block_metadata.create_property("file_origin",
                                            nix.Value(neo_block.file_origin))
         if cascade:
             for segment in neo_block.segments:
@@ -144,11 +144,11 @@ class NixIO(BaseIO):
             group_metadata = self._get_or_init_metadata(nix_group)
             # Truncating timestamp to seconds
             group_metadata .create_property(
-                    "neo.file_datetime",
+                    "file_datetime",
                     nix.Value(int(segment.file_datetime.timestamp())))
         if segment.file_origin:
             group_metadata = self._get_or_init_metadata(nix_group)
-            group_metadata.create_property("neo.file_origin",
+            group_metadata.create_property("file_origin",
                                            nix.Value(segment.file_origin))
         return nix_group
 
@@ -191,12 +191,12 @@ class NixIO(BaseIO):
         nix_source.definition = nix_definition
         if rcg.file_origin:
             source_metadata = self._get_or_init_metadata(nix_source)
-            source_metadata.create_property("neo.file_origin",
+            source_metadata.create_property("file_origin",
                                             nix.Value(rcg.file_origin))
         if hasattr(rcg, "coordinates"):
             source_metadata = self._get_or_init_metadata(nix_source)
             coordinates = rcg.coordinates  # should this be copied?
-            source_metadata.create_property("neo.coordinates",
+            source_metadata.create_property("coordinates",
                                             nix.Value(coordinates))
         return nix_source
 
@@ -267,11 +267,11 @@ class NixIO(BaseIO):
 
         if hasattr(neo_obj, "file_datetime") and neo_obj.file_datetime and\
                 (int(neo_obj.file_datetime.timestamp()) !=
-                 nix_obj.metadata["neo.file_datetime"]):
+                 nix_obj.metadata["file_datetime"]):
             return False
 
         if neo_obj.file_origin and\
-                neo_obj.file_origin != nix_obj.metadata["neo.file_origin"]:
+                neo_obj.file_origin != nix_obj.metadata["file_origin"]:
             return False
 
         return True
