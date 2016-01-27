@@ -218,6 +218,17 @@ class NixIO(BaseIO):
             darray_metadata = self._get_or_init_metadata(nix_data_array)
             darray_metadata.create_property("file_origin",
                                             nix.Value(anasig.file_origin))
+        data = NixIO._convert_signal_data(anasig)
+        units = str(anasig.units)
+        offset = anasig.t_start.rescale(units).item()
+        sampling_interval = anasig.sampling_period.rescale(units).item()
+
+        nix_data_array.append(data)
+        timedim = nix_data_array.append_sampled_dimension(sampling_interval)
+        timedim.unit = units
+        timedim.label = "time"
+        timedim.offset = offset
+        chandim = nix_data_array.append_set_dimension()
         return nix_data_array
 
     def _get_or_init_metadata(self, nix_obj):
@@ -298,3 +309,7 @@ class NixIO(BaseIO):
     def _copy_coordinates(neo_coords):
         nix_coords = nix.Value(0)
         return nix_coords
+
+    @staticmethod
+    def _convert_signal_data(signal):
+        return []
