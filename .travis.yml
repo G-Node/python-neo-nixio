@@ -52,16 +52,14 @@ install:
     - cd ..
 
 script:
-    - if [ $COVERALLS = 1 ]
-      then
-        nosetests -v --with-coverage --cover-tests --cover-package=neonix
-        coverage report
+    - if [ $COVERALLS = 1 ]; then
+        nosetests -v --with-coverage --cover-tests --cover-package=neonix;
+        coverage report;
       else
-        nosetests
-      fi
+        nosetests;
+      fi;
 
 after_success:
-    - if [ $COVERALLS = 1 ]
-      then
-        coveralls
-      fi
+    - if [ $COVERALLS = 1 ]; then
+        coveralls;
+      fi;
