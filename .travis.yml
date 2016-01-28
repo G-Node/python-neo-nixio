@@ -30,7 +30,7 @@ addons:
       - g++-4.8
 
 install:
-    - pip install numpy quantities
+    - pip install numpy quantities coveralls
     # nix
     - git clone https://github.com/G-Node/nix.git nix
     - cd nix
@@ -50,4 +50,7 @@ install:
     - cd ..
 
 script:
-    nosetests
+    nosetests -v --with-coverage --cover-tests --cover-package=neonix
+
+after_success:
+    coverage report
