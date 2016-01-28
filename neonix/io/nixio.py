@@ -9,6 +9,7 @@
 
 from __future__ import absolute_import
 
+from datetime import datetime
 import numpy as np
 import quantities as pq
 
@@ -26,6 +27,10 @@ attribute_mappings = {"name": "name",
                       "description": "definition"}
 container_mappings = {"segments": "groups",
                       "recordingchannelgroups": "sources"}
+
+
+def calculate_timestamp(dt):
+    return int((dt - datetime.fromtimestamp(0)).total_seconds())
 
 
 class NixIO(BaseIO):
@@ -73,13 +78,15 @@ class NixIO(BaseIO):
         nix_block.definition = nix_definition
         if neo_block.rec_datetime:
             # Truncating timestamp to seconds
-            nix_block.force_created_at(int(neo_block.rec_datetime.timestamp()))
+            nix_block.force_created_at(
+                    calculate_timestamp(neo_block.rec_datetime))
         if neo_block.file_datetime:
             block_metadata = self._get_or_init_metadata(nix_block)
             # Truncating timestamp to seconds
             block_metadata.create_property(
                     "file_datetime",
-                    nix.Value(int(neo_block.file_datetime.timestamp())))
+                    nix.Value(
+                            calculate_timestamp(neo_block.file_datetime)))
         if neo_block.file_origin:
             block_metadata = self._get_or_init_metadata(nix_block)
             block_metadata.create_property("file_origin",
@@ -128,13 +135,13 @@ class NixIO(BaseIO):
         nix_group.definition = nix_definition
         if segment.rec_datetime:
             # Truncating timestamp to seconds
-            nix_group.force_created_at(int(segment.rec_datetime.timestamp()))
+            nix_group.force_created_at(calculate_timestamp(segment.rec_datetime))
         if segment.file_datetime:
             group_metadata = self._get_or_init_metadata(nix_group)
             # Truncating timestamp to seconds
             group_metadata .create_property(
                     "file_datetime",
-                    nix.Value(int(segment.file_datetime.timestamp())))
+                    nix.Value(calculate_timestamp(segment.file_datetime)))
         if segment.file_origin:
             group_metadata = self._get_or_init_metadata(nix_group)
             group_metadata.create_property("file_origin",
@@ -231,12 +238,13 @@ class NixIO(BaseIO):
                 return False
 
         if hasattr(neo_obj, "rec_datetime") and neo_obj.rec_datetime and\
-                (int(neo_obj.rec_datetime.timestamp()) != nix_obj.created_at):
+                (neo_obj.rec_datetime !=
+                 datetime.fromtimestamp(nix_obj.created_at)):
             return False
 
         if hasattr(neo_obj, "file_datetime") and neo_obj.file_datetime and\
-                (int(neo_obj.file_datetime.timestamp()) !=
-                 nix_obj.metadata["file_datetime"]):
+                (neo_obj.file_datetime !=
+                 datetime.fromtimestamp(nix_obj.metadata["file_datetime"])):
             return False
 
         if neo_obj.file_origin and\
