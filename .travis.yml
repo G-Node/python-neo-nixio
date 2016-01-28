@@ -10,6 +10,20 @@ env:
         - NIX_INCDIR=./nix/inst/include
         - export PYTHONPATH=$PYTHONPATH:$PWD/neo/:$PWD/nixpy/
 
+addons:
+  apt:
+    sources:
+      - ubuntu-toolchain-r-test
+      - kalakris-cmake
+      - boost-latest
+    packages:
+      - libcppunit-dev
+      - libboost1.55-all-dev
+      - libhdf5-serial-dev
+      - cmake
+      - g++-4.8
+
+
 install:
     - pip install numpy quantities
     # nix
