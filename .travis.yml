@@ -24,7 +24,6 @@ addons:
       - cmake
       - g++-4.8
 
-
 install:
     - pip install numpy quantities
     # nix
@@ -45,3 +44,5 @@ install:
     - python setup.py build
     - cd ..
 
+script:
+    nosetests
