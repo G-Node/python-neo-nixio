@@ -14,14 +14,14 @@ install:
     - pip install numpy quantities
     # nix
     - git clone https://github.com/G-Node/nix.git nix
-    - cd nix-build
+    - cd nix
     - cmake -DCMAKE_INSTALL_PREFIX=./inst -DBUILD_TESTING=OFF .
     - make
     - make install
     - cd ..
     # nixpy
     - git clone https://github.com/G-Node/nixpy.git nixpy
-    - cd nixpy-build
+    - cd nixpy
     - python setup.py build
     - cd ..
     # neo
