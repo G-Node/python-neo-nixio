@@ -238,12 +238,13 @@ class NixIO(BaseIO):
                 return False
 
         if hasattr(neo_obj, "rec_datetime") and neo_obj.rec_datetime and\
-                (int(neo_obj.rec_datetime.timestamp()) != nix_obj.created_at):
+                (neo_obj.rec_datetime !=
+                 datetime.fromtimestamp(nix_obj.created_at)):
             return False
 
         if hasattr(neo_obj, "file_datetime") and neo_obj.file_datetime and\
-                (int(neo_obj.file_datetime.timestamp()) !=
-                 nix_obj.metadata["file_datetime"]):
+                (neo_obj.file_datetime !=
+                 datetime.fromtimestamp(nix_obj.metadata["file_datetime"])):
             return False
 
         if neo_obj.file_origin and\
