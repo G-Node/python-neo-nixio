@@ -2,10 +2,12 @@ sudo: false
 
 language: python
 
-python:
-    - "2.7"
-    - "3.2"
-      #- "3.5"
+matrix:
+  include:
+    - python: "2.7_with_system_site_packages"
+      env: COVERALLS=1
+    - python: "3.2"
+      env: COVERALLS=0
 
 env:
     global:
@@ -50,7 +52,16 @@ install:
     - cd ..
 
 script:
-    nosetests -v --with-coverage --cover-tests --cover-package=neonix
+    - if [ $COVERALLS -eq 1 ]
+      then
+        nosetests -v --with-coverage --cover-tests --cover-package=neonix
+        coverage report
+      else
+        nosetests
+      fi
 
 after_success:
-    coverage report
+    - if [ $COVERALLS = 1 ]
+      then
+        coveralls
+      fi
