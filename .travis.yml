@@ -1,0 +1,32 @@
+sudo: false
+
+language: python
+
+env:
+    global:
+        - CC=gcc-4.8
+        - CXX=g++-4.8
+        - NIX_LIBDIR=./nix/inst/lib
+        - NIX_INCDIR=./nix/inst/include
+        - export PYTHONPATH=$PYTHONPATH:$PWD/neo/:$PWD/nixpy/
+
+install:
+    - pip install numpy quantities
+    # nix
+    - git clone https://github.com/G-Node/nix.git nix
+    - cd nix-build
+    - cmake -DCMAKE_INSTALL_PREFIX=./inst -DBUILD_TESTING=OFF .
+    - make
+    - make install
+    - cd ..
+    # nixpy
+    - git clone https://github.com/G-Node/nixpy.git nixpy
+    - cd nixpy-build
+    - python setup.py build
+    - cd ..
+    # neo
+    - git clone https://github.com/apdavison/python-neo neo
+    - cd neo
+    - python setup.py build
+    - cd ..
+
