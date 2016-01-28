@@ -8,6 +8,7 @@ env:
         - CXX=g++-4.8
         - NIX_LIBDIR=./nix/inst/lib
         - NIX_INCDIR=./nix/inst/include
+        - export PKG_CONFIG_PATH=$NIX_LIBDIR/pkgconfig
         - export PYTHONPATH=$PYTHONPATH:$PWD/neo:$PWD/nixpy
 
 addons:
