@@ -349,17 +349,23 @@ class NixIO(BaseIO):
 
         return nix_multi_tag
 
-    def _get_or_init_metadata(self, nix_obj):
+    def _get_or_init_metadata(self, nix_obj, obj_path=None):
         """
         Creates a metadata Section for the provided NIX object if it doesn't
         have one already. Returns the new or existing metadata section.
 
         :param nix_obj: The object to which the Section is attached
+        :param obj_path: Path to nix_obj
         :return: The metadata section of the provided object
         """
-        # TODO: Metadata section tree should mirror neo object structure
         if nix_obj.metadata is None:
-            nix_obj.metadata = self.nix_file.create_section(
+            if not obj_path:
+                parent_metadata = self.nix_file
+            else:
+                obj_parent = self.get_object_at(obj_path[:-1])
+                parent_metadata = self._get_or_init_metadata(obj_parent,
+                                                             obj_path[:-1])
+            nix_obj.metadata = parent_metadata.create_section(
                     nix_obj.name, nix_obj.type+".metadata")
         return nix_obj.metadata
 
