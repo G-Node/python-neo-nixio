@@ -18,7 +18,7 @@ from neo.core import Block, Segment, RecordingChannelGroup
 
 try:
     import nix
-except ImportError:
+except ImportError:  # pragma: no cover
     raise ImportError("Failed to import NIX (NIXPY not found). "
                       "The NixIO requires the Python bindings for NIX.")
 
