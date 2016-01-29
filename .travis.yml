@@ -1,0 +1,65 @@
+sudo: false
+
+language: python
+
+matrix:
+  include:
+    - python: "2.7_with_system_site_packages"
+      env: COVERALLS=1
+    - python: "3.2"
+      env: COVERALLS=0
+
+env:
+    global:
+        - CC=gcc-4.8
+        - CXX=g++-4.8
+        - NIX_LIBDIR=$PWD/nix/inst/lib
+        - NIX_INCDIR=$PWD/nix/inst/include
+        - export PKG_CONFIG_PATH=$NIX_LIBDIR/pkgconfig
+        - export PYTHONPATH=$PYTHONPATH:$PWD/neo:$PWD/nixpy
+
+addons:
+  apt:
+    sources:
+      - ubuntu-toolchain-r-test
+      - kalakris-cmake
+      - boost-latest
+    packages:
+      - libcppunit-dev
+      - libboost1.55-all-dev
+      - libhdf5-serial-dev
+      - cmake
+      - g++-4.8
+
+install:
+    - pip install numpy quantities coveralls
+    # nix
+    - git clone --depth 1 https://github.com/G-Node/nix.git nix
+    - cd nix
+    - cmake -DCMAKE_INSTALL_PREFIX=./inst -DBUILD_TESTING=OFF .
+    - make
+    - make install
+    - cd ..
+    # nixpy
+    - git clone --depth 1 https://github.com/G-Node/nixpy.git nixpy
+    - cd nixpy
+    - python setup.py build
+    - cd ..
+    # neo
+    - git clone -b analogsignal --depth 1 https://github.com/apdavison/python-neo neo
+    - cd neo
+    - python setup.py build
+    - cd ..
+
+script:
+    - if [ $COVERALLS = 1 ]; then
+        nosetests -v --with-coverage --cover-tests --cover-package=neonix;
+        coverage report;
+      else
+        nosetests;
+      fi;
+
+after_success:
+    - if [ $COVERALLS = 1 ]; then
+        coveralls;
+      fi;
