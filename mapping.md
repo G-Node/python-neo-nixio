@@ -222,6 +222,7 @@ Maps to a `nix.Source` with `type = neo.unit`.
 ## Notes:
   1. The NIX objects each hold only one `metadata` attribute.
   Neo attributes such as `file_datetime` and `file_origin` are mapped to properties within the same `nix.Section` to which the `metadata` attribute refers.
+  A metadata section is only created for a NIX object if necessary, i.e., it is not created if the Neo object attributes are not set or if the object has no children.
   The metadata section of every object is the child of the metadata section of the parent of the object.
   In the case of metadata for blocks, the sections are created at the root of the file.
   This creates a metadata tree that mirrors the data structure.
