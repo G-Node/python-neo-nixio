@@ -70,6 +70,7 @@ class NixIO(BaseIO):
 
         :param neo_block: Neo block to be written
         :param cascade: Save all child objects (default: True)
+        :return: The new NIX Block
         """
         nix_name = neo_block.name
         nix_type = "neo.block"
@@ -97,6 +98,7 @@ class NixIO(BaseIO):
                 self.write_segment(segment, object_path)
             for rcg in neo_block.recordingchannelgroups:
                 self.write_recordingchannelgroup(rcg, object_path)
+        return nix_block
 
     def write_all_blocks(self, neo_blocks, cascade=True):
         """
@@ -105,9 +107,12 @@ class NixIO(BaseIO):
 
         :param neo_blocks: List (or iterable) containing Neo blocks
         :param cascade: Save all child objects (default: True)
+        :return: A list containing the new NIX Blocks
         """
+        nix_blocks = []
         for nb in neo_blocks:
-            self.write_block(nb, cascade)
+            nix_blocks.append(self.write_block(nb, cascade))
+        return nix_blocks
 
     def write_segment(self, segment, parent_path):
         """
