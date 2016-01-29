@@ -355,6 +355,8 @@ class NixIO(BaseIO):
         :param path: List of tuples that define a location in the file.
         :return: The object at the location defined by the path.
         """
+        # NOTE: Should this be simplified to:
+        #   return parent.__getattribute__(obj_type+"s")[obj_name] ?
         parent = self.nix_file
         for obj_type, obj_name in path:
             if obj_type == "block":
