@@ -53,7 +53,7 @@ class NixIO(BaseIO):
         """
         Initialise IO instance and NIX file.
 
-        :param filename: full path to the file
+        :param filename: Full path to the file
         """
         BaseIO.__init__(self, filename=None)
         self.filename = filename
@@ -69,7 +69,7 @@ class NixIO(BaseIO):
         If ``cascade`` is True, write all the block's child objects as well.
 
         :param neo_block: Neo block to be written
-        :param cascade: save all child objects (default: True)
+        :param cascade: Save all child objects (default: True)
         """
         nix_name = neo_block.name
         nix_type = "neo.block"
@@ -103,8 +103,8 @@ class NixIO(BaseIO):
         Convert all ``neo_blocks`` to the NIX equivalent and write them to the
         file. If ``cascade`` is True, write all child objects as well.
 
-        :param neo_blocks: list (or iterable) containing Neo blocks
-        :param cascade: save all child objects (default: True)
+        :param neo_blocks: List (or iterable) containing Neo blocks
+        :param cascade: Save all child objects (default: True)
         """
         for nb in neo_blocks:
             self.write_block(nb, cascade)
@@ -115,7 +115,7 @@ class NixIO(BaseIO):
         file at the location defined by ``parent_path``.
 
         :param segment: Neo segment to be written
-        :param parent_path: Path to the parent of the new segment.
+        :param parent_path: Path to the parent of the new segment
         :return: The newly created NIX Group
         """
         parent_block = self.get_object_at(parent_path)
@@ -147,8 +147,8 @@ class NixIO(BaseIO):
         and write it to the NIX file at the location defined by ``parent_path``.
 
         :param rcg: The Neo RecordingChannelGroup to be written
-        :param parent_path: Path to the parent of the new segment.
-        :return: The newly created NIX Source.
+        :param parent_path: Path to the parent of the new segment
+        :return: The newly created NIX Source
         """
         parent_block = self.get_object_at(parent_path)
         nix_name = rcg.name
@@ -174,8 +174,8 @@ class NixIO(BaseIO):
         write it to the NIX file at the location defined by ``parent_path``.
 
         :param anasig: The Neo AnalogSignal to be written
-        :param parent_path: Path to the parent of the new segment.
-        :return: The newly created NIX DataArray.
+        :param parent_path: Path to the parent of the new segment
+        :return: The newly created NIX DataArray
         """
         parent_group = self.get_object_at(parent_path)
         parent_block = self.get_object_at(parent_path[0])
@@ -215,8 +215,8 @@ class NixIO(BaseIO):
         ``parent_path``.
 
         :param irsig: The Neo IrregularlySampledSignal to be written
-        :param parent_path: Path to the parent of the new Source.
-        :return: The newly created NIX DataArray.
+        :param parent_path: Path to the parent of the new Source
+        :return: The newly created NIX DataArray
         """
         parent_group = self.get_object_at(parent_path)
         parent_block = self.get_object_at(parent_path[0])
@@ -252,8 +252,8 @@ class NixIO(BaseIO):
         the NIX file at the location defined by ``parent_path``.
 
         :param ep: The Neo Epoch to be written
-        :param parent_path: Path to the parent of the new MultiTag.
-        :return: The newly created NIX MultiTag.
+        :param parent_path: Path to the parent of the new MultiTag
+        :return: The newly created NIX MultiTag
         """
         parent_group = self.get_object_at(parent_path)
         parent_block = self.get_object_at(parent_path[0])
@@ -277,9 +277,9 @@ class NixIO(BaseIO):
         Convert the provided ``ev`` (Event) to a NIX MultiTag and write it to
         the NIX file at the location defined by ``parent_path``.
 
-        :param ev: The Neo Event to be written.
-        :param parent_path: Path to the parent of the new MultiTag.
-        :return: The newly created NIX MultiTag.
+        :param ev: The Neo Event to be written
+        :param parent_path: Path to the parent of the new MultiTag
+        :return: The newly created NIX MultiTag
         """
         parent_group = self.get_object_at(parent_path)
         parent_block = self.get_object_at(parent_path[0])
@@ -304,8 +304,8 @@ class NixIO(BaseIO):
          it to the NIX file at the location defined by ``parent_path``.
 
         :param sptr: The Neo SpikeTrain to be written
-        :param parent_path: Path to the parent of the new MultiTag.
-        :return: The newly created NIX MultiTag.
+        :param parent_path: Path to the parent of the new MultiTag
+        :return: The newly created NIX MultiTag
         """
         parent_group = self.get_object_at(parent_path)
         parent_block = self.get_object_at(parent_path[0])
@@ -330,8 +330,8 @@ class NixIO(BaseIO):
         NIX file at the location defined by ``parent_path``.
 
         :param ut: The Neo Unit to be written
-        :param parent_path: Path to the parent of the new MultiTag.
-        :return: The newly created NIX Source.
+        :param parent_path: Path to the parent of the new MultiTag
+        :return: The newly created NIX Source
         """
         parent_group = self.get_object_at(parent_path)
         parent_block = self.get_object_at(parent_path[0])
@@ -354,8 +354,8 @@ class NixIO(BaseIO):
         Creates a metadata Section for the provided NIX object if it doesn't
         have one already. Returns the new or existing metadata section.
 
-        :param nix_obj: The object to which the Section is attached.
-        :return: The metadata section of the provided object.
+        :param nix_obj: The object to which the Section is attached
+        :return: The metadata section of the provided object
         """
         # TODO: Metadata section tree should mirror neo object structure
         if nix_obj.metadata is None:
@@ -371,8 +371,8 @@ class NixIO(BaseIO):
         Valid object type strings are: block, group, source, data_array, tag,
         multi_tag, feature.
 
-        :param path: List of tuples that define a location in the file.
-        :return: The object at the location defined by the path.
+        :param path: List of tuples that define a location in the file
+        :return: The object at the location defined by the path
         """
         # NOTE: Should this be simplified to:
         #   return parent.__getattribute__(obj_type+"s")[obj_name] ?
@@ -407,7 +407,7 @@ class NixIO(BaseIO):
         :param cascade: test all child objects for equivalence recursively
                         (default: True)
         :return: true if the attributes and child objects (if cascade=True)
-         of the two objects, as defined in the object mapping, are equal.
+         of the two objects, as defined in the object mapping, are equal
         """
         if not NixIO._equals_attr(neo_obj, nix_obj):
             return False
