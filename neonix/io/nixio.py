@@ -129,13 +129,13 @@ class NixIO(BaseIO):
             # Truncating timestamp to seconds
             nix_group.force_created_at(calculate_timestamp(segment.rec_datetime))
         if segment.file_datetime:
-            group_metadata = self._get_or_init_metadata(nix_group)
+            group_metadata = self._get_or_init_metadata(nix_group, object_path)
             # Truncating timestamp to seconds
             group_metadata .create_property(
                     "file_datetime",
                     nix.Value(calculate_timestamp(segment.file_datetime)))
         if segment.file_origin:
-            group_metadata = self._get_or_init_metadata(nix_group)
+            group_metadata = self._get_or_init_metadata(nix_group, object_path)
             group_metadata.create_property("file_origin",
                                            nix.Value(segment.file_origin))
 
@@ -158,11 +158,13 @@ class NixIO(BaseIO):
         nix_source.definition = nix_definition
         object_path = parent_path + [("source", nix_name)]
         if rcg.file_origin:
-            source_metadata = self._get_or_init_metadata(nix_source)
+            source_metadata = self._get_or_init_metadata(nix_source,
+                                                         object_path)
             source_metadata.create_property("file_origin",
                                             nix.Value(rcg.file_origin))
         if hasattr(rcg, "coordinates"):
-            source_metadata = self._get_or_init_metadata(nix_source)
+            source_metadata = self._get_or_init_metadata(nix_source,
+                                                         object_path)
             nix_coordinates = NixIO._copy_coordinates(rcg.coordinates)
             source_metadata.create_property("coordinates",
                                             nix_coordinates)
@@ -187,7 +189,8 @@ class NixIO(BaseIO):
         nix_data_array.definition = nix_definition
         object_path = parent_path + [("data_array", nix_name)]
         if anasig.file_origin:
-            darray_metadata = self._get_or_init_metadata(nix_data_array)
+            darray_metadata = self._get_or_init_metadata(nix_data_array,
+                                                         object_path
             darray_metadata.create_property("file_origin",
                                             nix.Value(anasig.file_origin))
 
@@ -228,7 +231,8 @@ class NixIO(BaseIO):
         nix_source.definition = nix_definition
         object_path = parent_path + [("source", nix_name)]
         if irsig.file_origin:
-            source_metadata = self._get_or_init_metadata(nix_source)
+            source_metadata = self._get_or_init_metadata(nix_source,
+                                                         object_path)
             source_metadata.create_property("file_origin",
                                             nix.Value(irsig.file_origin))
 
@@ -265,7 +269,8 @@ class NixIO(BaseIO):
         nix_multi_tag.definition = nix_definition
         object_path = parent_path + [("multi_tag", nix_name)]
         if ep.file_origin:
-            mtag_metadata = self._get_or_init_metadata(nix_multi_tag)
+            mtag_metadata = self._get_or_init_metadata(nix_multi_tag,
+                                                       object_path)
             mtag_metadata.create_property("file_origin",
                                           nix.Value(ep.file_origin))
 
@@ -291,7 +296,8 @@ class NixIO(BaseIO):
         nix_multi_tag.definition = nix_definition
         object_path = parent_path + [("multi_tag", nix_name)]
         if ev.file_origin:
-            mtag_metadata = self._get_or_init_metadata(nix_multi_tag)
+            mtag_metadata = self._get_or_init_metadata(nix_multi_tag,
+                                                       object_path)
             mtag_metadata.create_property("file_origin",
                                           nix.Value(ev.file_origin))
 
@@ -317,7 +323,8 @@ class NixIO(BaseIO):
         nix_multi_tag.definition = nix_definition
         object_path = parent_path + [("multi_tag", nix_name)]
         if sptr.file_origin:
-            mtag_metadata = self._get_or_init_metadata(nix_multi_tag)
+            mtag_metadata = self._get_or_init_metadata(nix_multi_tag,
+                                                       object_path)
             mtag_metadata.create_property("file_origin",
                                           nix.Value(sptr.file_origin))
 
@@ -343,7 +350,8 @@ class NixIO(BaseIO):
         nix_multi_tag.definition = nix_definition
         object_path = parent_path + [("multi_tag", nix_name)]
         if ut.file_origin:
-            mtag_metadata = self._get_or_init_metadata(nix_multi_tag)
+            mtag_metadata = self._get_or_init_metadata(nix_multi_tag,
+                                                       object_path)
             mtag_metadata.create_property("file_origin",
                                           nix.Value(ut.file_origin))
 
