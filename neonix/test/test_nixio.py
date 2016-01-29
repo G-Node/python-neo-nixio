@@ -79,7 +79,7 @@ class NixIOTest(unittest.TestCase):
                               description="segment for testing")
         neo_block.segments.append(neo_segment)
         nix_block = self.io.nix_file.blocks[0]
-        self.io.write_segment(neo_segment, neo_block)
+        self.io.write_segment(neo_segment, [("block", neo_block.name)])
         nix_group = nix_block.groups[0]
         self.assertEqual(nix_group.name, neo_segment.name)
         self.assertEqual(nix_group.type, "neo.segment")
@@ -94,7 +94,8 @@ class NixIOTest(unittest.TestCase):
                                         description="rcg for testing",
                                         channel_indexes=[])
         nix_block = self.io.nix_file.blocks[0]
-        self.io.write_recordingchannelgroup(neo_rcg, neo_block)
+        self.io.write_recordingchannelgroup(neo_rcg, [("block",
+                                                       neo_block.name)])
         nix_source = nix_block.sources[0]
         self.assertEqual(nix_source.name, neo_rcg.name)
         self.assertEqual(nix_source.type, "neo.recordingchannelgroup")
