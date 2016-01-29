@@ -215,7 +215,7 @@ class NixIO(BaseIO):
         ``parent_path``.
 
         :param irsig: The Neo IrregularlySampledSignal to be written
-        :param parent_path: Path to the parent of the new segment.
+        :param parent_path: Path to the parent of the new Source.
         :return: The newly created NIX DataArray.
         """
         parent_group = self.get_object_at(parent_path)
@@ -223,28 +223,28 @@ class NixIO(BaseIO):
         nix_name = irsig.name
         nix_type = "neo.irregularlysampledsignal"
         nix_definition = irsig.description
-        nix_data_array = parent_block.create_data_array(nix_name, nix_type)
-        parent_group.data_arrays.append(nix_data_array)
-        nix_data_array.definition = nix_definition
+        nix_source = parent_block.create_data_array(nix_name, nix_type)
+        parent_group.data_arrays.append(nix_source)
+        nix_source.definition = nix_definition
         object_path = parent_path + [("source", nix_name)]
         if irsig.file_origin:
-            darray_metadata = self._get_or_init_metadata(nix_data_array)
-            darray_metadata.create_property("file_origin",
+            source_metadata = self._get_or_init_metadata(nix_source)
+            source_metadata.create_property("file_origin",
                                             nix.Value(irsig.file_origin))
 
         # data
         data = NixIO._convert_signal_data(irsig)
         data.unit = str(irsig.units)
-        nix_data_array.append(data)
+        nix_source.append(data)
 
         # dimensions
         times = irsig.times.magnitude.tolist()
         time_units = str(irsig.times.units)
-        timedim = nix_data_array.append_range_dimension(times)
+        timedim = nix_source.append_range_dimension(times)
         timedim.unit = time_units
         timedim.label = "time"
-        chandim = nix_data_array.append_set_dimension()
-        return nix_data_array
+        chandim = nix_source.append_set_dimension()
+        return nix_source
 
     def write_epoch(self, ep, parent_path):
         """
@@ -252,17 +252,51 @@ class NixIO(BaseIO):
         the NIX file at the location defined by ``parent_path``.
 
         :param ep: The Neo Epoch to be written
+        :param parent_path: Path to the parent of the new MultiTag.
         :return: The newly created NIX MultiTag.
         """
+        parent_group = self.get_object_at(parent_path)
+        parent_block = self.get_object_at(parent_path[0])
+        nix_name = ep.name
+        nix_type = "neo.epoch"
+        nix_definition = ep.description
+        nix_multi_tag = parent_block.create_multi_tag(nix_name, nix_type)
+        parent_group.multi_tags.append(nix_multi_tag)
+        nix_multi_tag.definition = nix_definition
+        object_path = parent_path + [("multi_tag", nix_name)]
+        if ep.file_origin:
+            mtag_metadata = self._get_or_init_metadata(nix_multi_tag)
+            mtag_metadata.create_property("file_origin",
+                                          nix.Value(ep.file_origin))
+
+        # TODO: times, durations, labels
+        return nix_multi_tag
 
     def write_event(self, ev, parent_path):
         """
         Convert the provided ``ev`` (Event) to a NIX MultiTag and write it to
         the NIX file at the location defined by ``parent_path``.
 
-        :param ev: The Neo Event to be written
+        :param ev: The Neo Event to be written.
+        :param parent_path: Path to the parent of the new MultiTag.
         :return: The newly created NIX MultiTag.
         """
+        parent_group = self.get_object_at(parent_path)
+        parent_block = self.get_object_at(parent_path[0])
+        nix_name = ev.name
+        nix_type = "neo.event"
+        nix_definition = ev.description
+        nix_multi_tag = parent_block.create_multi_tag(nix_name, nix_type)
+        parent_group.multi_tags.append(nix_multi_tag)
+        nix_multi_tag.definition = nix_definition
+        object_path = parent_path + [("multi_tag", nix_name)]
+        if ev.file_origin:
+            mtag_metadata = self._get_or_init_metadata(nix_multi_tag)
+            mtag_metadata.create_property("file_origin",
+                                          nix.Value(ev.file_origin))
+
+        # TODO: times, labels
+        return nix_multi_tag
 
     def write_spiketrain(self, sptr, parent_path):
         """
@@ -270,8 +304,25 @@ class NixIO(BaseIO):
          it to the NIX file at the location defined by ``parent_path``.
 
         :param sptr: The Neo SpikeTrain to be written
+        :param parent_path: Path to the parent of the new MultiTag.
         :return: The newly created NIX MultiTag.
         """
+        parent_group = self.get_object_at(parent_path)
+        parent_block = self.get_object_at(parent_path[0])
+        nix_name = sptr.name
+        nix_type = "neo.spiketrain"
+        nix_definition = sptr.description
+        nix_multi_tag = parent_block.create_multi_tag(nix_name, nix_type)
+        parent_group.multi_tags.append(nix_multi_tag)
+        nix_multi_tag.definition = nix_definition
+        object_path = parent_path + [("multi_tag", nix_name)]
+        if sptr.file_origin:
+            mtag_metadata = self._get_or_init_metadata(nix_multi_tag)
+            mtag_metadata.create_property("file_origin",
+                                          nix.Value(sptr.file_origin))
+
+        # TODO: t_start, t_stop, left_sweep, times, waveforms, units
+        return nix_multi_tag
 
     def write_unit(self, ut, parent_path):
         """
@@ -279,8 +330,24 @@ class NixIO(BaseIO):
         NIX file at the location defined by ``parent_path``.
 
         :param ut: The Neo Unit to be written
+        :param parent_path: Path to the parent of the new MultiTag.
         :return: The newly created NIX Source.
         """
+        parent_group = self.get_object_at(parent_path)
+        parent_block = self.get_object_at(parent_path[0])
+        nix_name = ut.name
+        nix_type = "neo.unit"
+        nix_definition = ut.description
+        nix_multi_tag = parent_block.create_multi_tag(nix_name, nix_type)
+        parent_group.multi_tags.append(nix_multi_tag)
+        nix_multi_tag.definition = nix_definition
+        object_path = parent_path + [("multi_tag", nix_name)]
+        if ut.file_origin:
+            mtag_metadata = self._get_or_init_metadata(nix_multi_tag)
+            mtag_metadata.create_property("file_origin",
+                                          nix.Value(ut.file_origin))
+
+        return nix_multi_tag
 
     def _get_or_init_metadata(self, nix_obj):
         """
