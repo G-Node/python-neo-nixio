@@ -149,7 +149,7 @@ class NixIOTest(unittest.TestCase):
                             description="root block one for full test")
 
         neo_block_b = Block(name="full_test_block_2",
-                            description="root block one for full test")
+                            description="root block two for full test")
         neo_blocks = [neo_block_a, neo_block_b]
         for blk in neo_blocks:
             for ind in range(3):
