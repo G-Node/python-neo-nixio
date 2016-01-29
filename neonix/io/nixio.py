@@ -76,6 +76,7 @@ class NixIO(BaseIO):
         nix_definition = neo_block.description
         nix_block = self.nix_file.create_block(nix_name, nix_type)
         nix_block.definition = nix_definition
+        object_path = [("block", nix_name)]
         if neo_block.rec_datetime:
             # Truncating timestamp to seconds
             nix_block.force_created_at(
@@ -93,9 +94,9 @@ class NixIO(BaseIO):
                                            nix.Value(neo_block.file_origin))
         if cascade:
             for segment in neo_block.segments:
-                self.add_segment(segment, nix_block)
+                self.add_segment(segment, object_path)
             for rcg in neo_block.recordingchannelgroups:
-                self.add_recordingchannelgroup(rcg, nix_block)
+                self.add_recordingchannelgroup(rcg, object_path)
 
     def write_all_blocks(self, neo_blocks, cascade=True):
         """
@@ -130,20 +131,22 @@ class NixIO(BaseIO):
                     "name '{}' does not exist in file '{}'.".format(
                             parent_block.name, segment.name, self.filename))
 
-    def add_segment(self, segment, parent_block):
+    def add_segment(self, segment, parent_path):
         """
-        Write the provided ``segment`` to the NIX file as a child of
-        parent_block after converting to a ``Group`` object.
+        Convert the provided ``segment`` to a NIX Group and write it to the NIX
+        file at the location defined by ``parent_path``.
 
         :param segment: Neo segment to be written
-        :param parent_block: The parent NIX Block
+        :param parent_path: Path to the parent of the new segment.
         :return: The newly created NIX Group
         """
+        parent_block = self.get_object_at(parent_path)
         nix_name = segment.name
         nix_type = "neo.segment"
         nix_definition = segment.description
         nix_group = parent_block.create_group(nix_name, nix_type)
         nix_group.definition = nix_definition
+        object_path = parent_path + [("group", nix_group)]
         if segment.rec_datetime:
             # Truncating timestamp to seconds
             nix_group.force_created_at(calculate_timestamp(segment.rec_datetime))
@@ -157,6 +160,7 @@ class NixIO(BaseIO):
             group_metadata = self._get_or_init_metadata(nix_group)
             group_metadata.create_property("file_origin",
                                            nix.Value(segment.file_origin))
+
         return nix_group
 
     def write_recordingchannelgroup(self, rcg, parent_block):
@@ -182,13 +186,13 @@ class NixIO(BaseIO):
                     "with name '{}' does not exist in file '{}'.".format(
                             parent_block.name, rcg.name, self.filename))
 
-    def add_recordingchannelgroup(self, rcg, parent_block):
+    def add_recordingchannelgroup(self, rcg, parent_path):
         """
-        Write the provided ``rcg`` (RecordingChannelGroup) to the NIX file as
-        a child of ``parent_block`` after converting to a ``Source`` object.
+        Convert the provided ``rcg`` (RecordingChannelGroup) to a NIX Source
+        and write it to the NIX file at the location defined by ``parent_path``.
 
         :param rcg: The Neo RecordingChannelGroup to be written
-        :param parent_block: The parent NIX Block
+        :param parent_path: Path to the parent of the new segment.
         :return: The newly created NIX Source.
         """
         nix_name = rcg.name
@@ -207,15 +211,13 @@ class NixIO(BaseIO):
                                             nix_coordinates)
         return nix_source
 
-    def add_analogsignal(self, anasig, parent_group, parent_block):
+    def add_analogsignal(self, anasig, parent_path):
         """
-        Write the provided ``anasig`` (AnalogSignal) to the NIX file as a child
-        of ``parent_group`` after converting to a ``DataArray`` object.
+        Convert the provided ``anasig`` (AnalogSignal) to a NIX Source and
+        write it to the NIX file at the location defined by ``parent_path``.
 
         :param anasig: The Neo AnalogSignal to be written
-        :param parent_group: The parent NIX Group
-        :param parent_block: The parent NIX Block under which the DataArray is
-            created
+        :param parent_path: Path to the parent of the new segment.
         :return: The newly created NIX DataArray.
         """
         nix_name = anasig.name
@@ -246,16 +248,14 @@ class NixIO(BaseIO):
         chandim = nix_data_array.append_set_dimension()
         return nix_data_array
 
-    def add_irregularlysampledsignal(self, irsig, parent_group, parent_block):
+    def add_irregularlysampledsignal(self, irsig, parent_path):
         """
-        Write the provided ``irsig`` (IrregularlySampledSignal) to the NIX file
-        as a child of ``parent_group`` after converting to a ``DataArray``
-        object.
+        Convert the provided ``irsig`` (IrregularlySampledSignal) to a NIX
+        Source and write it to the NIX file at the location defined by
+        ``parent_path``.
 
         :param irsig: The Neo IrregularlySampledSignal to be written
-        :param parent_group: The parent NIX Group
-        :param parent_block: The parent NIX Block under which the DataArray is
-            created
+        :param parent_path: Path to the parent of the new segment.
         :return: The newly created NIX DataArray.
         """
         nix_name = irsig.name
@@ -283,50 +283,39 @@ class NixIO(BaseIO):
         chandim = nix_data_array.append_set_dimension()
         return nix_data_array
 
-    def add_epoch(self, ep, parent_group, parent_block):
+    def add_epoch(self, ep, parent_path):
         """
-        Write the provided ``ep`` (Epoch) to the NIX file as a child of
-        ``parent_group`` after converting to a ``MultiTag`` object.
+        Convert the provided ``ep`` (Epoch) to a NIX MultiTag and write it to
+        the NIX file at the location defined by ``parent_path``.
 
         :param ep: The Neo Epoch to be written
-        :param parent_group: The parent NIX Group
-        :param parent_block: The parent NIX Block under which the DataArray is
-            created
         :return: The newly created NIX MultiTag.
         """
 
-    def add_event(self, ev, parent_group, parent_block):
+    def add_event(self, ev, parent_path):
         """
-        Write the provided ``ev`` (Event) to the NIX file as a child of
-        ``parent_group`` after converting to a ``MultiTag`` object.
+        Convert the provided ``ev`` (Event) to a NIX MultiTag and write it to
+        the NIX file at the location defined by ``parent_path``.
 
         :param ev: The Neo Event to be written
-        :param parent_group: The parent NIX Group
-        :param parent_block: The parent NIX Block under which the DataArray is
-            created
         :return: The newly created NIX MultiTag.
         """
 
-    def add_spiketrain(self, sptr, parent_group, parent_block):
+    def add_spiketrain(self, sptr, parent_path):
         """
-        Write the provided ``sptr`` (SpikeTrain) to the NIX file as a child of
-        ``parent_group`` after converting to a ``MultiTag`` object.
+        Convert the provided ``sptr`` (SpikeTrain) to a NIX MultiTag and write
+         it to the NIX file at the location defined by ``parent_path``.
 
         :param sptr: The Neo SpikeTrain to be written
-        :param parent_group: The parent NIX Group
-        :param parent_block: The parent NIX Block under which the DataArray is
-            created
         :return: The newly created NIX MultiTag.
         """
 
-    def add_unit(self, ut, parent_block):
+    def add_unit(self, ut, parent_path):
         """
-        Write the provided ``ut`` (Unit) to the NIX file as a child of
-        ``parent_block`` after converting to a ``Source`` object.
+        Convert the provided ``ut`` (Unit) to a NIX MultiTag and write it to the
+        NIX file at the location defined by ``parent_path``.
 
         :param ut: The Neo Unit to be written
-        :param parent_block: The parent NIX Block under which the DataArray is
-            created
         :return: The newly created NIX Source.
         """
 
