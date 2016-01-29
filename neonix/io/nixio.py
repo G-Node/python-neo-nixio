@@ -146,7 +146,7 @@ class NixIO(BaseIO):
         nix_definition = segment.description
         nix_group = parent_block.create_group(nix_name, nix_type)
         nix_group.definition = nix_definition
-        object_path = parent_path + [("group", nix_group)]
+        object_path = parent_path + [("group", nix_name)]
         if segment.rec_datetime:
             # Truncating timestamp to seconds
             nix_group.force_created_at(calculate_timestamp(segment.rec_datetime))
@@ -195,11 +195,13 @@ class NixIO(BaseIO):
         :param parent_path: Path to the parent of the new segment.
         :return: The newly created NIX Source.
         """
+        parent_block = self.get_object_at(parent_path)
         nix_name = rcg.name
         nix_type = "neo.recordingchannelgroup"
         nix_definition = rcg.description
         nix_source = parent_block.create_source(nix_name, nix_type)
         nix_source.definition = nix_definition
+        object_path = parent_path + [("source", nix_name)]
         if rcg.file_origin:
             source_metadata = self._get_or_init_metadata(nix_source)
             source_metadata.create_property("file_origin",
@@ -220,12 +222,15 @@ class NixIO(BaseIO):
         :param parent_path: Path to the parent of the new segment.
         :return: The newly created NIX DataArray.
         """
+        parent_group = self.get_object_at(parent_path)
+        parent_block = self.get_object_at(parent_path[0])
         nix_name = anasig.name
         nix_type = "neo.analogsignal"
         nix_definition = anasig.description
         nix_data_array = parent_block.create_data_array(nix_name, nix_type)
         parent_group.data_arrays.append(nix_data_array)
         nix_data_array.definition = nix_definition
+        object_path = parent_path + [("data_array", nix_name)]
         if anasig.file_origin:
             darray_metadata = self._get_or_init_metadata(nix_data_array)
             darray_metadata.create_property("file_origin",
@@ -258,12 +263,15 @@ class NixIO(BaseIO):
         :param parent_path: Path to the parent of the new segment.
         :return: The newly created NIX DataArray.
         """
+        parent_group = self.get_object_at(parent_path)
+        parent_block = self.get_object_at(parent_path[0])
         nix_name = irsig.name
         nix_type = "neo.irregularlysampledsignal"
         nix_definition = irsig.description
         nix_data_array = parent_block.create_data_array(nix_name, nix_type)
         parent_group.data_arrays.append(nix_data_array)
         nix_data_array.definition = nix_definition
+        object_path = parent_path + [("source", nix_name)]
         if irsig.file_origin:
             darray_metadata = self._get_or_init_metadata(nix_data_array)
             darray_metadata.create_property("file_origin",
