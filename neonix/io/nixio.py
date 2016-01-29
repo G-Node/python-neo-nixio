@@ -190,7 +190,7 @@ class NixIO(BaseIO):
         object_path = parent_path + [("data_array", nix_name)]
         if anasig.file_origin:
             darray_metadata = self._get_or_init_metadata(nix_data_array,
-                                                         object_path
+                                                         object_path)
             darray_metadata.create_property("file_origin",
                                             nix.Value(anasig.file_origin))
 
