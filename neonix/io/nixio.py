@@ -344,6 +344,37 @@ class NixIO(BaseIO):
                     nix_obj.name, nix_obj.type+".metadata")
         return nix_obj.metadata
 
+    def get_object_at(self, path):
+        """
+        Returns the object at the location defined by the path. ``path`` is a
+        list of tuples. Each tuple contains the NIX type of each object as a
+        string and the name of the object at the location in the path.
+        Valid object type strings are: block, group, source, data_array, tag,
+        multi_tag, feature.
+
+        :param path: List of tuples that define a location in the file.
+        :return: The object at the location defined by the path.
+        """
+        parent = self.nix_file
+        for obj_type, obj_name in path:
+            if obj_type == "block":
+                return parent.blocks[obj_name]
+            elif obj_type == "group":
+                return parent.groups[obj_name]
+            elif obj_type == "source":
+                return parent.sources[obj_name]
+            elif obj_type == "data_array":
+                return parent.data_arrays[obj_name]
+            elif obj_type == "tag":
+                return parent.tags[obj_name]
+            elif obj_type == "multi_tag":
+                return parent.multi_tags[obj_name]
+            elif obj_type == "feature":
+                return parent.features[obj_name]
+            else:
+                # TODO: Raise error
+                return None
+
     @staticmethod
     def _equals(neo_obj, nix_obj, cascade=True):
         """
