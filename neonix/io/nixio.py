@@ -357,7 +357,7 @@ class NixIO(BaseIO):
 
         return nix_multi_tag
 
-    def _get_or_init_metadata(self, nix_obj, obj_path=None):
+    def _get_or_init_metadata(self, nix_obj, obj_path=[]):
         """
         Creates a metadata Section for the provided NIX object if it doesn't
         have one already. Returns the new or existing metadata section.
@@ -367,7 +367,7 @@ class NixIO(BaseIO):
         :return: The metadata section of the provided object
         """
         if nix_obj.metadata is None:
-            if not obj_path:
+            if len(obj_path) <= 1:  # nix_obj is root block
                 parent_metadata = self.nix_file
             else:
                 obj_parent = self.get_object_at(obj_path[:-1])
