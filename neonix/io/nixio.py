@@ -76,7 +76,6 @@ class NixIO(BaseIO):
         nix_definition = neo_block.description
         nix_block = self.nix_file.create_block(nix_name, nix_type)
         nix_block.definition = nix_definition
-        # TODO: Handle timestamps in a Python2 compatible way
         if neo_block.rec_datetime:
             # Truncating timestamp to seconds
             nix_block.force_created_at(
