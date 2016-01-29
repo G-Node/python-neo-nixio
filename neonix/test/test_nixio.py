@@ -11,7 +11,11 @@ import os
 import datetime
 import unittest
 
-from neo.core import Block, Segment, RecordingChannelGroup
+import numpy as np
+import quantities as pq
+
+from neo.core import (Block, Segment, RecordingChannelGroup,
+                      AnalogSignal, IrregularlySampledSignal)
 
 from neonix.io.nixio import NixIO
 
@@ -68,9 +72,6 @@ class NixIOTest(unittest.TestCase):
         self.assertTrue(NixIO._equals(neo_segment, nix_group))
         self.assertTrue(NixIO._equals(neo_rcg, nix_source))
         self.assertTrue(NixIO._equals(neo_block, nix_block))
-
-    def test_multiple_blocks_cascade(self):
-        self.fail("Implement multiple blocks test")
 
     def test_segment(self):
         neo_block = Block(name="test_block", description="block for testing")
@@ -142,3 +143,28 @@ class NixIOTest(unittest.TestCase):
         self.io.write_block(neo_block, cascade=True)
         nix_block = self.io.nix_file.blocks[0]
         self.assertTrue(NixIO._equals(neo_block, nix_block))
+
+    def test_full(self):
+        neo_block_a = Block(name="full_test_block_1",
+                            description="root block one for full test")
+
+        neo_block_b = Block(name="full_test_block_2",
+                            description="root block one for full test")
+        neo_blocks = [neo_block_a, neo_block_b]
+        for blk in neo_blocks:
+            for ind in range(3):
+                seg = Segment(name="segment_{}".format(ind),
+                              description="{} segment {}".format(blk.name, ind))
+                blk.segments.append(seg)
+                asig_data = np.array([np.linspace(0, ind+1, 1000)*ind,
+                                      np.linspace(0, ind+2, 1000)*ind,
+                                      np.linspace(0, ind+3, 1000)*ind])*pq.mV
+                asignal = AnalogSignal(asig_data, sampling_rate=10*pq.kHz)
+                seg.analogsignals.append(asignal)
+
+                isig_times = np.cumsum(np.random.random(300))*pq.ms
+                isig_data = np.random.random((300, 1000))*pq.nA
+                isignal = IrregularlySampledSignal(isig_times, isig_data)
+                seg.irregularlysampledsignals.append(isignal)
+
+        self.io.write_all_blocks(neo_blocks)
