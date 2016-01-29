@@ -167,4 +167,6 @@ class NixIOTest(unittest.TestCase):
                 isignal = IrregularlySampledSignal(isig_times, isig_data)
                 seg.irregularlysampledsignals.append(isignal)
 
-        self.io.write_all_blocks(neo_blocks)
+        nix_blocks = self.io.write_all_blocks(neo_blocks)
+        for nix_block, neo_block in zip(nix_blocks, neo_blocks):
+            self.assertTrue(NixIO._equals(nix_block, neo_block))
