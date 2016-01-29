@@ -94,9 +94,9 @@ class NixIO(BaseIO):
                                            nix.Value(neo_block.file_origin))
         if cascade:
             for segment in neo_block.segments:
-                self.add_segment(segment, object_path)
+                self.write_segment(segment, object_path)
             for rcg in neo_block.recordingchannelgroups:
-                self.add_recordingchannelgroup(rcg, object_path)
+                self.write_recordingchannelgroup(rcg, object_path)
 
     def write_all_blocks(self, neo_blocks, cascade=True):
         """
@@ -109,29 +109,7 @@ class NixIO(BaseIO):
         for nb in neo_blocks:
             self.write_block(nb, cascade)
 
-    def write_segment(self, segment, parent_block):
-        """
-        Write the provided ``segment`` Neo object to the NIX file.
-        Neo ``segment`` objects are converted to ``Group`` objects in NIX.
-        The ``parent_block`` must be a Neo Block object, which is used to
-        find the equivalent NIX ``Block`` in the file where the NIX ``Group``
-        will be added.
-
-        :param segment: Neo Segment to be written
-        :param parent_block: The parent neo block of the provided Segment
-        :return: The newly created NIX Group
-        """
-        parent_name = parent_block.name
-        if parent_name in self.nix_file.blocks:
-            nix_block = self.nix_file.blocks[parent_name]
-            return self.add_segment(segment, nix_block)
-        else:
-            raise LookupError(
-                    "Parent Block with name '{}' for Segment with "
-                    "name '{}' does not exist in file '{}'.".format(
-                            parent_block.name, segment.name, self.filename))
-
-    def add_segment(self, segment, parent_path):
+    def write_segment(self, segment, parent_path):
         """
         Convert the provided ``segment`` to a NIX Group and write it to the NIX
         file at the location defined by ``parent_path``.
@@ -163,30 +141,7 @@ class NixIO(BaseIO):
 
         return nix_group
 
-    def write_recordingchannelgroup(self, rcg, parent_block):
-        """
-        Write the provided ``rcg`` (RecordingChannelGroup) Neo object to the
-        NIX file. Neo ``RecordingChannelGroup`` objects are converted to
-        ``Source`` objects in NIX. The ``parent_block`` must be a Neo Block
-        object, which is used to find the equivalent NIX ``Block`` in the file
-         where the NIX ``Source`` will be added.
-
-        :param rcg: Neo RecordingChannelGroup to be written
-        :param parent_block: The parent neo block of the provided
-            RecordingChannelGroup
-        :return: The newly created NIX Source
-        """
-        parent_name = parent_block.name
-        if parent_name in self.nix_file.blocks:
-            nix_block = self.nix_file.blocks[parent_name]
-            return self.add_recordingchannelgroup(rcg, nix_block)
-        else:
-            raise LookupError(
-                    "Parent Block with name '{}' for RecordingChannelGroup "
-                    "with name '{}' does not exist in file '{}'.".format(
-                            parent_block.name, rcg.name, self.filename))
-
-    def add_recordingchannelgroup(self, rcg, parent_path):
+    def write_recordingchannelgroup(self, rcg, parent_path):
         """
         Convert the provided ``rcg`` (RecordingChannelGroup) to a NIX Source
         and write it to the NIX file at the location defined by ``parent_path``.
@@ -213,7 +168,7 @@ class NixIO(BaseIO):
                                             nix_coordinates)
         return nix_source
 
-    def add_analogsignal(self, anasig, parent_path):
+    def write_analogsignal(self, anasig, parent_path):
         """
         Convert the provided ``anasig`` (AnalogSignal) to a NIX Source and
         write it to the NIX file at the location defined by ``parent_path``.
@@ -253,7 +208,7 @@ class NixIO(BaseIO):
         chandim = nix_data_array.append_set_dimension()
         return nix_data_array
 
-    def add_irregularlysampledsignal(self, irsig, parent_path):
+    def write_irregularlysampledsignal(self, irsig, parent_path):
         """
         Convert the provided ``irsig`` (IrregularlySampledSignal) to a NIX
         Source and write it to the NIX file at the location defined by
@@ -291,7 +246,7 @@ class NixIO(BaseIO):
         chandim = nix_data_array.append_set_dimension()
         return nix_data_array
 
-    def add_epoch(self, ep, parent_path):
+    def write_epoch(self, ep, parent_path):
         """
         Convert the provided ``ep`` (Epoch) to a NIX MultiTag and write it to
         the NIX file at the location defined by ``parent_path``.
@@ -300,7 +255,7 @@ class NixIO(BaseIO):
         :return: The newly created NIX MultiTag.
         """
 
-    def add_event(self, ev, parent_path):
+    def write_event(self, ev, parent_path):
         """
         Convert the provided ``ev`` (Event) to a NIX MultiTag and write it to
         the NIX file at the location defined by ``parent_path``.
@@ -309,7 +264,7 @@ class NixIO(BaseIO):
         :return: The newly created NIX MultiTag.
         """
 
-    def add_spiketrain(self, sptr, parent_path):
+    def write_spiketrain(self, sptr, parent_path):
         """
         Convert the provided ``sptr`` (SpikeTrain) to a NIX MultiTag and write
          it to the NIX file at the location defined by ``parent_path``.
@@ -318,7 +273,7 @@ class NixIO(BaseIO):
         :return: The newly created NIX MultiTag.
         """
 
-    def add_unit(self, ut, parent_path):
+    def write_unit(self, ut, parent_path):
         """
         Convert the provided ``ut`` (Unit) to a NIX MultiTag and write it to the
         NIX file at the location defined by ``parent_path``.
