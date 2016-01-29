@@ -34,19 +34,19 @@ addons:
 install:
     - pip install numpy quantities coveralls
     # nix
-    - git clone https://github.com/G-Node/nix.git nix
+    - git clone --depth 1 https://github.com/G-Node/nix.git nix
     - cd nix
     - cmake -DCMAKE_INSTALL_PREFIX=./inst -DBUILD_TESTING=OFF .
     - make
     - make install
     - cd ..
     # nixpy
-    - git clone https://github.com/G-Node/nixpy.git nixpy
+    - git clone --depth 1 https://github.com/G-Node/nixpy.git nixpy
     - cd nixpy
     - python setup.py build
     - cd ..
     # neo
-    - git clone https://github.com/apdavison/python-neo neo
+    - git clone -b analogsignal --depth 1 https://github.com/apdavison/python-neo neo
     - cd neo
     - python setup.py build
     - cd ..
