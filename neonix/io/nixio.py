@@ -402,11 +402,11 @@ class NixIO(BaseIO):
         Returns ``True`` if the attributes of ``neo_obj`` match the attributes
         of the ``nix_obj``.
 
-        :param neo_obj: a Neo object (block, segment, etc.)
-        :param nix_obj: a NIX object to compare to (block, group, etc.)
+        :param neo_obj: A Neo object (block, segment, etc.)
+        :param nix_obj: A NIX object to compare to (block, group, etc.)
         :param cascade: test all child objects for equivalence recursively
                         (default: True)
-        :return: true if the attributes and child objects (if cascade=True)
+        :return: True if the attributes and child objects (if cascade=True)
          of the two objects, as defined in the object mapping, are equal
         """
         if not NixIO._equals_attr(neo_obj, nix_obj):
