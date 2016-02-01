@@ -14,19 +14,14 @@ import numpy as np
 import quantities as pq
 
 from neo.io.baseio import BaseIO
-from neo.core import Block, Segment, RecordingChannelGroup
+from neo.core import (Block, Segment, RecordingChannelGroup, AnalogSignal,
+                      IrregularlySampledSignal, Epoch, Event, SpikeTrain, Unit)
 
 try:
     import nix
 except ImportError:  # pragma: no cover
     raise ImportError("Failed to import NIX (NIXPY not found). "
                       "The NixIO requires the Python bindings for NIX.")
-
-
-attribute_mappings = {"name": "name",
-                      "description": "definition"}
-container_mappings = {"segments": "groups",
-                      "recordingchannelgroups": "sources"}
 
 
 def calculate_timestamp(dt):
@@ -333,7 +328,7 @@ class NixIO(BaseIO):
             mtag_metadata.create_property("file_origin",
                                           nix.Value(sptr.file_origin))
 
-        # TODO: t_start, t_stop, left_sweep, times, waveforms, units
+        # TODO: t_start, t_stop (required), left_sweep, times, waveforms, units
         return nix_multi_tag
 
     def write_unit(self, ut, parent_path):
@@ -437,45 +432,46 @@ class NixIO(BaseIO):
 
     @staticmethod
     def _equals_attr(neo_obj, nix_obj):
-        for neo_attr_name, nix_attr_name in attribute_mappings.items():
-            neo_attr = getattr(neo_obj, neo_attr_name, None)
-            nix_attr = getattr(nix_obj, nix_attr_name, None)
-            if neo_attr != nix_attr:
-                return False
-
+        if neo_obj.name != nix_obj.name:
+            return False
+        if neo_obj.description != nix_obj.definition:
+            return False
         if hasattr(neo_obj, "rec_datetime") and neo_obj.rec_datetime and\
                 (neo_obj.rec_datetime !=
                  datetime.fromtimestamp(nix_obj.created_at)):
             return False
-
         if hasattr(neo_obj, "file_datetime") and neo_obj.file_datetime and\
                 (neo_obj.file_datetime !=
                  datetime.fromtimestamp(nix_obj.metadata["file_datetime"])):
             return False
-
         if neo_obj.file_origin and\
                 neo_obj.file_origin != nix_obj.metadata["file_origin"]:
             return False
+        if isinstance(neo_obj, RecordingChannelGroup):
+            if not NixIO._equals_coordinates(neo_obj.coordinates,
+                                             nix_obj.metadata["coordinates"]):
+                return False
+        if isinstance(neo_obj, SpikeTrain):
+            # TODO: t_start, t_stop (required), left_sweep
+            pass
 
         return True
 
     @staticmethod
     def _equals_child_objects(neo_obj, nix_obj):
-        for neo_container_name, nix_container_name \
-                in container_mappings.items():
-            neo_container = getattr(neo_obj, neo_container_name, None)
-            nix_container = getattr(nix_obj, nix_container_name, None)
-            if not (neo_container or nix_container):
-                # both are empty or undefined (None)
-                continue
-            if len(neo_container) != len(nix_container):
-                return False
-            for neo_child_obj, nix_child_obj in zip(neo_container,
-                                                    nix_container):
-                if not NixIO._equals(neo_child_obj, nix_child_obj):
+        if isinstance(neo_obj, Block):
+            for neo_seg, nix_grp in zip(neo_obj.segments, nix_obj.groups):
+                if not NixIO._equals(neo_seg, nix_grp):
                     return False
-        else:
-            return True
+            for neo_rcg, nix_src in zip(neo_obj.recordingchannelgroups,
+                                        nix_obj.sources):
+                if not NixIO._equals(neo_rcg, nix_src):
+                    return False
+        return True
+
+    @staticmethod
+    def _equals_coordinates(neo_coords, nix_coords):
+        return True
 
     @staticmethod
     def _copy_coordinates(neo_coords):
