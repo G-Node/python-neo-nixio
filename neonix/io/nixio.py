@@ -139,9 +139,17 @@ class NixIO(BaseIO):
             group_metadata = self._get_or_init_metadata(nix_group, object_path)
             group_metadata.create_property("file_origin",
                                            nix.Value(segment.file_origin))
+        for anasig in segment.analogsignals:
+            self.write_analogsignal(anasig, object_path)
+        for irsig in segment.irregularlysampledsignals:
+            self.write_irregularlysampledsignal(irsig, object_path)
+        for ep in segment.epochs:
+            self.write_epoch(ep, object_path)
+        for ev in segment.events:
+            self.write_event(ev, object_path)
+        for sptr in segment.spiketrains:
+            self.write_spiketrain(sptr, object_path)
 
-
-        # TODO: analogsignals, irregularlysampledsignals, epochs, events, spiketrains
         return nix_group
 
     def write_recordingchannelgroup(self, rcg, parent_path):
