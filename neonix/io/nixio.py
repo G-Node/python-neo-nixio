@@ -28,6 +28,7 @@ def calculate_timestamp(dt):
     return int((dt - datetime.fromtimestamp(0)).total_seconds())
 
 # TODO: Copy neo annotations for all objects into metadata segments
+# TODO: Handle missing name and description in Neo objects
 
 class NixIO(BaseIO):
     """
@@ -416,6 +417,22 @@ class NixIO(BaseIO):
             waveforms_da.metadata.create_property("left_sweep", left_sweep)
             nix_multi_tag.create_feature(waveforms_da, nix.LinkType.indexed)
 
+        # TODO: Find if any Unit objects reference this SpikeTrain and add a
+        # TODO: ... reference to that Unit
+        for blk_unit in parent_block.list_units:
+            for unit_sptr in blk_unit:
+                # TODO: Optimise this search?
+                # TODO:  ... Only one unit can reference each spiketrain (?)
+                if unit_sptr is sptr:
+                    # if units are written elsewhere, the following should be
+                    # swapped out for a search function
+                    nix_source = self.write_unit(blk_unit, object_path)
+                    nix_multi_tag.sources.append(nix_source)
+                    # unit added - break out of inner loop
+                    # if only one unit can reference each spiketrain,
+                    # we should also break out of the outer loop at this point
+                    break
+
         return nix_multi_tag
 
     def write_unit(self, ut, parent_path):
@@ -442,8 +459,6 @@ class NixIO(BaseIO):
             mtag_metadata.create_property("file_origin",
                                           nix.Value(ut.file_origin))
 
-        # TODO: Find the SpikeTrain/MultiTag objects referenced by this unit and
-        #  add a a reference to this object in the MultiTag.sources list
         return nix_multi_tag
 
     def _get_or_init_metadata(self, nix_obj, obj_path=[]):
