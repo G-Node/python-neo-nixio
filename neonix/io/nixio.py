@@ -371,13 +371,52 @@ class NixIO(BaseIO):
         parent_group.multi_tags.append(nix_multi_tag)
         nix_multi_tag.definition = nix_definition
         object_path = parent_path + [("multi_tag", nix_name)]
+        mtag_metadata = self._get_or_init_metadata(nix_multi_tag,
+                                                   object_path)
+
+        # spike times
+        time_units = str(sptr.times.units)
+        times = sptr.times.magnitude
+        times_da = parent_block.create_data_array("times",
+                                                  "neo.epoch.times",
+                                                  data=times)
+        times_da.unit = time_units
+        nix_multi_tag.positions = times_da
+
+        # other attributes
         if sptr.file_origin:
-            mtag_metadata = self._get_or_init_metadata(nix_multi_tag,
-                                                       object_path)
             mtag_metadata.create_property("file_origin",
                                           nix.Value(sptr.file_origin))
+        if sptr.t_start:
+            t_start = sptr.t_start.rescale(time_units).magnitude
+            mtag_metadata.create_property("t_start",
+                                          nix.Value(t_start))
+        # t_stop is not optional
+        t_stop = sptr.t_stop.rescale(time_units).magnitude
+        mtag_metadata.create_property("t_stop", nix.Value(t_stop))
 
-        # TODO: t_start, t_stop (required), left_sweep, times, waveforms, units
+        # waveforms
+        if sptr.waveforms:
+            wf_data = [wf.magnitude for wf in
+                             [wfgroup for wfgroup in sptr.waveforms]]
+            waveforms_da = parent_block.create_data_array(nix_name,
+                                                          "neo.waveforms",
+                                                          data=wf_data)
+            sampling_interval = sptr.sampling_period.item()
+            time_units = str(sptr.sampling_period.units)
+            wf_spikedim = waveforms_da.append_set_dimension()
+            wf_chandim = waveforms_da.append_set_dimension()
+            wf_timedim = waveforms_da.append_sampled_dimension(sampling_interval)
+            wf_timedim.unit = time_units
+            wf_timedim.label = "time"
+            wf_path = object_path + [("data_array", nix_name)]
+            waveforms_da.metadata = self._get_or_init_metadata(waveforms_da,
+                                                               wf_path)
+            left_sweep = sptr.left_sweep.rescale(time_units).magnitude
+            waveforms_da.metadata.create_property("left_sweep", left_sweep)
+            nix_multi_tag.create_feature(waveforms_da, nix.LinkType.indexed)
+
+        # TODO: units
         return nix_multi_tag
 
     def write_unit(self, ut, parent_path):
