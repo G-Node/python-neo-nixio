@@ -416,7 +416,6 @@ class NixIO(BaseIO):
             waveforms_da.metadata.create_property("left_sweep", left_sweep)
             nix_multi_tag.create_feature(waveforms_da, nix.LinkType.indexed)
 
-        # TODO: units
         return nix_multi_tag
 
     def write_unit(self, ut, parent_path):
@@ -443,6 +442,8 @@ class NixIO(BaseIO):
             mtag_metadata.create_property("file_origin",
                                           nix.Value(ut.file_origin))
 
+        # TODO: Find the SpikeTrain/MultiTag objects referenced by this unit and
+        #  add a a reference to this object in the MultiTag.sources list
         return nix_multi_tag
 
     def _get_or_init_metadata(self, nix_obj, obj_path=[]):
