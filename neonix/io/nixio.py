@@ -140,6 +140,8 @@ class NixIO(BaseIO):
             group_metadata.create_property("file_origin",
                                            nix.Value(segment.file_origin))
 
+
+        # TODO: analogsignals, irregularlysampledsignals, epochs, events, spiketrains
         return nix_group
 
     def write_recordingchannelgroup(self, rcg, parent_path):
@@ -173,44 +175,50 @@ class NixIO(BaseIO):
 
     def write_analogsignal(self, anasig, parent_path):
         """
-        Convert the provided ``anasig`` (AnalogSignal) to a NIX Source and
-        write it to the NIX file at the location defined by ``parent_path``.
+        Convert the provided ``anasig`` (AnalogSignal) to a group of NIX
+        DataArray objects and write them to the NIX file at the location defined
+        by ``parent_path``. All DataArray objects created from the same
+        AnalogSignal have their metadata section point to the same object.
 
         :param anasig: The Neo AnalogSignal to be written
         :param parent_path: Path to the parent of the new segment
-        :return: The newly created NIX DataArray
+        :return: A list containing the newly created NIX DataArrays
         """
         parent_group = self.get_object_at(parent_path)
         parent_block = self.get_object_at(parent_path[0])
         nix_name = anasig.name
         nix_type = "neo.analogsignal"
         nix_definition = anasig.description
-        nix_data_array = parent_block.create_data_array(nix_name, nix_type)
-        parent_group.data_arrays.append(nix_data_array)
-        nix_data_array.definition = nix_definition
-        object_path = parent_path + [("data_array", nix_name)]
-        if anasig.file_origin:
-            darray_metadata = self._get_or_init_metadata(nix_data_array,
-                                                         object_path)
-            darray_metadata.create_property("file_origin",
-                                            nix.Value(anasig.file_origin))
+        parent_metadata = self._get_or_init_metadata(parent_group, parent_path)
+        anasig_group_segment = parent_metadata.create_section(nix_name,
+                                                              nix_type)
 
-        # data
-        data = NixIO._convert_signal_data(anasig)
-        data.unit = str(anasig.units)
-        nix_data_array.append(data)
-
-        # dimensions
+        # common properties
+        data_units = str(anasig.units)
         time_units = str(anasig.sampling_period.units)
         offset = anasig.t_start.rescale(time_units).item()
         sampling_interval = anasig.sampling_period.item()
 
-        timedim = nix_data_array.append_sampled_dimension(sampling_interval)
-        timedim.unit = time_units
-        timedim.label = "time"
-        timedim.offset = offset
-        chandim = nix_data_array.append_set_dimension()
-        return nix_data_array
+        nix_data_arrays = []
+        for idx, sig in enumerate(anasig.signal):
+            nix_data_array = parent_block.create_data_array(
+                "{}{}".format(nix_name, idx),
+                nix_type,
+                data=sig.magnitude
+            )
+            nix_data_array.definition = nix_definition
+            nix_data_array.unit = data_units
+
+            timedim = nix_data_array.append_sampled_dimension(sampling_interval)
+            timedim.unit = time_units
+            timedim.label = "time"
+            timedim.offset = offset
+            chandim = nix_data_array.append_set_dimension()
+            parent_group.data_arrays.append(nix_data_array)
+            # point metadata to common section
+            nix_data_array.metadata = anasig_group_segment
+            nix_data_arrays.append(nix_data_array)
+        return nix_data_arrays
 
     def write_irregularlysampledsignal(self, irsig, parent_path):
         """
@@ -227,29 +235,34 @@ class NixIO(BaseIO):
         nix_name = irsig.name
         nix_type = "neo.irregularlysampledsignal"
         nix_definition = irsig.description
-        nix_source = parent_block.create_data_array(nix_name, nix_type)
-        parent_group.data_arrays.append(nix_source)
-        nix_source.definition = nix_definition
-        object_path = parent_path + [("source", nix_name)]
-        if irsig.file_origin:
-            source_metadata = self._get_or_init_metadata(nix_source,
-                                                         object_path)
-            source_metadata.create_property("file_origin",
-                                            nix.Value(irsig.file_origin))
+        parent_metadata = self._get_or_init_metadata(parent_group, parent_path)
+        irsig_group_segment = parent_metadata.create_section(nix_name,
+                                                             nix_type)
 
-        # data
-        data = NixIO._convert_signal_data(irsig)
-        data.unit = str(irsig.units)
-        nix_source.append(data)
-
-        # dimensions
-        times = irsig.times.magnitude.tolist()
+        # common properties
+        data_units = str(irsig.units)
         time_units = str(irsig.times.units)
-        timedim = nix_source.append_range_dimension(times)
-        timedim.unit = time_units
-        timedim.label = "time"
-        chandim = nix_source.append_set_dimension()
-        return nix_source
+        times = irsig.times.magnitude.tolist()
+
+        nix_data_arrays = []
+        for idx, sig in enumerate(irsig.signal):
+            nix_data_array = parent_block.create_data_array(
+                "{}{}".format(nix_name, idx),
+                nix_type,
+                data=sig.magnitude
+            )
+            nix_data_array.definition = nix_definition
+            nix_data_array.unit = data_units
+
+            timedim = nix_data_array.append_range_dimension(times)
+            timedim.unit = time_units
+            timedim.label = "time"
+            chandim = nix_data_array.append_set_dimension()
+            parent_group.data_arrays.append(nix_data_array)
+            # point metadata to common section
+            nix_data_array.metadata = irsig_group_segment
+            nix_data_arrays.append(nix_data_array)
+        return nix_data_arrays
 
     def write_epoch(self, ep, parent_path):
         """
