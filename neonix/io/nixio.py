@@ -30,6 +30,7 @@ def calculate_timestamp(dt):
 # TODO: Copy neo annotations for all objects into metadata segments
 # TODO: Handle missing name and description in Neo objects
 
+
 class NixIO(BaseIO):
     """
     Class for reading and writing NIX files.
