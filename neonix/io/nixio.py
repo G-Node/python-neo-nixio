@@ -341,7 +341,16 @@ class NixIO(BaseIO):
             mtag_metadata.create_property("file_origin",
                                           nix.Value(ev.file_origin))
 
-        # TODO: times, labels
+        # TODO: labels
+        # times -> positions
+        times = ev.times.magnitude  # .tolist()
+        time_units = str(ev.times.units)
+
+        times_da = parent_block.create_data_array("times",
+                                                  "neo.event.times",
+                                                  data=times)
+        times_da.unit = time_units
+        nix_multi_tag.positions = times_da
         return nix_multi_tag
 
     def write_spiketrain(self, sptr, parent_path):
