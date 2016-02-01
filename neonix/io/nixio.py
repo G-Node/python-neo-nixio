@@ -27,6 +27,7 @@ except ImportError:  # pragma: no cover
 def calculate_timestamp(dt):
     return int((dt - datetime.fromtimestamp(0)).total_seconds())
 
+# TODO: Copy neo annotations for all objects into metadata segments
 
 class NixIO(BaseIO):
     """
@@ -273,8 +274,26 @@ class NixIO(BaseIO):
                                                        object_path)
             mtag_metadata.create_property("file_origin",
                                           nix.Value(ep.file_origin))
+        # TODO: labels
+        # times -> positions
+        times = ep.times.magnitude  # .tolist()
+        time_units = str(ep.times.units)
 
-        # TODO: times, durations, labels
+        times_da = parent_block.create_data_array("times",
+                                                  "neo.epoch.times",
+                                                  data=times)
+        times_da.unit = time_units
+        nix_multi_tag.positions = times_da
+
+        # durations -> extents
+        durations = ep.durations.magnitude  # .tolist()
+        duration_units = str(ep.durations.units)
+
+        durations_da = parent_block.create_data_array("durations",
+                                                      "neo.epoch.durations",
+                                                      data=durations)
+        durations_da.unit = duration_units
+        nix_multi_tag.extents = durations_da
         return nix_multi_tag
 
     def write_event(self, ev, parent_path):
