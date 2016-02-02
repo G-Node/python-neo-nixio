@@ -524,25 +524,26 @@ class NixIO(BaseIO):
         """
         # NOTE: Should this be simplified to:
         #   return parent.__getattribute__(obj_type+"s")[obj_name] ?
-        parent = self.nix_file
+        obj = self.nix_file
         for obj_type, obj_name in path:
             if obj_type == "block":
-                return parent.blocks[obj_name]
+                obj = obj.blocks[obj_name]
             elif obj_type == "group":
-                return parent.groups[obj_name]
+                obj = obj.groups[obj_name]
             elif obj_type == "source":
-                return parent.sources[obj_name]
+                obj = obj.sources[obj_name]
             elif obj_type == "data_array":
-                return parent.data_arrays[obj_name]
+                obj = obj.data_arrays[obj_name]
             elif obj_type == "tag":
-                return parent.tags[obj_name]
+                obj = obj.tags[obj_name]
             elif obj_type == "multi_tag":
-                return parent.multi_tags[obj_name]
+                obj = obj.multi_tags[obj_name]
             elif obj_type == "feature":
-                return parent.features[obj_name]
+                obj = obj.features[obj_name]
             else:
                 # TODO: Raise error
-                return None
+                pass
+        return obj
 
     @staticmethod
     def _equals(neo_obj, nix_obj, cascade=True):
