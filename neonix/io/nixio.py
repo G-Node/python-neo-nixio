@@ -216,7 +216,8 @@ class NixIO(BaseIO):
 
         # common properties
         data_units = str(anasig.units.dimensionality)
-        time_units = str(anasig.sampling_period.units.dimensionality)
+        # often sampling period is in 1/Hz or 1/kHz - simplifying to s
+        time_units = str(anasig.sampling_period.units.dimensionality.simplified)
         offset = anasig.t_start.rescale(time_units).item()
         sampling_interval = anasig.sampling_period.item()
 
@@ -265,7 +266,7 @@ class NixIO(BaseIO):
 
         # common properties
         data_units = str(irsig.units.dimensionality)
-        time_units = str(irsig.times.units.dimensionality)
+        time_units = str(irsig.times.units.dimensionality.simplified)
         times = irsig.times.magnitude.tolist()
 
         nix_data_arrays = []
@@ -317,7 +318,7 @@ class NixIO(BaseIO):
         # TODO: labels
         # times -> positions
         times = ep.times.magnitude  # .tolist()
-        time_units = str(ep.times.units.dimensionality)
+        time_units = str(ep.times.units.dimensionality.simplified)
 
         times_da = parent_block.create_data_array("times",
                                                   "neo.epoch.times",
@@ -366,7 +367,7 @@ class NixIO(BaseIO):
         # TODO: labels
         # times -> positions
         times = ev.times.magnitude  # .tolist()
-        time_units = str(ev.times.units.dimensionality)
+        time_units = str(ev.times.units.dimensionality.simplified)
 
         times_da = parent_block.create_data_array("times",
                                                   "neo.event.times",
@@ -400,7 +401,7 @@ class NixIO(BaseIO):
                                                    object_path)
 
         # spike times
-        time_units = str(sptr.times.units.dimensionality)
+        time_units = str(sptr.times.units.dimensionality.simplified)
         times = sptr.times.magnitude
         times_da = parent_block.create_data_array("times",
                                                   "neo.epoch.times",
@@ -428,7 +429,8 @@ class NixIO(BaseIO):
                                                           "neo.waveforms",
                                                           data=wf_data)
             sampling_interval = sptr.sampling_period.item()
-            time_units = str(sptr.sampling_period.units.dimensionality)
+            time_units = str(sptr.sampling_period.units.dimensionality.
+                             simplified)
             wf_spikedim = waveforms_da.append_set_dimension()
             wf_chandim = waveforms_da.append_set_dimension()
             wf_timedim = waveforms_da.append_sampled_dimension(sampling_interval)
