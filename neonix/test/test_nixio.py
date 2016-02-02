@@ -8,7 +8,7 @@
 # LICENSE file in the root of the Project.
 
 import os
-import datetime
+from datetime import datetime
 import unittest
 
 import numpy as np
@@ -106,14 +106,21 @@ class NixIOTest(unittest.TestCase):
 
     def test_metadata(self):
         neo_block = Block(name="test_block", description="block for testing")
-        neo_block.rec_datetime = datetime.datetime(year=2015, month=12, day=18,
-                                                   hour=20)
-        neo_block.file_datetime = datetime.datetime(year=2016, month=1, day=1,
-                                                    hour=15)
+        neo_block.rec_datetime = datetime(year=2015, month=12, day=18, hour=20)
+        neo_block.file_datetime = datetime(year=2016, month=1, day=1, hour=15)
         neo_block.file_origin = "test_file_origin"
         self.io.write_block(neo_block, cascade=True)
         nix_block = self.io.nix_file.blocks[0]
-        self.assertTrue(NixIO._equals(neo_block, nix_block))
+
+        self.assertEqual(neo_block.name, nix_block.name)
+        self.assertEqual(neo_block.description, nix_block.definition)
+        self.assertEqual(neo_block.file_origin,
+                         nix_block.metadata["file_origin"])
+        self.assertEqual(neo_block.file_datetime,
+                         datetime.fromtimestamp(
+                             nix_block.metadata["file_datetime"]))
+        self.assertEqual(neo_block.rec_datetime,
+                         datetime.fromtimestamp(nix_block.created_at))
 
     def test_all(self):
         # Test writing of all objects based on examples from the neo docs
