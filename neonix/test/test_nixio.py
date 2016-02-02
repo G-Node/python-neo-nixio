@@ -131,6 +131,7 @@ class NixIOTest(unittest.TestCase):
         neo_block_b = Block(name="full_test_block_2",
                             description="root block two for full test")
         neo_blocks = [neo_block_a, neo_block_b]
+
         for blk in neo_blocks:
             for ind in range(3):
                 seg = Segment(name="segment_{}".format(ind),
@@ -139,8 +140,10 @@ class NixIOTest(unittest.TestCase):
                 asig_data = np.array([np.linspace(0, ind+1, 1000)*(ind+1),
                                       np.linspace(0, ind+2, 1000)*(ind+1),
                                       np.linspace(0, ind+3, 1000)*(ind+1)]
-                                     )*pq.mV
-                asignal = AnalogSignal(asig_data, sampling_rate=10*pq.kHz)
+                                     ).transpose()*pq.mV
+                asignal = AnalogSignal(asig_data,
+                                       t_start=0*pq.s,
+                                       sampling_rate=10*pq.kHz)
                 seg.analogsignals.append(asignal)
 
                 isig_times = np.cumsum(np.random.random(300))*pq.ms
