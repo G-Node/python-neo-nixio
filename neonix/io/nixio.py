@@ -28,7 +28,6 @@ def calculate_timestamp(dt):
     return int((dt - datetime.fromtimestamp(0)).total_seconds())
 
 # TODO: Copy neo annotations for all objects into metadata segments
-# TODO: Handle missing name and description in Neo objects
 
 
 class NixIO(BaseIO):
@@ -71,6 +70,9 @@ class NixIO(BaseIO):
         :return: The new NIX Block
         """
         nix_name = neo_block.name
+        if not nix_name:
+            nblocks = len(self.nix_file.blocks)
+            nix_name = "neo.Block{}".format(nblocks)
         nix_type = "neo.block"
         nix_definition = neo_block.description
         nix_block = self.nix_file.create_block(nix_name, nix_type)
@@ -123,6 +125,9 @@ class NixIO(BaseIO):
         """
         parent_block = self.get_object_at(parent_path)
         nix_name = segment.name
+        if not nix_name:
+            ngroups = len(parent_block.groups)
+            nix_name = "neo.Segment{}".format(ngroups)
         nix_type = "neo.segment"
         nix_definition = segment.description
         nix_group = parent_block.create_group(nix_name, nix_type)
@@ -165,6 +170,9 @@ class NixIO(BaseIO):
         """
         parent_block = self.get_object_at(parent_path)
         nix_name = rcg.name
+        if not nix_name:
+            nsources = len(parent_block.sources)
+            nix_name = "neo.RecordingChannelGroup{}".format(nsources)
         nix_type = "neo.recordingchannelgroup"
         nix_definition = rcg.description
         nix_source = parent_block.create_source(nix_name, nix_type)
@@ -197,6 +205,9 @@ class NixIO(BaseIO):
         parent_group = self.get_object_at(parent_path)
         parent_block = self.get_object_at([parent_path[0]])
         nix_name = anasig.name
+        if not nix_name:
+            nda = len(parent_group.data_arrays)
+            nix_name = "neo.AnalogSignal{}".format(nda)
         nix_type = "neo.analogsignal"
         nix_definition = anasig.description
         parent_metadata = self._get_or_init_metadata(parent_group, parent_path)
@@ -243,6 +254,9 @@ class NixIO(BaseIO):
         parent_group = self.get_object_at(parent_path)
         parent_block = self.get_object_at([parent_path[0]])
         nix_name = irsig.name
+        if not nix_name:
+            nda = len(parent_group.data_arrays)
+            nix_name = "neo.IrregularlySampledSignal{}".format(nda)
         nix_type = "neo.irregularlysampledsignal"
         nix_definition = irsig.description
         parent_metadata = self._get_or_init_metadata(parent_group, parent_path)
@@ -286,6 +300,9 @@ class NixIO(BaseIO):
         parent_group = self.get_object_at(parent_path)
         parent_block = self.get_object_at([parent_path[0]])
         nix_name = ep.name
+        if not nix_name:
+            nmt = len(parent_group.multi_tags)
+            nix_name = "neo.Epoch{}".format(nmt)
         nix_type = "neo.epoch"
         nix_definition = ep.description
         nix_multi_tag = parent_block.create_multi_tag(nix_name, nix_type)
@@ -331,6 +348,9 @@ class NixIO(BaseIO):
         parent_group = self.get_object_at(parent_path)
         parent_block = self.get_object_at([parent_path[0]])
         nix_name = ev.name
+        if not nix_name:
+            nmt = len(parent_group.multi_tags)
+            nix_name = "neo.Event{}".format(nmt)
         nix_type = "neo.event"
         nix_definition = ev.description
         nix_multi_tag = parent_block.create_multi_tag(nix_name, nix_type)
@@ -367,6 +387,9 @@ class NixIO(BaseIO):
         parent_group = self.get_object_at(parent_path)
         parent_block = self.get_object_at([parent_path[0]])
         nix_name = sptr.name
+        if not nix_name:
+            nmt = len(parent_group.multi_tags)
+            nix_name = "neo.SpikeTrain{}".format(nmt)
         nix_type = "neo.spiketrain"
         nix_definition = sptr.description
         nix_multi_tag = parent_block.create_multi_tag(nix_name, nix_type)
@@ -449,6 +472,9 @@ class NixIO(BaseIO):
         parent_group = self.get_object_at(parent_path)
         parent_block = self.get_object_at([parent_path[0]])
         nix_name = ut.name
+        if not nix_name:
+            nmt = len(parent_group.sources)
+            nix_name = "neo.Unit{}".format(nmt)
         nix_type = "neo.unit"
         nix_definition = ut.description
         nix_multi_tag = parent_block.create_multi_tag(nix_name, nix_type)
