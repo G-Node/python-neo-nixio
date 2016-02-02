@@ -157,7 +157,8 @@ class NixIOTest(unittest.TestCase):
         rcg_a.analogsignals.append(neo_block_a.segments[0].analogsignals[0])
 
         # RCG with units
-        octotrode_rcg = RecordingChannelGroup(name="octotrode A")
+        octotrode_rcg = RecordingChannelGroup(name="octotrode A",
+                                              channel_indexes=range(3))
         neo_block_b.recordingchannelgroups.append(octotrode_rcg)
         for ind in range(5):
             octo_unit = Unit(name="unit_{}".format(ind),
