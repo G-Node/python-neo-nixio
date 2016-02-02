@@ -166,15 +166,16 @@ class NixIOTest(unittest.TestCase):
             octotrode_rcg.units.append(octo_unit)
 
         # Unit as a spiketrain container
-        spiketrain_container_rcg = RecordingChannelGroup(name="PyramRCG")
-        neo_block_b.recordingchannelgrou.append(spiketrain_container_rcg)
+        spiketrain_container_rcg = RecordingChannelGroup(name="PyramRCG",
+                                                         channel_indexes=[1])
+        neo_block_b.recordingchannelgroups.append(spiketrain_container_rcg)
         pyram_unit = Unit(name="Pyramidal neuron")
         train0 = SpikeTrain(times=[0.01, 3.3, 9.3], units="sec", t_stop=10)
         pyram_unit.spiketrains.append(train0)
         train1 = SpikeTrain(times=[100.01, 103.3, 109.3], units="sec",
                             t_stop=110)
         pyram_unit.spiketrains.append(train1)
-        spiketrain_container_rcg.unis.append(pyram_unit)
+        spiketrain_container_rcg.units.append(pyram_unit)
 
         # Events associated with first segment of first block
         evt = Event(name="Trigger events",
