@@ -306,15 +306,7 @@ class NixIO(BaseIO):
             nix_name = "neo.Epoch{}".format(nmt)
         nix_type = "neo.epoch"
         nix_definition = ep.description
-        nix_multi_tag = parent_block.create_multi_tag(nix_name, nix_type)
-        parent_group.multi_tags.append(nix_multi_tag)
-        nix_multi_tag.definition = nix_definition
-        object_path = parent_path + [("multi_tag", nix_name)]
-        if ep.file_origin:
-            mtag_metadata = self._get_or_init_metadata(nix_multi_tag,
-                                                       object_path)
-            mtag_metadata.create_property("file_origin",
-                                          nix.Value(ep.file_origin))
+
         # TODO: labels
         # times -> positions
         times = ep.times.magnitude  # .tolist()
@@ -324,7 +316,6 @@ class NixIO(BaseIO):
                                                   "neo.epoch.times",
                                                   data=times)
         times_da.unit = time_units
-        nix_multi_tag.positions = times_da
 
         # durations -> extents
         durations = ep.durations.magnitude  # .tolist()
@@ -334,7 +325,20 @@ class NixIO(BaseIO):
                                                       "neo.epoch.durations",
                                                       data=durations)
         durations_da.unit = duration_units
+
+        # ready to create MTag
+        nix_multi_tag = parent_block.create_multi_tag(nix_name, nix_type,
+                                                      times_da)
         nix_multi_tag.extents = durations_da
+        parent_group.multi_tags.append(nix_multi_tag)
+        nix_multi_tag.definition = nix_definition
+        object_path = parent_path + [("multi_tag", nix_name)]
+
+        if ep.file_origin:
+            mtag_metadata = self._get_or_init_metadata(nix_multi_tag,
+                                                       object_path)
+            mtag_metadata.create_property("file_origin",
+                                          nix.Value(ep.file_origin))
         return nix_multi_tag
 
     def write_event(self, ev, parent_path):
@@ -354,15 +358,6 @@ class NixIO(BaseIO):
             nix_name = "neo.Event{}".format(nmt)
         nix_type = "neo.event"
         nix_definition = ev.description
-        nix_multi_tag = parent_block.create_multi_tag(nix_name, nix_type)
-        parent_group.multi_tags.append(nix_multi_tag)
-        nix_multi_tag.definition = nix_definition
-        object_path = parent_path + [("multi_tag", nix_name)]
-        if ev.file_origin:
-            mtag_metadata = self._get_or_init_metadata(nix_multi_tag,
-                                                       object_path)
-            mtag_metadata.create_property("file_origin",
-                                          nix.Value(ev.file_origin))
 
         # TODO: labels
         # times -> positions
@@ -373,7 +368,18 @@ class NixIO(BaseIO):
                                                   "neo.event.times",
                                                   data=times)
         times_da.unit = time_units
-        nix_multi_tag.positions = times_da
+
+        # ready to create MTag
+        nix_multi_tag = parent_block.create_multi_tag(nix_name, nix_type,
+                                                      times_da)
+        parent_group.multi_tags.append(nix_multi_tag)
+        nix_multi_tag.definition = nix_definition
+        object_path = parent_path + [("multi_tag", nix_name)]
+        if ev.file_origin:
+            mtag_metadata = self._get_or_init_metadata(nix_multi_tag,
+                                                       object_path)
+            mtag_metadata.create_property("file_origin",
+                                          nix.Value(ev.file_origin))
         return nix_multi_tag
 
     def write_spiketrain(self, sptr, parent_path):
@@ -393,12 +399,6 @@ class NixIO(BaseIO):
             nix_name = "neo.SpikeTrain{}".format(nmt)
         nix_type = "neo.spiketrain"
         nix_definition = sptr.description
-        nix_multi_tag = parent_block.create_multi_tag(nix_name, nix_type)
-        parent_group.multi_tags.append(nix_multi_tag)
-        nix_multi_tag.definition = nix_definition
-        object_path = parent_path + [("multi_tag", nix_name)]
-        mtag_metadata = self._get_or_init_metadata(nix_multi_tag,
-                                                   object_path)
 
         # spike times
         time_units = str(sptr.times.units.dimensionality.simplified)
@@ -407,7 +407,15 @@ class NixIO(BaseIO):
                                                   "neo.epoch.times",
                                                   data=times)
         times_da.unit = time_units
-        nix_multi_tag.positions = times_da
+
+        # ready to create MTag
+        nix_multi_tag = parent_block.create_multi_tag(nix_name, nix_type,
+                                                      times_da)
+        parent_group.multi_tags.append(nix_multi_tag)
+        nix_multi_tag.definition = nix_definition
+        object_path = parent_path + [("multi_tag", nix_name)]
+        mtag_metadata = self._get_or_init_metadata(nix_multi_tag,
+                                                   object_path)
 
         # other attributes
         if sptr.file_origin:
@@ -464,11 +472,11 @@ class NixIO(BaseIO):
 
     def write_unit(self, ut, parent_path):
         """
-        Convert the provided ``ut`` (Unit) to a NIX MultiTag and write it to the
+        Convert the provided ``ut`` (Unit) to a NIX Source and write it to the
         NIX file at the location defined by ``parent_path``.
 
         :param ut: The Neo Unit to be written
-        :param parent_path: Path to the parent of the new MultiTag
+        :param parent_path: Path to the parent of the new Source
         :return: The newly created NIX Source
         """
         parent_group = self.get_object_at(parent_path)
@@ -479,17 +487,17 @@ class NixIO(BaseIO):
             nix_name = "neo.Unit{}".format(nmt)
         nix_type = "neo.unit"
         nix_definition = ut.description
-        nix_multi_tag = parent_block.create_multi_tag(nix_name, nix_type)
-        parent_group.multi_tags.append(nix_multi_tag)
-        nix_multi_tag.definition = nix_definition
-        object_path = parent_path + [("multi_tag", nix_name)]
+        nix_source = parent_block.create_source(nix_name, nix_type)
+        parent_group.sources.append(nix_source)
+        nix_source.definition = nix_definition
+        object_path = parent_path + [("source", nix_name)]
         if ut.file_origin:
-            mtag_metadata = self._get_or_init_metadata(nix_multi_tag,
+            mtag_metadata = self._get_or_init_metadata(nix_source,
                                                        object_path)
             mtag_metadata.create_property("file_origin",
                                           nix.Value(ut.file_origin))
 
-        return nix_multi_tag
+        return nix_source
 
     def _get_or_init_metadata(self, nix_obj, obj_path=[]):
         """
