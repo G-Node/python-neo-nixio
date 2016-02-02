@@ -104,7 +104,7 @@ class NixIOTest(unittest.TestCase):
         neo_block.segments.append(neo_segment_new)
         self.assertNotEqual(len(neo_block.segments), len(nix_block.groups))
 
-    def test_metadata(self):
+    def test_block_metadata(self):
         neo_block = Block(name="test_block", description="block for testing")
         neo_block.rec_datetime = datetime(year=2015, month=12, day=18, hour=20)
         neo_block.file_datetime = datetime(year=2016, month=1, day=1, hour=15)
