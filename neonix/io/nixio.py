@@ -206,8 +206,8 @@ class NixIO(BaseIO):
         parent_block = self.get_object_at([parent_path[0]])
         nix_name = anasig.name
         if not nix_name:
-            nda = len(parent_group.data_arrays)
-            nix_name = "neo.AnalogSignal{}".format(nda)
+            nda = len(parent_block.data_arrays)
+            nix_name = "neo.AnalogSignal.{}".format(nda)
         nix_type = "neo.analogsignal"
         nix_definition = anasig.description
         parent_metadata = self._get_or_init_metadata(parent_group, parent_path)
@@ -222,9 +222,12 @@ class NixIO(BaseIO):
         sampling_interval = anasig.sampling_period.item()
 
         nix_data_arrays = []
-        for idx, sig in enumerate(anasig):
+        print(nix_name)
+
+        for idx, sig in enumerate(anasig.transpose()):
+            print("{}.{}".format(nix_name, idx))
             nix_data_array = parent_block.create_data_array(
-                "{}{}".format(nix_name, idx),
+                "{}.{}".format(nix_name, idx),
                 nix_type,
                 data=sig.magnitude
             )
@@ -256,8 +259,8 @@ class NixIO(BaseIO):
         parent_block = self.get_object_at([parent_path[0]])
         nix_name = irsig.name
         if not nix_name:
-            nda = len(parent_group.data_arrays)
-            nix_name = "neo.IrregularlySampledSignal{}".format(nda)
+            nda = len(parent_block.data_arrays)
+            nix_name = "neo.IrregularlySampledSignal.{}".format(nda)
         nix_type = "neo.irregularlysampledsignal"
         nix_definition = irsig.description
         parent_metadata = self._get_or_init_metadata(parent_group, parent_path)
@@ -270,9 +273,9 @@ class NixIO(BaseIO):
         times = irsig.times.magnitude.tolist()
 
         nix_data_arrays = []
-        for idx, sig in enumerate(irsig):
+        for idx, sig in enumerate(irsig.transpose()):
             nix_data_array = parent_block.create_data_array(
-                "{}{}".format(nix_name, idx),
+                "{}.{}".format(nix_name, idx),
                 nix_type,
                 data=sig.magnitude
             )
@@ -303,7 +306,7 @@ class NixIO(BaseIO):
         nix_name = ep.name
         if not nix_name:
             nmt = len(parent_group.multi_tags)
-            nix_name = "neo.Epoch{}".format(nmt)
+            nix_name = "neo.Epoch.{}".format(nmt)
         nix_type = "neo.epoch"
         nix_definition = ep.description
 
@@ -312,7 +315,7 @@ class NixIO(BaseIO):
         times = ep.times.magnitude  # .tolist()
         time_units = str(ep.times.units.dimensionality.simplified)
 
-        times_da = parent_block.create_data_array("times",
+        times_da = parent_block.create_data_array("{}.times".format(nix_name),
                                                   "neo.epoch.times",
                                                   data=times)
         times_da.unit = time_units
@@ -321,9 +324,10 @@ class NixIO(BaseIO):
         durations = ep.durations.magnitude  # .tolist()
         duration_units = str(ep.durations.units.dimensionality)
 
-        durations_da = parent_block.create_data_array("durations",
-                                                      "neo.epoch.durations",
-                                                      data=durations)
+        durations_da = parent_block.create_data_array(
+            "{}.durations".format(nix_name),
+            "neo.epoch.durations",
+            data=durations)
         durations_da.unit = duration_units
 
         # ready to create MTag
@@ -355,7 +359,7 @@ class NixIO(BaseIO):
         nix_name = ev.name
         if not nix_name:
             nmt = len(parent_group.multi_tags)
-            nix_name = "neo.Event{}".format(nmt)
+            nix_name = "neo.Event.{}".format(nmt)
         nix_type = "neo.event"
         nix_definition = ev.description
 
@@ -364,7 +368,7 @@ class NixIO(BaseIO):
         times = ev.times.magnitude  # .tolist()
         time_units = str(ev.times.units.dimensionality.simplified)
 
-        times_da = parent_block.create_data_array("times",
+        times_da = parent_block.create_data_array("{}.times".format(nix_name),
                                                   "neo.event.times",
                                                   data=times)
         times_da.unit = time_units
@@ -396,14 +400,14 @@ class NixIO(BaseIO):
         nix_name = sptr.name
         if not nix_name:
             nmt = len(parent_group.multi_tags)
-            nix_name = "neo.SpikeTrain{}".format(nmt)
+            nix_name = "neo.SpikeTrain.{}".format(nmt)
         nix_type = "neo.spiketrain"
         nix_definition = sptr.description
 
         # spike times
         time_units = str(sptr.times.units.dimensionality.simplified)
         times = sptr.times.magnitude
-        times_da = parent_block.create_data_array("times",
+        times_da = parent_block.create_data_array("{}.times".format(nix_name),
                                                   "neo.epoch.times",
                                                   data=times)
         times_da.unit = time_units
@@ -433,9 +437,10 @@ class NixIO(BaseIO):
         if sptr.waveforms:
             wf_data = [wf.magnitude for wf in
                              [wfgroup for wfgroup in sptr.waveforms]]
-            waveforms_da = parent_block.create_data_array(nix_name,
-                                                          "neo.waveforms",
-                                                          data=wf_data)
+            waveforms_da = parent_block.create_data_array(
+                "{}.waveforms".format(nix_name),
+                "neo.waveforms",
+                data=wf_data)
             sampling_interval = sptr.sampling_period.item()
             time_units = str(sptr.sampling_period.units.dimensionality.
                              simplified)
