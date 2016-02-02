@@ -33,9 +33,10 @@ class NixIOTest(unittest.TestCase):
 
     def test_block(self):
         neo_block = Block(name="test_block", description="block for testing")
-        self.io.write_block(neo_block)
-        nix_block = self.io.nix_file.blocks[0]
-        self.assertTrue(NixIO._equals(neo_block, nix_block))
+        nix_block = self.io.write_block(neo_block)
+        self.assertEqual(neo_block.name, nix_block.name)
+        self.assertEqual(neo_block.description, nix_block.definition)
+        self.assertEqual(nix_block.type, "neo.block")
 
     def test_block_cascade(self):
         neo_block = Block(name="test_block", description="block for testing")
@@ -212,5 +213,5 @@ class NixIOTest(unittest.TestCase):
 
         # Write all the blocks
         nix_blocks = self.io.write_all_blocks(neo_blocks)
-
+        print(nix_blocks)
         # TODO: Read the NIX data tree and compare with original objects
