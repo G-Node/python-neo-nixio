@@ -221,7 +221,7 @@ class NixIO(BaseIO):
         sampling_interval = anasig.sampling_period.item()
 
         nix_data_arrays = []
-        for idx, sig in enumerate(anasig.signal):
+        for idx, sig in enumerate(anasig):
             nix_data_array = parent_block.create_data_array(
                 "{}{}".format(nix_name, idx),
                 nix_type,
@@ -269,7 +269,7 @@ class NixIO(BaseIO):
         times = irsig.times.magnitude.tolist()
 
         nix_data_arrays = []
-        for idx, sig in enumerate(irsig.signal):
+        for idx, sig in enumerate(irsig):
             nix_data_array = parent_block.create_data_array(
                 "{}{}".format(nix_name, idx),
                 nix_type,

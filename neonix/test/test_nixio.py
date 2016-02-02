@@ -136,10 +136,10 @@ class NixIOTest(unittest.TestCase):
                 seg = Segment(name="segment_{}".format(ind),
                               description="{} segment {}".format(blk.name, ind))
                 blk.segments.append(seg)
-                asig_data = np.array([np.linspace(0, ind+1, 1000)*ind,
-                                      np.linspace(0, ind+2, 1000)*ind,
-                                      np.linspace(0, ind+3, 1000)*ind]
-                                     ).transpose()*pq.mV
+                asig_data = np.array([np.linspace(0, ind+1, 1000)*(ind+1),
+                                      np.linspace(0, ind+2, 1000)*(ind+1),
+                                      np.linspace(0, ind+3, 1000)*(ind+1)]
+                                     )*pq.mV
                 asignal = AnalogSignal(asig_data, sampling_rate=10*pq.kHz)
                 seg.analogsignals.append(asignal)
 
