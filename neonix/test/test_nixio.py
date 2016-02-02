@@ -102,7 +102,7 @@ class NixIOTest(unittest.TestCase):
         neo_segment_new = Segment(name="test_segment_2",
                                   description="second segment for testing")
         neo_block.segments.append(neo_segment_new)
-        self.assertFalse(NixIO._equals(neo_block, nix_block))
+        self.assertNotEqual(len(neo_block.segments), len(nix_block.groups))
 
     def test_metadata(self):
         neo_block = Block(name="test_block", description="block for testing")
