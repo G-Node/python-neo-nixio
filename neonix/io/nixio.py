@@ -420,10 +420,11 @@ class NixIO(BaseIO):
 
         # TODO: Find if any Unit objects reference this SpikeTrain and add a
         # TODO: ... reference to that Unit
+        # parent block is a nix block - we need the parent Neo block
         for blk_unit in parent_block.list_units:
             for unit_sptr in blk_unit:
                 # TODO: Optimise this search?
-                # TODO:  ... Only one unit can reference each spiketrain (?)
+                # TODO:  ... Can only one unit reference each spiketrain (?)
                 if unit_sptr is sptr:
                     # if units are written elsewhere, the following should be
                     # swapped out for a search function

@@ -14,8 +14,8 @@ import unittest
 import numpy as np
 import quantities as pq
 
-from neo.core import (Block, Segment, RecordingChannelGroup,
-                      AnalogSignal, IrregularlySampledSignal)
+from neo.core import (Block, Segment, RecordingChannelGroup, AnalogSignal,
+                      IrregularlySampledSignal, Unit, SpikeTrain, Event, Epoch)
 
 from neonix.io.nixio import NixIO
 
@@ -144,7 +144,9 @@ class NixIOTest(unittest.TestCase):
         nix_block = self.io.nix_file.blocks[0]
         self.assertTrue(NixIO._equals(neo_block, nix_block))
 
-    def test_full(self):
+    def test_all(self):
+        # Test writing of all objects based on examples from the neo docs
+        # api_reference.html
         neo_block_a = Block(name="full_test_block_1",
                             description="root block one for full test")
 
@@ -158,15 +160,57 @@ class NixIOTest(unittest.TestCase):
                 blk.segments.append(seg)
                 asig_data = np.array([np.linspace(0, ind+1, 1000)*ind,
                                       np.linspace(0, ind+2, 1000)*ind,
-                                      np.linspace(0, ind+3, 1000)*ind])*pq.mV
+                                      np.linspace(0, ind+3, 1000)*ind]
+                                     ).transpose()*pq.mV
                 asignal = AnalogSignal(asig_data, sampling_rate=10*pq.kHz)
                 seg.analogsignals.append(asignal)
 
                 isig_times = np.cumsum(np.random.random(300))*pq.ms
-                isig_data = np.random.random((300, 1000))*pq.nA
+                isig_data = np.random.random((1000, 10))*pq.nA
                 isignal = IrregularlySampledSignal(isig_times, isig_data)
                 seg.irregularlysampledsignals.append(isignal)
 
+        # group 3 channels from the analog signal in the first segment of the
+        # first block
+        rcg_a = RecordingChannelGroup(
+            name="RCG_1",
+            channel_names=np.array(["ch1", "ch4", "ch6"]),
+            channel_indexes=np.array([0, 3, 5]))
+        rcg_a.analogsignals.append(neo_block_a.segments[0].analogsignals[0])
+
+        # RCG with units
+        octotrode_rcg = RecordingChannelGroup(name="octotrode A")
+        neo_block_b.recordingchannelgroups.append(octotrode_rcg)
+        for ind in range(5):
+            octo_unit = Unit(name="unit_{}".format(ind),
+                             description="after a long and hard spike sorting")
+            octotrode_rcg.units.append(octo_unit)
+
+        # Unit as a spiketrain container
+        spiketrain_container_rcg = RecordingChannelGroup(name="PyramRCG")
+        neo_block_b.recordingchannelgrou.append(spiketrain_container_rcg)
+        pyram_unit = Unit(name="Pyramidal neuron")
+        train0 = SpikeTrain(times=[0.01, 3.3, 9.3], units="sec", t_stop=10)
+        pyram_unit.spiketrains.append(train0)
+        train1 = SpikeTrain(times=[100.01, 103.3, 109.3], units="sec",
+                            t_stop=110)
+        pyram_unit.spiketrains.append(train1)
+        spiketrain_container_rcg.unis.append(pyram_unit)
+
+        # Events associated with first segment of first block
+        evt = Event(name="Trigger events",
+                    times=np.arange(0, 30, 10)*pq.s,
+                    labels=np.array(["trig0", "trig1", "trig2"], dtype="S"))
+        neo_block_a.segments[0].events.append(evt)
+
+        # Epochs associated with the second segment of the first block
+        epc = Epoch(name="Button events",
+                    times=np.arange(0, 30, 10)*pq.s,
+                    durations=[10, 5, 7]*pq.ms,
+                    labels=np.array(["btn0", "btn1", "btn2"], dtype="S"))
+        neo_block_a.segments[1].epochs.append(epc)
+
+        # Write all the blocks
         nix_blocks = self.io.write_all_blocks(neo_blocks)
-        for nix_block, neo_block in zip(nix_blocks, neo_blocks):
-            self.assertTrue(NixIO._equals(nix_block, neo_block))
+
+        # TODO: Read the NIX data tree and compare with original objects
