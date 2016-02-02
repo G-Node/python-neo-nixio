@@ -195,7 +195,7 @@ class NixIO(BaseIO):
         :return: A list containing the newly created NIX DataArrays
         """
         parent_group = self.get_object_at(parent_path)
-        parent_block = self.get_object_at(parent_path[0])
+        parent_block = self.get_object_at([parent_path[0]])
         nix_name = anasig.name
         nix_type = "neo.analogsignal"
         nix_definition = anasig.description
@@ -241,7 +241,7 @@ class NixIO(BaseIO):
         :return: The newly created NIX DataArray
         """
         parent_group = self.get_object_at(parent_path)
-        parent_block = self.get_object_at(parent_path[0])
+        parent_block = self.get_object_at([parent_path[0]])
         nix_name = irsig.name
         nix_type = "neo.irregularlysampledsignal"
         nix_definition = irsig.description
@@ -284,7 +284,7 @@ class NixIO(BaseIO):
         :return: The newly created NIX MultiTag
         """
         parent_group = self.get_object_at(parent_path)
-        parent_block = self.get_object_at(parent_path[0])
+        parent_block = self.get_object_at([parent_path[0]])
         nix_name = ep.name
         nix_type = "neo.epoch"
         nix_definition = ep.description
@@ -329,7 +329,7 @@ class NixIO(BaseIO):
         :return: The newly created NIX MultiTag
         """
         parent_group = self.get_object_at(parent_path)
-        parent_block = self.get_object_at(parent_path[0])
+        parent_block = self.get_object_at([parent_path[0]])
         nix_name = ev.name
         nix_type = "neo.event"
         nix_definition = ev.description
@@ -365,7 +365,7 @@ class NixIO(BaseIO):
         :return: The newly created NIX MultiTag
         """
         parent_group = self.get_object_at(parent_path)
-        parent_block = self.get_object_at(parent_path[0])
+        parent_block = self.get_object_at([parent_path[0]])
         nix_name = sptr.name
         nix_type = "neo.spiketrain"
         nix_definition = sptr.description
@@ -447,7 +447,7 @@ class NixIO(BaseIO):
         :return: The newly created NIX Source
         """
         parent_group = self.get_object_at(parent_path)
-        parent_block = self.get_object_at(parent_path[0])
+        parent_block = self.get_object_at([parent_path[0]])
         nix_name = ut.name
         nix_type = "neo.unit"
         nix_definition = ut.description
