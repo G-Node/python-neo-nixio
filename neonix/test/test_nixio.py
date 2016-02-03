@@ -126,6 +126,8 @@ class NixIOTest(unittest.TestCase):
     def test_all(self):
         # Test writing of all objects based on examples from the neo docs
         # api_reference.html
+
+        # TODO: Add SpikeTrains to segments
         neo_block_a = Block(name="full_test_block_1",
                             description="root block one for full test")
 
@@ -196,7 +198,6 @@ class NixIOTest(unittest.TestCase):
 
         # Write all the blocks
         nix_blocks = self.io.write_all_blocks(neo_blocks)
-        # TODO: Read the NIX data tree and compare with original objects
 
         for nixblk, neoblk in zip(nix_blocks, neo_blocks):
             self.assertEqual(nixblk.name, neoblk.name)

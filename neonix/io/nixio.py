@@ -56,6 +56,7 @@ class NixIO(BaseIO):
         self.filename = filename
         if self.filename:
             self.nix_file = nix.File.open(self.filename, nix.FileMode.Overwrite)
+        self.neo_spiketrains = []
 
     def __del__(self):
         self.nix_file.close()
@@ -98,6 +99,10 @@ class NixIO(BaseIO):
                 self.write_segment(segment, object_path)
             for rcg in neo_block.recordingchannelgroups:
                 self.write_recordingchannelgroup(rcg, object_path)
+            for unit in neo_block.list_units:
+                self.write_unit(unit, object_path)
+            for sptr, sptr_parent_path in self.neo_spiketrains:
+                self.write_spiketrain(sptr, sptr_parent_path)
         return nix_block
 
     def write_all_blocks(self, neo_blocks, cascade=True):
@@ -155,7 +160,8 @@ class NixIO(BaseIO):
         for ev in segment.events:
             self.write_event(ev, object_path)
         for sptr in segment.spiketrains:
-            self.write_spiketrain(sptr, object_path)
+            # collect spiketrains
+            self.neo_spiketrains.append((sptr, object_path))
 
         return nix_group
 
@@ -189,6 +195,8 @@ class NixIO(BaseIO):
             nix_coordinates = NixIO._copy_coordinates(rcg.coordinates)
             source_metadata.create_property("coordinates",
                                             nix_coordinates)
+        # TODO: Add references to signals and units
+
         return nix_source
 
     def write_analogsignal(self, anasig, parent_path):
@@ -386,17 +394,17 @@ class NixIO(BaseIO):
     def write_spiketrain(self, sptr, parent_path):
         """
         Convert the provided ``sptr`` (SpikeTrain) to a NIX MultiTag and write
-         it to the NIX file at the location defined by ``parent_path``.
+        it to the NIX file at the location defined by ``parent_path``.
 
         :param sptr: The Neo SpikeTrain to be written
         :param parent_path: Path to the parent of the new MultiTag
         :return: The newly created NIX MultiTag
         """
-        parent_group = self.get_object_at(parent_path)
+        parent_obj = self.get_object_at(parent_path)
         parent_block = self.get_object_at([parent_path[0]])
         nix_name = sptr.name
         if not nix_name:
-            nmt = len(parent_group.multi_tags)
+            nmt = len(parent_block.multi_tags)
             nix_name = "neo.SpikeTrain.{}".format(nmt)
         nix_type = "neo.spiketrain"
         nix_definition = sptr.description
@@ -412,7 +420,7 @@ class NixIO(BaseIO):
         # ready to create MTag
         nix_multi_tag = parent_block.create_multi_tag(nix_name, nix_type,
                                                       times_da)
-        parent_group.multi_tags.append(nix_multi_tag)
+
         nix_multi_tag.definition = nix_definition
         object_path = parent_path + [("multi_tag", nix_name)]
         mtag_metadata = self._get_or_init_metadata(nix_multi_tag,
@@ -427,7 +435,7 @@ class NixIO(BaseIO):
             mtag_metadata.create_property("t_start",
                                           nix.Value(t_start))
         # t_stop is not optional
-        t_stop = sptr.t_stop.rescale(time_units).magnitude
+        t_stop = sptr.t_stop.rescale(time_units).magnitude.item()
         mtag_metadata.create_property("t_stop", nix.Value(t_stop))
 
         # waveforms
@@ -453,22 +461,10 @@ class NixIO(BaseIO):
             waveforms_da.metadata.create_property("left_sweep", left_sweep)
             nix_multi_tag.create_feature(waveforms_da, nix.LinkType.indexed)
 
-        # TODO: Find if any Unit objects reference this SpikeTrain and add a
-        # TODO: ... reference to that Unit
-        # parent block is a nix block - we need the parent Neo block
-        for blk_unit in parent_block.list_units:
-            for unit_sptr in blk_unit:
-                # TODO: Optimise this search?
-                # TODO:  ... Can only one unit reference each spiketrain (?)
-                if unit_sptr is sptr:
-                    # if units are written elsewhere, the following should be
-                    # swapped out for a search function
-                    nix_source = self.write_unit(blk_unit, object_path)
-                    nix_multi_tag.sources.append(nix_source)
-                    # unit added - break out of inner loop
-                    # if only one unit can reference each spiketrain,
-                    # we should also break out of the outer loop at this point
-                    break
+        if isinstance(parent_obj, nix.Group):
+            parent_obj.multi_tags.append(nix_multi_tag)
+        elif isinstance(parent_obj, nix.Source):
+            nix_multi_tag.sources.append(parent_obj)
 
         return nix_multi_tag
 
@@ -481,24 +477,26 @@ class NixIO(BaseIO):
         :param parent_path: Path to the parent of the new Source
         :return: The newly created NIX Source
         """
-        parent_group = self.get_object_at(parent_path)
-        parent_block = self.get_object_at([parent_path[0]])
+        parent_block = self.get_object_at(parent_path)
         nix_name = ut.name
         if not nix_name:
-            nmt = len(parent_group.sources)
+            nmt = len(parent_block.sources)
             nix_name = "neo.Unit{}".format(nmt)
         nix_type = "neo.unit"
         nix_definition = ut.description
         nix_source = parent_block.create_source(nix_name, nix_type)
-        parent_group.sources.append(nix_source)
         nix_source.definition = nix_definition
         object_path = parent_path + [("source", nix_name)]
+
         if ut.file_origin:
             mtag_metadata = self._get_or_init_metadata(nix_source,
                                                        object_path)
             mtag_metadata.create_property("file_origin",
                                           nix.Value(ut.file_origin))
 
+        for sptr in ut.spiketrains:
+            # collect spiketrains
+            self.neo_spiketrains.append((sptr, object_path))
         return nix_source
 
     def _get_or_init_metadata(self, nix_obj, obj_path=[]):
