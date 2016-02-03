@@ -222,10 +222,7 @@ class NixIO(BaseIO):
         sampling_interval = anasig.sampling_period.item()
 
         nix_data_arrays = []
-        print(nix_name)
-
         for idx, sig in enumerate(anasig.transpose()):
-            print("{}.{}".format(nix_name, idx))
             nix_data_array = parent_block.create_data_array(
                 "{}.{}".format(nix_name, idx),
                 nix_type,

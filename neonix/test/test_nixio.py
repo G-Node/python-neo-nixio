@@ -14,6 +14,7 @@ import unittest
 import numpy as np
 import quantities as pq
 
+import nix
 from neo.core import (Block, Segment, RecordingChannelGroup, AnalogSignal,
                       IrregularlySampledSignal, Unit, SpikeTrain, Event, Epoch)
 
@@ -195,5 +196,49 @@ class NixIOTest(unittest.TestCase):
 
         # Write all the blocks
         nix_blocks = self.io.write_all_blocks(neo_blocks)
-        print(nix_blocks)
         # TODO: Read the NIX data tree and compare with original objects
+
+        for nixblk, neoblk in zip(nix_blocks, neo_blocks):
+            self.assertEqual(nixblk.name, neoblk.name)
+            self.assertEqual(nixblk.definition, neoblk.description)
+            self.assertEqual(nixblk.type, "neo.block")
+
+            for nixgrp in nixblk.groups:
+                analog_signals = [da for da in nixgrp.data_arrays
+                                  if da.type == "neo.analogsignal"]
+                irreg_signals = [da for da in nixgrp.data_arrays
+                                 if da.type == "neo.irregularlysampledsignal"]
+                self.assertEqual(len(analog_signals), 3)
+                self.assertEqual(len(irreg_signals), 10)
+
+                for nixasig in analog_signals:
+                    self.assertEqual(nixasig.unit, "mV")
+                    self.assertEqual(nixasig.dimensions[0].dimension_type,
+                                     nix.DimensionType.Sample)
+                    self.assertEqual(nixasig.dimensions[1].dimension_type,
+                                     nix.DimensionType.Set)
+                    self.assertEqual(nixasig.dimensions[0].unit, "s")
+                    self.assertEqual(nixasig.dimensions[0].label, "time")
+                    self.assertEqual(nixasig.dimensions[0].offset, 0)
+                    self.assertEqual(nixasig.dimensions[0].sampling_interval,
+                                     0.1)  # 1/(10 kHz)
+
+                    # TODO: Check data values
+
+                for nixisig in irreg_signals:
+                    self.assertEqual(nixisig.unit, "nA")
+                    self.assertEqual(nixisig.dimensions[0].dimension_type,
+                                     nix.DimensionType.Range)
+                    self.assertEqual(nixisig.dimensions[1].dimension_type,
+                                     nix.DimensionType.Set)
+                    self.assertEqual(nixisig.dimensions[0].unit, "s")
+                    self.assertEqual(nixisig.dimensions[0].label, "time")
+
+                    # TODO: Check tick and data values
+
+            # TODO: RCG
+
+            # TODO: Events
+
+            # TODO: Epochs
+
