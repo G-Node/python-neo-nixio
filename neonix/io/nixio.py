@@ -195,7 +195,8 @@ class NixIO(BaseIO):
             nix_coordinates = NixIO._copy_coordinates(rcg.coordinates)
             source_metadata.create_property("coordinates",
                                             nix_coordinates)
-        # TODO: Add references to signals and units
+        # TODO: For each child object, create a source
+        # https://github.com/G-Node/python-neo-nixio/blob/master/mapping.md#neorecordingchannelgroup
 
         return nix_source
 
