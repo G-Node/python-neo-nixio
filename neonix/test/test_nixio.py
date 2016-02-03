@@ -127,7 +127,6 @@ class NixIOTest(unittest.TestCase):
         # Test writing of all objects based on examples from the neo docs
         # api_reference.html
 
-        # TODO: Add SpikeTrains to segments
         neo_block_a = Block(name="full_test_block_1",
                             description="root block one for full test")
 
@@ -153,6 +152,7 @@ class NixIOTest(unittest.TestCase):
                 isig_data = np.random.random((300, 10))*pq.nA
                 isignal = IrregularlySampledSignal(isig_times, isig_data)
                 seg.irregularlysampledsignals.append(isignal)
+                # TODO: Add SpikeTrains to segments
 
         # group 3 channels from the analog signal in the first segment of the
         # first block
@@ -182,6 +182,8 @@ class NixIOTest(unittest.TestCase):
                             t_stop=110)
         pyram_unit.spiketrains.append(train1)
         spiketrain_container_rcg.units.append(pyram_unit)
+
+        # TODO: Add waveforms to spiketrains
 
         # Events associated with first segment of first block
         evt = Event(name="Trigger events",
@@ -237,9 +239,9 @@ class NixIOTest(unittest.TestCase):
 
                     # TODO: Check tick and data values
 
-            # TODO: RCG
+            # TODO: Check RCGs
 
-            # TODO: Events
+            # TODO: Check Events
 
-            # TODO: Epochs
+            # TODO: Check Epochs
 
