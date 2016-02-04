@@ -502,7 +502,7 @@ class NixIO(BaseIO):
             self.neo_spiketrains.append((sptr, object_path))
         return nix_source
 
-    def _get_or_init_metadata(self, nix_obj, obj_path=[]):
+    def _get_or_init_metadata(self, nix_obj, obj_path=list()):
         """
         Creates a metadata Section for the provided NIX object if it doesn't
         have one already. Returns the new or existing metadata section.
