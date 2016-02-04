@@ -248,3 +248,4 @@ class NixIOTest(unittest.TestCase):
 
             # TODO: Check Epochs
 
+            # TODO: Check spiketrains and waveforms
