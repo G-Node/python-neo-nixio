@@ -234,9 +234,15 @@ class NixIOTest(unittest.TestCase):
                     self.assertEqual(nixasig.dimensions[0].sampling_interval,
                                      0.1)  # 1/(10 kHz)
                     self.assertEqual(len(nixasig), len(neoasig))
-                    for nixvalue, neovalue in zip(nixasig, neoasig):
-                        self.assertAlmostEqual(nixvalue.item(), neovalue.item(),
+
+                    # iterating data arrays causes IO error
+                    for idx in range(len(nixasig)):
+                        nixvalue = nixasig[idx]
+                        neovalue = neoasig[idx]
+                        self.assertAlmostEqual(nixvalue.item(),
+                                               neovalue.item(),
                                                2)
+                    print("\nDONE!")
 
                 for nixisig in irreg_signals:
                     self.assertEqual(nixisig.unit, "nA")
