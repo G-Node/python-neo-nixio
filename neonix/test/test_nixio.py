@@ -144,6 +144,7 @@ class NixIOTest(unittest.TestCase):
                                       np.linspace(0, ind+3, 1000)*(ind+1)]
                                      ).transpose()*pq.mV
                 asignal = AnalogSignal(asig_data,
+                                       name="some_sort_of_signal_{}".format(ind),
                                        t_start=0*pq.s,
                                        sampling_rate=10*pq.kHz)
                 seg.analogsignals.append(asignal)
