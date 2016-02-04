@@ -88,8 +88,7 @@ class NixIO(BaseIO):
             # Truncating timestamp to seconds
             block_metadata.create_property(
                     "file_datetime",
-                    nix.Value(
-                            calculate_timestamp(neo_block.file_datetime)))
+                    nix.Value(calculate_timestamp(neo_block.file_datetime)))
         if neo_block.file_origin:
             block_metadata = self._get_or_init_metadata(nix_block)
             block_metadata.create_property("file_origin",
@@ -103,6 +102,7 @@ class NixIO(BaseIO):
                 self.write_unit(unit, object_path)
             for sptr, sptr_parent_path in self.neo_spiketrains:
                 self.write_spiketrain(sptr, sptr_parent_path)
+            self.neo_spiketrains.clear()
         return nix_block
 
     def write_all_blocks(self, neo_blocks, cascade=True):
@@ -421,6 +421,11 @@ class NixIO(BaseIO):
         # ready to create MTag
         nix_multi_tag = parent_block.create_multi_tag(nix_name, nix_type,
                                                       times_da)
+        # attach MTag to parent object
+        if isinstance(parent_obj, nix.Group):
+            parent_obj.multi_tags.append(nix_multi_tag)
+        elif isinstance(parent_obj, nix.Source):
+            nix_multi_tag.sources.append(parent_obj)
 
         nix_multi_tag.definition = nix_definition
         object_path = parent_path + [("multi_tag", nix_name)]
@@ -440,13 +445,14 @@ class NixIO(BaseIO):
         mtag_metadata.create_property("t_stop", nix.Value(t_stop))
 
         # waveforms
-        if sptr.waveforms:
+        if sptr.waveforms is not None:
             wf_data = [wf.magnitude for wf in
-                             [wfgroup for wfgroup in sptr.waveforms]]
-            waveforms_da = parent_block.create_data_array(
-                "{}.waveforms".format(nix_name),
-                "neo.waveforms",
-                data=wf_data)
+                       [wfgroup for wfgroup in sptr.waveforms]]
+            wf_name = "{}.waveforms".format(nix_name)
+            waveforms_da = parent_block.create_data_array(wf_name,
+                                                          "neo.waveforms",
+                                                          data=wf_data)
+            nix_multi_tag.create_feature(waveforms_da, nix.LinkType.Indexed)
             sampling_interval = sptr.sampling_period.item()
             time_units = str(sptr.sampling_period.units.dimensionality.
                              simplified)
@@ -455,17 +461,13 @@ class NixIO(BaseIO):
             wf_timedim = waveforms_da.append_sampled_dimension(sampling_interval)
             wf_timedim.unit = time_units
             wf_timedim.label = "time"
-            wf_path = object_path + [("data_array", nix_name)]
+            wf_path = object_path + [("data_array", wf_name)]
+            self._get_or_init_metadata(nix_multi_tag, object_path)
             waveforms_da.metadata = self._get_or_init_metadata(waveforms_da,
                                                                wf_path)
-            left_sweep = sptr.left_sweep.rescale(time_units).magnitude
-            waveforms_da.metadata.create_property("left_sweep", left_sweep)
-            nix_multi_tag.create_feature(waveforms_da, nix.LinkType.indexed)
-
-        if isinstance(parent_obj, nix.Group):
-            parent_obj.multi_tags.append(nix_multi_tag)
-        elif isinstance(parent_obj, nix.Source):
-            nix_multi_tag.sources.append(parent_obj)
+            if sptr.left_sweep:
+                left_sweep = sptr.left_sweep.rescale(time_units).magnitude
+                waveforms_da.metadata.create_property("left_sweep", left_sweep)
 
         return nix_multi_tag
 
@@ -531,8 +533,8 @@ class NixIO(BaseIO):
         :param path: List of tuples that define a location in the file
         :return: The object at the location defined by the path
         """
-        # NOTE: Should this be simplified to:
-        #   return parent.__getattribute__(obj_type+"s")[obj_name] ?
+        # NOTE: This could be simplified to:
+        #   return parent.__getattribute__(obj_type+"s")[obj_name]
         obj = self.nix_file
         for obj_type, obj_name in path:
             if obj_type == "block":
