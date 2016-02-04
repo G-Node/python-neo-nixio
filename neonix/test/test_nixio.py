@@ -153,7 +153,10 @@ class NixIOTest(unittest.TestCase):
                 isignal = IrregularlySampledSignal(isig_times, isig_data)
                 seg.irregularlysampledsignals.append(isignal)
 
-        seg_train = SpikeTrain(times=[0.01, 0.1, 0.93], units="sec", t_stop=1)
+        waveforms = np.array([[[0., 1.]], [[2., 3.]], [[4., 5.]]]) * pq.mV
+        seg_train = SpikeTrain([3, 4, 5]*pq.s, waveforms=waveforms,
+                               name='segment_spiketrain', t_stop=10.0)
+
         neo_blocks[0].segments[0].spiketrains.append(seg_train)
 
         # group 3 channels from the analog signal in the first segment of the
@@ -184,8 +187,6 @@ class NixIOTest(unittest.TestCase):
                             t_stop=110)
         pyram_unit.spiketrains.append(train1)
         spiketrain_container_rcg.units.append(pyram_unit)
-
-        # TODO: Add waveforms to spiketrains
 
         # Events associated with first segment of first block
         evt = Event(name="Trigger events",
