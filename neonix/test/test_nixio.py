@@ -215,12 +215,21 @@ class NixIOTest(unittest.TestCase):
                                       if da.type == "neo.analogsignal"]
                 nix_analog_signals = sorted(nix_analog_signals,
                                             key=lambda da: da.name)
-                irreg_signals = [da for da in nixgrp.data_arrays
-                                 if da.type == "neo.irregularlysampledsignal"]
-                self.assertEqual(len(nix_analog_signals), 3)
-                self.assertEqual(len(irreg_signals), 10)
+                nix_irreg_signals = [da for da in nixgrp.data_arrays
+                                     if da.type ==
+                                     "neo.irregularlysampledsignal"]
+                nix_irreg_signals = sorted(nix_irreg_signals,
+                                           key=lambda da: da.name)
 
-                neo_analog_signals = np.transpose(neoseg.analogsignals)
+                neo_analog_signals = np.transpose(neoseg.analogsignals[0])
+                neo_irreg_signals = np.transpose(
+                    neoseg.irregularlysampledsignals[0])
+
+                self.assertEqual(len(nix_analog_signals),
+                                 len(neo_analog_signals))
+                self.assertEqual(len(nix_irreg_signals),
+                                 len(neo_irreg_signals))
+
                 for nixasig, neoasig in zip(nix_analog_signals,
                                             neo_analog_signals):
                     self.assertEqual(nixasig.unit, "mV")
@@ -239,12 +248,10 @@ class NixIOTest(unittest.TestCase):
                     for idx in range(len(nixasig)):
                         nixvalue = nixasig[idx]
                         neovalue = neoasig[idx]
-                        self.assertAlmostEqual(nixvalue.item(),
-                                               neovalue.item(),
-                                               2)
-                    print("\nDONE!")
+                        self.assertAlmostEqual(nixvalue.item(), neovalue.item())
 
-                for nixisig in irreg_signals:
+                for nixisig, neoisig in zip(nix_irreg_signals,
+                                            neo_irreg_signals):
                     self.assertEqual(nixisig.unit, "nA")
                     self.assertEqual(nixisig.dimensions[0].dimension_type,
                                      nix.DimensionType.Range)
@@ -253,7 +260,16 @@ class NixIOTest(unittest.TestCase):
                     self.assertEqual(nixisig.dimensions[0].unit, "s")
                     self.assertEqual(nixisig.dimensions[0].label, "time")
 
-                    # TODO: Check tick and data values
+                    for idx in range(len(nixisig)):
+                        nixvalue = nixisig[idx]
+                        neovalue = neoisig[idx]
+                        self.assertAlmostEqual(nixvalue.item(), neovalue.item())
+
+                    nixtime = nixisig.dimensions[0].ticks
+                    neotime = neoseg.irregularlysampledsignals[0].times
+                    self.assertEqual(len(nixtime), len(neotime))
+                    for nixt, neot in zip(nixtime, neotime):
+                        self.assertAlmostEqual(nixt, neot)
 
             # TODO: Check RCGs
 
