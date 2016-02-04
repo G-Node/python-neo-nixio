@@ -209,15 +209,19 @@ class NixIOTest(unittest.TestCase):
             self.assertEqual(nixblk.definition, neoblk.description)
             self.assertEqual(nixblk.type, "neo.block")
 
-            for nixgrp in nixblk.groups:
-                analog_signals = [da for da in nixgrp.data_arrays
-                                  if da.type == "neo.analogsignal"]
+            for nixgrp, neoseg in zip(nixblk.groups, neoblk.segments):
+                nix_analog_signals = [da for da in nixgrp.data_arrays
+                                      if da.type == "neo.analogsignal"]
+                nix_analog_signals = sorted(nix_analog_signals,
+                                            key=lambda da: da.name)
                 irreg_signals = [da for da in nixgrp.data_arrays
                                  if da.type == "neo.irregularlysampledsignal"]
-                self.assertEqual(len(analog_signals), 3)
+                self.assertEqual(len(nix_analog_signals), 3)
                 self.assertEqual(len(irreg_signals), 10)
 
-                for nixasig in analog_signals:
+                neo_analog_signals = np.transpose(neoseg.analogsignals)
+                for nixasig, neoasig in zip(nix_analog_signals,
+                                            neo_analog_signals):
                     self.assertEqual(nixasig.unit, "mV")
                     self.assertEqual(nixasig.dimensions[0].dimension_type,
                                      nix.DimensionType.Sample)
@@ -228,8 +232,10 @@ class NixIOTest(unittest.TestCase):
                     self.assertEqual(nixasig.dimensions[0].offset, 0)
                     self.assertEqual(nixasig.dimensions[0].sampling_interval,
                                      0.1)  # 1/(10 kHz)
-
-                    # TODO: Check data values
+                    self.assertEqual(len(nixasig), len(neoasig))
+                    for nixvalue, neovalue in zip(nixasig, neoasig):
+                        self.assertAlmostEqual(nixvalue.item(), neovalue.item(),
+                                               2)
 
                 for nixisig in irreg_signals:
                     self.assertEqual(nixisig.unit, "nA")
