@@ -56,7 +56,7 @@ class NixIO(BaseIO):
         self.filename = filename
         if self.filename:
             self.nix_file = nix.File.open(self.filename, nix.FileMode.Overwrite)
-        self.neo_spiketrains = []
+        self.neo_spiketrains = list()
 
     def __del__(self):
         self.nix_file.close()
@@ -102,7 +102,7 @@ class NixIO(BaseIO):
                 self.write_unit(unit, object_path)
             for sptr, sptr_parent_path in self.neo_spiketrains:
                 self.write_spiketrain(sptr, sptr_parent_path)
-            self.neo_spiketrains.clear()
+            self.neo_spiketrains = list()
         return nix_block
 
     def write_all_blocks(self, neo_blocks, cascade=True):
@@ -114,7 +114,7 @@ class NixIO(BaseIO):
         :param cascade: Save all child objects (default: True)
         :return: A list containing the new NIX Blocks
         """
-        nix_blocks = []
+        nix_blocks = list()
         for nb in neo_blocks:
             nix_blocks.append(self.write_block(nb, cascade))
         return nix_blocks
@@ -230,7 +230,7 @@ class NixIO(BaseIO):
         offset = anasig.t_start.rescale(time_units).item()
         sampling_interval = anasig.sampling_period.item()
 
-        nix_data_arrays = []
+        nix_data_arrays = list()
         for idx, sig in enumerate(anasig.transpose()):
             nix_data_array = parent_block.create_data_array(
                 "{}.{}".format(nix_name, idx),
@@ -278,7 +278,7 @@ class NixIO(BaseIO):
         time_units = str(irsig.times.units.dimensionality.simplified)
         times = irsig.times.magnitude.tolist()
 
-        nix_data_arrays = []
+        nix_data_arrays = list()
         for idx, sig in enumerate(irsig.transpose()):
             nix_data_array = parent_block.create_data_array(
                 "{}.{}".format(nix_name, idx),
@@ -626,7 +626,7 @@ class NixIO(BaseIO):
 
     @staticmethod
     def _convert_signal_data(signal):
-        data = []
+        data = list()
         for chan in signal:
             data.append(chan.magnitude)
         return np.array(data)
