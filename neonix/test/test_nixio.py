@@ -271,12 +271,6 @@ class NixIOTest(unittest.TestCase):
                     for nixt, neot in zip(nixtime, neotime):
                         self.assertAlmostEqual(nixt, neot)
 
-            # TODO: Check RCGs
-
-            # TODO: Check Events
-
-            # TODO: Check Epochs
-
         # spiketrains and waveforms
         neo_spiketrain = neo_blocks[0].segments[0].spiketrains[0]
         nix_spiketrain = nix_blocks[0].groups[0].multi_tags[neo_spiketrain.name]
@@ -318,4 +312,10 @@ class NixIOTest(unittest.TestCase):
         wf_time_interval = nix_waveforms.dimensions[2].sampling_interval
         self.assertEqual(wf_time_dim, "s")
         self.assertAlmostEqual(wf_time_interval, 1.0)
+
+        # TODO: Check RCGs
+
+        # TODO: Check Events
+
+        # TODO: Check Epochs
 
