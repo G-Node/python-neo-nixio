@@ -155,8 +155,8 @@ class NixIOTest(unittest.TestCase):
                 seg.irregularlysampledsignals.append(isignal)
 
         # create a spiketrain with some waveforms and attach it to a segment
-        waveforms = np.array([[[0., 1.]], [[2., 3.]], [[4., 5.]]]) * pq.mV
-        seg_train = SpikeTrain([3, 4, 5]*pq.s, waveforms=waveforms,
+        wf_array = np.array([[[0., 1.]], [[2., 3.]], [[4., 5.]]]) * pq.mV
+        seg_train = SpikeTrain([3, 4, 5]*pq.s, waveforms=wf_array,
                                name='segment_spiketrain', t_stop=10.0)
         neo_blocks[0].segments[0].spiketrains.append(seg_train)
 
@@ -233,10 +233,10 @@ class NixIOTest(unittest.TestCase):
                 for nixasig, neoasig in zip(nix_analog_signals,
                                             neo_analog_signals):
                     self.assertEqual(nixasig.unit, "mV")
-                    self.assertEqual(nixasig.dimensions[0].dimension_type,
-                                     nix.DimensionType.Sample)
-                    self.assertEqual(nixasig.dimensions[1].dimension_type,
-                                     nix.DimensionType.Set)
+                    self.assertIs(nixasig.dimensions[0].dimension_type,
+                                  nix.DimensionType.Sample)
+                    self.assertIs(nixasig.dimensions[1].dimension_type,
+                                  nix.DimensionType.Set)
                     self.assertEqual(nixasig.dimensions[0].unit, "s")
                     self.assertEqual(nixasig.dimensions[0].label, "time")
                     self.assertEqual(nixasig.dimensions[0].offset, 0)
@@ -253,10 +253,10 @@ class NixIOTest(unittest.TestCase):
                 for nixisig, neoisig in zip(nix_irreg_signals,
                                             neo_irreg_signals):
                     self.assertEqual(nixisig.unit, "nA")
-                    self.assertEqual(nixisig.dimensions[0].dimension_type,
-                                     nix.DimensionType.Range)
-                    self.assertEqual(nixisig.dimensions[1].dimension_type,
-                                     nix.DimensionType.Set)
+                    self.assertIs(nixisig.dimensions[0].dimension_type,
+                                  nix.DimensionType.Range)
+                    self.assertIs(nixisig.dimensions[1].dimension_type,
+                                  nix.DimensionType.Set)
                     self.assertEqual(nixisig.dimensions[0].unit, "s")
                     self.assertEqual(nixisig.dimensions[0].label, "time")
 
@@ -277,4 +277,45 @@ class NixIOTest(unittest.TestCase):
 
             # TODO: Check Epochs
 
-            # TODO: Check spiketrains and waveforms
+        # spiketrains and waveforms
+        neo_spiketrain = neo_blocks[0].segments[0].spiketrains[0]
+        nix_spiketrain = nix_blocks[0].groups[0].multi_tags[neo_spiketrain.name]
+
+        self.assertEqual(len(nix_spiketrain.positions),
+                         len(neo_spiketrain))
+
+        for idx in range(len(nix_spiketrain.positions)):
+            self.assertAlmostEqual(nix_spiketrain.positions[idx],
+                                   neo_spiketrain[idx])
+
+        nix_t_stop = nix_spiketrain.metadata["t_stop"]
+        neo_t_stop = neo_spiketrain.t_stop
+        self.assertAlmostEqual(nix_t_stop, neo_t_stop)
+
+        self.assertEqual(nix_spiketrain.positions.unit, "s")
+
+        neo_waveforms = neo_spiketrain.waveforms
+        nix_waveforms = nix_spiketrain.features[0].data
+
+        self.assertEqual(np.shape(nix_waveforms), np.shape(neo_waveforms))
+        self.assertEqual(nix_waveforms.unit, "mV")
+        nspk, nchan, ntime = np.shape(nix_waveforms)
+        for spk in range(nspk):
+            for chan in range(nchan):
+                for t in range(ntime):
+                    self.assertAlmostEqual(nix_waveforms[spk, chan, t],
+                                           neo_waveforms[spk, chan, t])
+
+        self.assertIs(nix_waveforms.dimensions[0].dimension_type,
+                      nix.DimensionType.Set)
+        self.assertIs(nix_waveforms.dimensions[1].dimension_type,
+                      nix.DimensionType.Set)
+        self.assertIs(nix_waveforms.dimensions[2].dimension_type,
+                      nix.DimensionType.Sample)
+
+        # no time dimension specified when creating - defaults to 1 s
+        wf_time_dim = nix_waveforms.dimensions[2].unit
+        wf_time_interval = nix_waveforms.dimensions[2].sampling_interval
+        self.assertEqual(wf_time_dim, "s")
+        self.assertAlmostEqual(wf_time_interval, 1.0)
+
