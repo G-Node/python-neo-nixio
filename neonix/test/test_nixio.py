@@ -313,7 +313,7 @@ class NixIOTest(unittest.TestCase):
         self.assertEqual(wf_time_dim, "s")
         self.assertAlmostEqual(wf_time_interval, 1.0)
 
-        # TODO: Check RCGs
+        # TODO: Check RCGs, Units, SpikeTrains
 
         # TODO: Check Events
 
