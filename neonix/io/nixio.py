@@ -199,7 +199,7 @@ class NixIO(BaseIO):
             source_metadata.create_property("coordinates.units",
                                             nix_coord_units)
         # TODO: For each child object, create a source
-        # https://github.com/G-Node/python-neo-nixio/blob/master/mapping.md#neorecordingchannelgroup
+        # http://is.gd/7v7qzB
 
         return nix_source
 
@@ -620,10 +620,6 @@ class NixIO(BaseIO):
                                         nix_obj.sources):
                 if not NixIO._equals(neo_rcg, nix_src):
                     return False
-        return True
-
-    @staticmethod
-    def _equals_coordinates(neo_coords, nix_coords):
         return True
 
     @staticmethod

@@ -46,7 +46,6 @@ class NixIOTest(unittest.TestCase):
         neo_rcg = RecordingChannelGroup(name="test_rcg",
                                         description="rcg for testing",
                                         channel_indexes=[])
-        neo_rcg.coordinates = []
         neo_block.segments.append(neo_segment)
         neo_block.recordingchannelgroups.append(neo_rcg)
         self.io.write_block(neo_block, cascade=True)
@@ -171,6 +170,13 @@ class NixIOTest(unittest.TestCase):
         # RCG with units
         octotrode_rcg = RecordingChannelGroup(name="octotrode A",
                                               channel_indexes=range(3))
+
+        octotrode_rcg.coordinates = [[(1*pq.cm, 2*pq.cm, 3*pq.cm),
+                                      (1*pq.cm, 2*pq.cm, 4*pq.cm),
+                                      (1*pq.cm, 2*pq.cm, 5*pq.cm)],
+                                     [(2*pq.cm, 1*pq.cm, 2*pq.cm),
+                                      (2*pq.cm,  1*pq.cm,  3*pq.cm),
+                                      (2*pq.cm,  1*pq.cm,  4*pq.cm)]]
         neo_block_b.recordingchannelgroups.append(octotrode_rcg)
         for ind in range(5):
             octo_unit = Unit(name="unit_{}".format(ind),
