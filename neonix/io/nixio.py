@@ -189,15 +189,35 @@ class NixIO(BaseIO):
                                                          object_path)
             source_metadata.create_property("file_origin",
                                             nix.Value(rcg.file_origin))
-        if hasattr(rcg, "coordinates"):
-            source_metadata = self._get_or_init_metadata(nix_source,
-                                                         object_path)
-            nix_coord_values, nix_coord_units = NixIO._copy_coordinates(
-                rcg.coordinates)
-            source_metadata.create_property("coordinates",
-                                            nix_coord_values)
-            source_metadata.create_property("coordinates.units",
-                                            nix_coord_units)
+        for idx, channel in enumerate(rcg.channel_indexes):
+            # create a child source object to represent the individual channel
+            if rcg.channel_names:
+                nix_chan_name = rcg.channel_names[idx]
+            else:
+                nix_chan_name = "{}.{}".format(nix_name, idx)
+            nix_chan_type = "neo.recordingchannel"
+            nix_chan = nix_source.create_source(nix_chan_name, nix_chan_type)
+            nix_chan.definition = nix_definition
+            chan_obj_path = object_path + [("source", nix_chan_name)]
+            if rcg.file_origin:
+                chan_metadata = self._get_or_init_metadata(nix_chan,
+                                                           chan_obj_path)
+                chan_metadata.create_property("file_origin",
+                                              nix.Value(rcg.file_origin))
+
+            if hasattr(rcg, "coordinates"):
+                chan_coords = rcg.coordinates[idx]
+                chan_metadata = self._get_or_init_metadata(nix_chan,
+                                                           chan_obj_path)
+
+                nix_coord_values = tuple(nix.Value(c.magnitude.item())
+                                         for c in chan_coords)
+                nix_coord_units = tuple(nix.Value(str(c.dimensionality))
+                                        for c in chan_coords)
+                chan_metadata.create_property("coordinates",
+                                              nix_coord_values)
+                chan_metadata.create_property("coordinates.units",
+                                              nix_coord_units)
 
         return nix_source
 
@@ -598,10 +618,6 @@ class NixIO(BaseIO):
         if neo_obj.file_origin and\
                 neo_obj.file_origin != nix_obj.metadata["file_origin"]:
             return False
-        if isinstance(neo_obj, RecordingChannelGroup):
-            if not NixIO._equals_coordinates(neo_obj.coordinates,
-                                             nix_obj.metadata["coordinates"]):
-                return False
         if isinstance(neo_obj, SpikeTrain):
             # TODO: t_start, t_stop (required), left_sweep
             pass
@@ -619,31 +635,3 @@ class NixIO(BaseIO):
                 if not NixIO._equals(neo_rcg, nix_src):
                     return False
         return True
-
-    @staticmethod
-    def _copy_coordinates(neo_coords):
-        # 2D array of (x, y, z) quantity tuples
-        def coord_values(neo_coord):
-            return tuple(nix.Value(c.magnitude.item()) for c in neo_coord)
-
-        def coord_units(neo_coord):
-            return tuple(nix.Value(str(c.dimensionality))
-                         for c in neo_coord)
-        nix_values = []
-        nix_units = []
-        for row in neo_coords:
-            value_row = []
-            unit_row = []
-            for item in row:
-                value_row.append(coord_values(item))
-                unit_row.append(coord_units(item))
-            nix_values.append(value_row)
-            nix_units.append(unit_row)
-        return nix_values, nix_units
-
-    @staticmethod
-    def _convert_signal_data(signal):
-        data = list()
-        for chan in signal:
-            data.append(chan.magnitude)
-        return np.array(data)
