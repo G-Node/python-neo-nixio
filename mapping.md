@@ -68,21 +68,15 @@ Maps to nix.Source with `type = neo.recordingchannelgroup`.
     | RecordingChannelGroup.name(string)        | Source.name(string)                   |
     | RecordingChannelGroup.description(string) | Source.definition(string)             |
     | RecordingChannelGroup.file_origin(string) | Source.metadata(**Section**) [[1]](#notes) |
-    | RecordingChannelGroup.coordinates(Quantity 2D) | Source.metadata(**Section**) [[1]](#notes) |
 
+  - Objects
+    - For each channel in `RecordingChannelGroup`, determined by the `channel_indexes` list, a `neo.Unit` is created with `type = neo.recordingchannel`.
+      - The name of each channel is taken from the parent `channel_names` list.
+      - Each channel holds a metadata section with coordinates, which is a tuple of size 3 `(x, y, z)`.
     - RecordingChannelGroup.channel_indexes:  
     Are not mapped into any NIX object or attribute.
     When converting from NIX to Neo, the channel indexes are reconstructed from the contained `nix.Source` objects [[2]](#notes).
-
-For each object contained in the group lists (`units`, `analogsignals`, `irregularlysampledsignals`), a child nix.Source is created with `type = neo.recordingchannel`.
-Each `Source.name` is taken from the `RecordingChannelGroup.channel_names` array.
-The sources also inherit the container's `metadata`.
-The `Source.definition` string is constructed by appending the `Source.name` to container's `Source.definition`.
-
-Each of the `nix.Source` objects that are created as children of a `neo.RecordingChannelGroup` are referenced by:
-  - The corresponding `DataArray`, in the case of sources which were created from the `analogsignals` and `irregularlysampledsignals` lists.
-  - The corresponding `MultiTag`, in the case of sources which were created from the `units` list.
-      - These `MultiTag` objects also contain a second `Source` of type `neo.unit`.
+    - For objects contained in the `RecordingChannelGroup`, the corresponding `DataArray` (for signals) or `MultiTag` (for units) reference the main `nix.Source` object.
 
 
 ## neo.AnalogSignal
