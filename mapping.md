@@ -149,7 +149,8 @@ Maps to a `nix.MultiTag` with `type = neo.epoch`.
   - Objects
     - Epoch.times(Quantity 1D) maps to `MultiTag.positions(DataArray)` with type `neo.epoch.times`.
     - Epoch.durations(Quantity 1D) maps to `MultiTag.extents(DataArray)` with type `neo.epoch.durations`.
-    - Epoch.labels(string[]) maps to the `label` attribute of each `DataArray` referenced by `MultiTag.positions`.
+    - Epoch.labels(string[]) maps to the `labels` attribute of a `SetDimension` of the positions `DataArray`.
+    The `SetDimension` is also referenced by the extents `DataArray`.
 
 
 ## neo.Event
@@ -166,7 +167,7 @@ Maps to a `nix.MultiTag` with `type = neo.event`.
 
   - Objects
     - Event.times(Quantity 1D) maps to `MultiTag.positions(DataArray)` with type `neo.event.times`.
-    - Event.labels(string[]) maps to the `label` attribute of each `DataArray` referenced by `MultiTag.positions`.
+    - Event.labels(string[]) maps to the `labels` attribute of a `SetDimension` of the positions `DataArray`.
 
 
 ## neo.SpikeTrain
