@@ -625,8 +625,24 @@ class NixIO(BaseIO):
 
     @staticmethod
     def _copy_coordinates(neo_coords):
-        nix_coords = nix.Value(0)
-        return nix_coords
+        # 2D array of (x, y, z) quantity tuples
+        def coord_values(neo_coord):
+            return tuple(nix.Value(c.magnitude.item()) for c in neo_coord)
+
+        def coord_units(neo_coord):
+            return tuple(nix.Value(str(c.dimensionality))
+                         for c in neo_coord)
+        nix_values = []
+        nix_units = []
+        for row in neo_coords:
+            value_row = []
+            unit_row = []
+            for item in row:
+                value_row.append(coord_values(item))
+                unit_row.append(coord_units(item))
+            nix_values.append(value_row)
+            nix_units.append(unit_row)
+        return nix_values, nix_units
 
     @staticmethod
     def _convert_signal_data(signal):
