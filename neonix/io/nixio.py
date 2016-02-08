@@ -198,8 +198,6 @@ class NixIO(BaseIO):
                                             nix_coord_values)
             source_metadata.create_property("coordinates.units",
                                             nix_coord_units)
-        # TODO: For each child object, create a source
-        # http://is.gd/7v7qzB
 
         return nix_source
 
