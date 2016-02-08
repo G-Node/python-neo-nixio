@@ -171,12 +171,9 @@ class NixIOTest(unittest.TestCase):
         octotrode_rcg = RecordingChannelGroup(name="octotrode A",
                                               channel_indexes=range(3))
 
-        octotrode_rcg.coordinates = [[(1*pq.cm, 2*pq.cm, 3*pq.cm),
-                                      (1*pq.cm, 2*pq.cm, 4*pq.cm),
-                                      (1*pq.cm, 2*pq.cm, 5*pq.cm)],
-                                     [(2*pq.cm, 1*pq.cm, 2*pq.cm),
-                                      (2*pq.cm,  1*pq.cm,  3*pq.cm),
-                                      (2*pq.cm,  1*pq.cm,  4*pq.cm)]]
+        octotrode_rcg.coordinates = [(1*pq.cm, 2*pq.cm, 3*pq.cm),
+                                     (1*pq.cm, 2*pq.cm, 4*pq.cm),
+                                     (1*pq.cm, 2*pq.cm, 5*pq.cm)]
         neo_block_b.recordingchannelgroups.append(octotrode_rcg)
         for ind in range(5):
             octo_unit = Unit(name="unit_{}".format(ind),
