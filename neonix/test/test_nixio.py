@@ -244,10 +244,7 @@ class NixIOTest(unittest.TestCase):
                                      0.1)  # 1/(10 kHz)
                     self.assertEqual(len(nixasig), len(neoasig))
 
-                    # iterating data arrays causes IO error
-                    for idx in range(len(nixasig)):
-                        nixvalue = nixasig[idx]
-                        neovalue = neoasig[idx]
+                    for nixvalue, neovalue in zip(nixasig, neoasig):
                         self.assertAlmostEqual(nixvalue.item(), neovalue.item())
 
                 for nixisig, neoisig in zip(nix_irreg_signals,
@@ -260,9 +257,7 @@ class NixIOTest(unittest.TestCase):
                     self.assertEqual(nixisig.dimensions[0].unit, "s")
                     self.assertEqual(nixisig.dimensions[0].label, "time")
 
-                    for idx in range(len(nixisig)):
-                        nixvalue = nixisig[idx]
-                        neovalue = neoisig[idx]
+                    for nixvalue, neovalue in zip(nixisig, neoisig):
                         self.assertAlmostEqual(nixvalue.item(), neovalue.item())
 
                     nixtime = nixisig.dimensions[0].ticks
@@ -278,9 +273,8 @@ class NixIOTest(unittest.TestCase):
         self.assertEqual(len(nix_spiketrain.positions),
                          len(neo_spiketrain))
 
-        for idx in range(len(nix_spiketrain.positions)):
-            self.assertAlmostEqual(nix_spiketrain.positions[idx],
-                                   neo_spiketrain[idx])
+        for nixvalue, neovalue in zip(nix_spiketrain.positions, neo_spiketrain):
+            self.assertAlmostEqual(nixvalue, neovalue)
 
         nix_t_stop = nix_spiketrain.metadata["t_stop"]
         neo_t_stop = neo_spiketrain.t_stop
