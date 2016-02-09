@@ -311,6 +311,33 @@ class NixIOTest(unittest.TestCase):
         self.assertAlmostEqual(wf_time_interval, 1.0)
 
         # TODO: Check RCGs, Units, SpikeTrains
+        # RCGs
+
+        # - Octotrode
+        nix_octotrode = nix_blocks[1].sources["octotrode A"]
+        nix_channels = [src for src in nix_octotrode.sources
+                        if src.type == "neo.recordingchannel"]
+        self.assertEqual(len(nix_channels),
+                         len(octotrode_rcg.channel_indexes))
+
+        nix_units = [src for src in nix_octotrode.sources
+                     if src.type == "neo.unit"]
+        self.assertEqual(len(nix_units), len(octotrode_rcg.units))
+
+        nix_coordinates = [chan.metadata["coordinates"] for chan in nix_channels]
+        nix_coordinate_units = [chan.metadata["coordinates.units"]
+                                for chan in nix_channels]
+        neo_coordinates = octotrode_rcg.coordinates
+
+        for nix_xyz, neo_xyz in zip(nix_coordinates, neo_coordinates):
+            for cnix, cneo in zip(nix_xyz, neo_xyz):
+                self.assertAlmostEqual(cnix, cneo.magnitude)
+
+        for nix_xyz, neo_xyz in zip(nix_coordinate_units, neo_coordinates):
+            for cnix, cneo in zip(nix_xyz, neo_xyz):
+                self.assertEqual(cnix, str(cneo.dimensionality))
+
+        # - Spiketrain Container
 
         # TODO: Check Events
 
