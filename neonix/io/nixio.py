@@ -72,7 +72,7 @@ class NixIO(BaseIO):
         nix_name = neo_block.name
         if not nix_name:
             nblocks = len(self.nix_file.blocks)
-            nix_name = "neo.Block{}".format(nblocks)
+            nix_name = "neo.Block.{}".format(nblocks)
         nix_type = "neo.block"
         nix_definition = neo_block.description
         nix_block = self.nix_file.create_block(nix_name, nix_type)
@@ -126,7 +126,7 @@ class NixIO(BaseIO):
         nix_name = segment.name
         if not nix_name:
             ngroups = len(parent_block.groups)
-            nix_name = "neo.Segment{}".format(ngroups)
+            nix_name = "neo.Segment.{}".format(ngroups)
         nix_type = "neo.segment"
         nix_definition = segment.description
         nix_group = parent_block.create_group(nix_name, nix_type)
@@ -171,7 +171,7 @@ class NixIO(BaseIO):
         nix_name = rcg.name
         if not nix_name:
             nsources = len(parent_block.sources)
-            nix_name = "neo.RecordingChannelGroup{}".format(nsources)
+            nix_name = "neo.RecordingChannelGroup.{}".format(nsources)
         nix_type = "neo.recordingchannelgroup"
         nix_definition = rcg.description
         nix_source = parent_block.create_source(nix_name, nix_type)
@@ -505,7 +505,7 @@ class NixIO(BaseIO):
         nix_name = ut.name
         if not nix_name:
             nsrc = len(parent_block.sources)
-            nix_name = "neo.Unit{}".format(nsrc)
+            nix_name = "neo.Unit.{}".format(nsrc)
         nix_type = "neo.unit"
         nix_definition = ut.description
         nix_source = parent_block.create_source(nix_name, nix_type)
