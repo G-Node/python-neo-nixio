@@ -341,6 +341,17 @@ class NixIOTest(unittest.TestCase):
                 self.assertEqual(cnix, str(cneo.dimensionality))
 
         # - Spiketrain Container
+        nix_pyram_rcg = nix_blocks[1].sources["PyramRCG"]
+        nix_channels = [src for src in nix_pyram_rcg.sources
+                        if src.type == "neo.recordingchannel"]
+        self.assertEqual(len(nix_channels),
+                         len(spiketrain_container_rcg.channel_indexes))
+
+        nix_units = [src for src in nix_pyram_rcg.sources
+                     if src.type == "neo.unit"]
+        self.assertEqual(len(nix_units), len(spiketrain_container_rcg.units))
+
+        # - TODO: check spiketrain references in container (RCG)
 
         # TODO: Check Events
 
