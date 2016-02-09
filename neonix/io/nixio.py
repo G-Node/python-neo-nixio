@@ -248,8 +248,9 @@ class NixIO(BaseIO):
         data_units = str(anasig.units.dimensionality)
         # often sampling period is in 1/Hz or 1/kHz - simplifying to s
         time_units = str(anasig.sampling_period.units.dimensionality.simplified)
+        # rescale after simplification
         offset = anasig.t_start.rescale(time_units).item()
-        sampling_interval = anasig.sampling_period.item()
+        sampling_interval = anasig.sampling_period.rescale(time_units).item()
 
         nix_data_arrays = list()
         for idx, sig in enumerate(anasig.transpose()):
