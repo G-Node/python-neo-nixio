@@ -244,7 +244,7 @@ class NixIOTest(unittest.TestCase):
                     self.assertEqual(nixasig.dimensions[0].label, "time")
                     self.assertEqual(nixasig.dimensions[0].offset, 0)
                     self.assertEqual(nixasig.dimensions[0].sampling_interval,
-                                     0.1)  # 1/(10 kHz)
+                                     0.0001)  # 1/(10 kHz)
                     self.assertEqual(len(nixasig), len(neoasig))
 
                     for nixvalue, neovalue in zip(nixasig, neoasig):
@@ -257,7 +257,7 @@ class NixIOTest(unittest.TestCase):
                                   nix.DimensionType.Range)
                     self.assertIs(nixisig.dimensions[1].dimension_type,
                                   nix.DimensionType.Set)
-                    self.assertEqual(nixisig.dimensions[0].unit, "s")
+                    self.assertEqual(nixisig.dimensions[0].unit, "ms")
                     self.assertEqual(nixisig.dimensions[0].label, "time")
 
                     for nixvalue, neovalue in zip(nixisig, neoisig):
