@@ -323,6 +323,9 @@ class NixIOTest(unittest.TestCase):
         nix_units = [src for src in nix_octotrode.sources
                      if src.type == "neo.unit"]
         self.assertEqual(len(nix_units), len(octotrode_rcg.units))
+        for nix_u, neo_u in zip(nix_units, octotrode_rcg.units):
+            self.assertEqual(nix_u.name, neo_u.name)
+            self.assertEqual(nix_u.definition, neo_u.description)
 
         nix_coordinates = [chan.metadata["coordinates"] for chan in nix_channels]
         nix_coordinate_units = [chan.metadata["coordinates.units"]
