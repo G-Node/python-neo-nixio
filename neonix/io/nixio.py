@@ -297,7 +297,7 @@ class NixIO(BaseIO):
 
         # common properties
         data_units = str(irsig.units.dimensionality)
-        time_units = str(irsig.times.units.dimensionality.simplified)
+        time_units = str(irsig.times.units.dimensionality)
         times = irsig.times.magnitude.tolist()
 
         nix_data_arrays = list()
@@ -341,7 +341,7 @@ class NixIO(BaseIO):
         # TODO: labels
         # times -> positions
         times = ep.times.magnitude  # .tolist()
-        time_units = str(ep.times.units.dimensionality.simplified)
+        time_units = str(ep.times.units.dimensionality)
 
         times_da = parent_block.create_data_array("{}.times".format(nix_name),
                                                   "neo.epoch.times",
@@ -394,7 +394,7 @@ class NixIO(BaseIO):
         # TODO: labels
         # times -> positions
         times = ev.times.magnitude  # .tolist()
-        time_units = str(ev.times.units.dimensionality.simplified)
+        time_units = str(ev.times.units.dimensionality)
 
         times_da = parent_block.create_data_array("{}.times".format(nix_name),
                                                   "neo.event.times",
@@ -433,7 +433,7 @@ class NixIO(BaseIO):
         nix_definition = sptr.description
 
         # spike times
-        time_units = str(sptr.times.units.dimensionality.simplified)
+        time_units = str(sptr.times.units.dimensionality)
         times = sptr.times.magnitude
         times_da = parent_block.create_data_array("{}.times".format(nix_name),
                                                   "neo.epoch.times",
@@ -479,9 +479,9 @@ class NixIO(BaseIO):
             wf_unit = str(sptr.waveforms.units.dimensionality)
             waveforms_da.unit = wf_unit
             nix_multi_tag.create_feature(waveforms_da, nix.LinkType.Indexed)
-            sampling_interval = sptr.sampling_period.item()
             time_units = str(sptr.sampling_period.units.dimensionality.
                              simplified)
+            sampling_interval = sptr.sampling_period.rescale(time_units).item()
             wf_spikedim = waveforms_da.append_set_dimension()
             wf_chandim = waveforms_da.append_set_dimension()
             wf_timedim = waveforms_da.append_sampled_dimension(sampling_interval)
