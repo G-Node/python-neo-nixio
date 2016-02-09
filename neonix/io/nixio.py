@@ -56,7 +56,6 @@ class NixIO(BaseIO):
         self.filename = filename
         if self.filename:
             self.nix_file = nix.File.open(self.filename, nix.FileMode.Overwrite)
-        self.neo_spiketrains = list()
 
     def __del__(self):
         self.nix_file.close()
@@ -98,11 +97,6 @@ class NixIO(BaseIO):
                 self.write_segment(segment, object_path)
             for rcg in neo_block.recordingchannelgroups:
                 self.write_recordingchannelgroup(rcg, object_path)
-            for unit in neo_block.list_units:
-                self.write_unit(unit, object_path)
-            for sptr, sptr_parent_path in self.neo_spiketrains:
-                self.write_spiketrain(sptr, sptr_parent_path)
-            self.neo_spiketrains = list()
         return nix_block
 
     def write_all_blocks(self, neo_blocks, cascade=True):
@@ -160,8 +154,7 @@ class NixIO(BaseIO):
         for ev in segment.events:
             self.write_event(ev, object_path)
         for sptr in segment.spiketrains:
-            # collect spiketrains
-            self.neo_spiketrains.append((sptr, object_path))
+            self.write_spiketrain(sptr, object_path)
 
         return nix_group
 
@@ -218,6 +211,8 @@ class NixIO(BaseIO):
                                               nix_coord_values)
                 chan_metadata.create_property("coordinates.units",
                                               nix_coord_units)
+        for unit in rcg.units:
+            self.write_unit(unit, object_path)
 
         return nix_source
 
@@ -509,8 +504,8 @@ class NixIO(BaseIO):
         parent_block = self.get_object_at(parent_path)
         nix_name = ut.name
         if not nix_name:
-            nmt = len(parent_block.sources)
-            nix_name = "neo.Unit{}".format(nmt)
+            nsrc = len(parent_block.sources)
+            nix_name = "neo.Unit{}".format(nsrc)
         nix_type = "neo.unit"
         nix_definition = ut.description
         nix_source = parent_block.create_source(nix_name, nix_type)
@@ -523,9 +518,6 @@ class NixIO(BaseIO):
             mtag_metadata.create_property("file_origin",
                                           nix.Value(ut.file_origin))
 
-        for sptr in ut.spiketrains:
-            # collect spiketrains
-            self.neo_spiketrains.append((sptr, object_path))
         return nix_source
 
     def _get_or_init_metadata(self, nix_obj, obj_path=list()):
