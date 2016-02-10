@@ -313,9 +313,7 @@ class NixIOTest(unittest.TestCase):
         self.assertEqual(wf_time_dim, "s")
         self.assertAlmostEqual(wf_time_interval, 1.0)
 
-        # TODO: Check RCGs, Units, SpikeTrains
         # RCGs
-
         # - Octotrode
         nix_octotrode = nix_blocks[1].sources["octotrode A"]
         nix_channels = [src for src in nix_octotrode.sources
