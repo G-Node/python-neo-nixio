@@ -525,14 +525,14 @@ class NixIO(BaseIO):
         :param parent_path: Path to the parent of the new Source
         :return: The newly created NIX Source
         """
-        parent_block = self.get_object_at(parent_path)
+        parent_source = self.get_object_at(parent_path)
         nix_name = ut.name
         if not nix_name:
-            nsrc = len(parent_block.sources)
+            nsrc = len(parent_source.sources)
             nix_name = "neo.Unit.{}".format(nsrc)
         nix_type = "neo.unit"
         nix_definition = ut.description
-        nix_source = parent_block.create_source(nix_name, nix_type)
+        nix_source = parent_source.create_source(nix_name, nix_type)
         nix_source.definition = nix_definition
         object_path = parent_path + [("source", nix_name)]
         self.neo_nix_map[id(ut)] = nix_source
@@ -542,6 +542,11 @@ class NixIO(BaseIO):
                                                        object_path)
             mtag_metadata.create_property("file_origin",
                                           nix.Value(ut.file_origin))
+
+        # Make contained spike trains refer to parent rcg and new unit
+        for nix_st in self.get_mapped_objects(ut.spiketrains):
+            nix_st.sources.append(parent_source)
+            nix_st.sources.append(nix_source)
 
         return nix_source
 
@@ -603,6 +608,7 @@ class NixIO(BaseIO):
         return [self.get_mapped_object(neo_obj) for neo_obj in neo_object_list]
 
     def get_mapped_object(self, neo_object):
+        # TODO: Throw meaningful error if object not found
         return self.neo_nix_map[id(neo_object)]
 
     @staticmethod
