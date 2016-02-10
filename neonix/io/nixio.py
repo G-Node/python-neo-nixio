@@ -333,7 +333,6 @@ class NixIO(BaseIO):
         nix_type = "neo.epoch"
         nix_definition = ep.description
 
-        # TODO: labels
         # times -> positions
         times = ep.times.magnitude
         time_units = str(ep.times.units.dimensionality)
