@@ -389,7 +389,7 @@ class NixIO(BaseIO):
         nix_definition = ev.description
 
         # times -> positions
-        times = ev.times.magnitude  # .tolist()
+        times = ev.times.magnitude
         time_units = str(ev.times.units.dimensionality)
 
         times_da = parent_block.create_data_array("{}.times".format(nix_name),
