@@ -377,7 +377,7 @@ class NixIOTest(unittest.TestCase):
                               "{} referenced by RCG but not by a child Unit."
                               "".format(spiketrain))
 
-        # RCG_1 referenced by first signal
+        # - RCG_1 referenced by first signal
         neo_first_signal = neo_blocks[0].segments[0].analogsignals[0]
         for sig_idx in range(len(neo_first_signal)):
             nix_name = "{}.{}".format(neo_first_signal.name, sig_idx)
@@ -385,7 +385,12 @@ class NixIOTest(unittest.TestCase):
             nix_rcg_a = nix_blocks[0].sources["RCG_1"]
             self.assertIn(nix_rcg_a, nix_signal.sources)
 
-        # TODO: Check Events
+        # Get Event and compare attributes
+        nix_event = nix_blocks[0].multi_tags["Trigger events"]
+        self.assertIn(nix_event, nix_blocks[0].groups[0].multi_tags)
+        # - times, units, labels
 
-        # TODO: Check Epochs
-
+        # Get Epoch and compare attributes
+        nix_epoch = nix_blocks.multi_tags["Button events"]
+        self.assertIn(nix_epoch, nix_blocks[0].groups[1].multi_tags)
+        # - times, units, labels
