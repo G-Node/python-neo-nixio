@@ -183,7 +183,7 @@ class NixIO(BaseIO):
                                             nix.Value(rcg.file_origin))
         for idx, channel in enumerate(rcg.channel_indexes):
             # create a child source object to represent the individual channel
-            if rcg.channel_names:
+            if len(rcg.channel_names):
                 nix_chan_name = rcg.channel_names[idx]
             else:
                 nix_chan_name = "{}.{}".format(nix_name, idx)
