@@ -335,7 +335,7 @@ class NixIO(BaseIO):
 
         # TODO: labels
         # times -> positions
-        times = ep.times.magnitude  # .tolist()
+        times = ep.times.magnitude
         time_units = str(ep.times.units.dimensionality)
 
         times_da = parent_block.create_data_array("{}.times".format(nix_name),
@@ -356,6 +356,8 @@ class NixIO(BaseIO):
         # ready to create MTag
         nix_multi_tag = parent_block.create_multi_tag(nix_name, nix_type,
                                                       times_da)
+        label_dim = nix_multi_tag.positions.append_set_dimension()
+        label_dim.labels = ep.labels.tolist()
         nix_multi_tag.extents = durations_da
         parent_group.multi_tags.append(nix_multi_tag)
         nix_multi_tag.definition = nix_definition
@@ -386,7 +388,6 @@ class NixIO(BaseIO):
         nix_type = "neo.event"
         nix_definition = ev.description
 
-        # TODO: labels
         # times -> positions
         times = ev.times.magnitude  # .tolist()
         time_units = str(ev.times.units.dimensionality)
@@ -399,6 +400,8 @@ class NixIO(BaseIO):
         # ready to create MTag
         nix_multi_tag = parent_block.create_multi_tag(nix_name, nix_type,
                                                       times_da)
+        label_dim = nix_multi_tag.positions.append_set_dimension()
+        label_dim.labels = ev.labels.tolist()
         parent_group.multi_tags.append(nix_multi_tag)
         nix_multi_tag.definition = nix_definition
         object_path = parent_path + [("multi_tag", nix_name)]
