@@ -52,10 +52,9 @@ class NixIO(BaseIO):
 
         :param filename: Full path to the file
         """
-        BaseIO.__init__(self, filename=None)
+        BaseIO.__init__(self, filename)
         self.filename = filename
-        if self.filename:
-            self.nix_file = nix.File.open(self.filename, nix.FileMode.Overwrite)
+        self.nix_file = nix.File.open(self.filename, nix.FileMode.Overwrite)
 
     def __del__(self):
         self.nix_file.close()
