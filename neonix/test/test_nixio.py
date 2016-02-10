@@ -180,10 +180,11 @@ class NixIOTest(unittest.TestCase):
                              description="after a long and hard spike sorting")
             octotrode_rcg.units.append(octo_unit)
 
-        # Unit as a spiketrain container
+        # RCG and Unit as a spiketrain container
         spiketrain_container_rcg = RecordingChannelGroup(name="PyramRCG",
                                                          channel_indexes=[1])
         neo_block_b.recordingchannelgroups.append(spiketrain_container_rcg)
+
         pyram_unit = Unit(name="Pyramidal neuron")
         train0 = SpikeTrain(times=[0.01, 3.3, 9.3], units="sec", t_stop=10)
         pyram_unit.spiketrains.append(train0)
@@ -207,6 +208,8 @@ class NixIOTest(unittest.TestCase):
 
         # Write all the blocks
         nix_blocks = self.io.write_all_blocks(neo_blocks)
+
+        # ================== TESTING WRITTEN DATA ==================
 
         for nixblk, neoblk in zip(nix_blocks, neo_blocks):
             self.assertEqual(nixblk.name, neoblk.name)
@@ -351,7 +354,28 @@ class NixIOTest(unittest.TestCase):
                      if src.type == "neo.unit"]
         self.assertEqual(len(nix_units), len(spiketrain_container_rcg.units))
 
-        # - TODO: check spiketrain references in container (RCG)
+        # - Pyramidal neuron Unit
+        nix_pyram_nrn = nix_blocks[1].sources["Pyramidal neuron"]
+
+        # - PyramRCG and Pyram neuron must be referenced by the same spiketrains
+        all_spiketrains = [mtag for mtag in nix_blocks[1].multi_tags
+                           if mtag.type == "neo.spiketrain"]
+        nrn_spiketrains = [src for src in nix_pyram_nrn.sources
+                           if src.type == "neo.spiketrain"]
+        rcg_spiketrains = [src for chan in nix_channels
+                           for src in chan.sources
+                           if src.type == "neo.spiketrain"]
+        for spiketrain in all_spiketrains:
+            if spiketrain in nrn_spiketrains:
+                if spiketrain not in rcg_spiketrains:
+                    self.fail("Spiketrain reference failure: "
+                              "{} referenced by Unit but not by parent RCG."
+                              "".format(spiketrain))
+            if spiketrain in rcg_spiketrains:
+                if spiketrain not in nrn_spiketrains:
+                    self.fail("Spiketrain reference failure: "
+                              "{} referenced by RCG but not by a child Unit."
+                              "".format(spiketrain))
 
         # TODO: Check Events
 
