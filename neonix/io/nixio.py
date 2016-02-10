@@ -213,6 +213,12 @@ class NixIO(BaseIO):
         for unit in rcg.units:
             self.write_unit(unit, object_path)
 
+        # add signal references
+        for nix_asig in self.get_mapped_objects(rcg.analogsignals):
+            nix_asig.sources.append(nix_source)
+        for nix_isig in self.get_mapped_objects(rcg.irregularlysampledsignals):
+            nix_isig.sources.append(nix_source)
+
         return nix_source
 
     def write_analogsignal(self, anasig, parent_path):
@@ -592,6 +598,12 @@ class NixIO(BaseIO):
                 # TODO: Raise error
                 pass
         return obj
+
+    def get_mapped_objects(self, neo_object_list):
+        return [self.get_mapped_object(neo_obj) for neo_obj in neo_object_list]
+
+    def get_mapped_object(self, neo_object):
+        return self.neo_nix_map[id(neo_object)]
 
     @staticmethod
     def _get_contained_signals(obj):
