@@ -166,6 +166,7 @@ class NixIOTest(unittest.TestCase):
             channel_names=np.array(["ch1", "ch4", "ch6"]),
             channel_indexes=np.array([0, 3, 5]))
         rcg_a.analogsignals.append(neo_block_a.segments[0].analogsignals[0])
+        neo_block_a.recordingchannelgroups.append(rcg_a)
 
         # RCG with units
         octotrode_rcg = RecordingChannelGroup(name="octotrode A",
@@ -192,6 +193,9 @@ class NixIOTest(unittest.TestCase):
                             t_stop=110)
         pyram_unit.spiketrains.append(train1)
         spiketrain_container_rcg.units.append(pyram_unit)
+        # spiketrains must also exist in segments
+        neo_block_b.segments[0].spiketrains.append(train0)
+        neo_block_b.segments[0].spiketrains.append(train1)
 
         # Events associated with first segment of first block
         evt = Event(name="Trigger events",
@@ -353,7 +357,7 @@ class NixIOTest(unittest.TestCase):
         self.assertEqual(len(nix_units), len(spiketrain_container_rcg.units))
 
         # - Pyramidal neuron Unit
-        nix_pyram_nrn = nix_blocks[1].sources["Pyramidal neuron"]
+        nix_pyram_nrn = nix_pyram_rcg.sources["Pyramidal neuron"]
 
         # - PyramRCG and Pyram neuron must be referenced by the same spiketrains
         all_spiketrains = [mtag for mtag in nix_blocks[1].multi_tags
@@ -377,8 +381,9 @@ class NixIOTest(unittest.TestCase):
 
         # - RCG_1 referenced by first signal
         neo_first_signal = neo_blocks[0].segments[0].analogsignals[0]
+        _, n_neo_signals = np.shape(neo_first_signal)
         nix_first_signal_group = []
-        for sig_idx in range(len(neo_first_signal)):
+        for sig_idx in range(n_neo_signals):
             nix_name = "{}.{}".format(neo_first_signal.name, sig_idx)
             nix_signal = nix_blocks[0].groups[0].data_arrays[nix_name]
             nix_rcg_a = nix_blocks[0].sources["RCG_1"]
@@ -386,7 +391,8 @@ class NixIOTest(unittest.TestCase):
             nix_first_signal_group.append(nix_signal)
         # test metadata grouping
         for signal in nix_first_signal_group[1:]:
-            self.assertIs(signal.metadata, nix_first_signal_group[0].metadata)
+            self.assertEqual(signal.metadata.id,
+                             nix_first_signal_group[0].metadata.id)
 
         # Get Event and compare attributes
         nix_event = nix_blocks[0].multi_tags["Trigger events"]
@@ -394,6 +400,6 @@ class NixIOTest(unittest.TestCase):
         # - times, units, labels
 
         # Get Epoch and compare attributes
-        nix_epoch = nix_blocks.multi_tags["Button events"]
+        nix_epoch = nix_blocks[0].multi_tags["Button events"]
         self.assertIn(nix_epoch, nix_blocks[0].groups[1].multi_tags)
         # - times, units, labels
