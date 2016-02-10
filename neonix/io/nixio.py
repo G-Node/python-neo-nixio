@@ -368,7 +368,9 @@ class NixIO(BaseIO):
             mtag_metadata.create_property("file_origin",
                                           nix.Value(ep.file_origin))
 
-        nix_multi_tag.references = NixIO._get_contained_signals(parent_group)
+        nix_multi_tag.references.extend(
+            NixIO._get_contained_signals(parent_group)
+        )
         return nix_multi_tag
 
     def write_event(self, ev, parent_path):
@@ -412,7 +414,9 @@ class NixIO(BaseIO):
             mtag_metadata.create_property("file_origin",
                                           nix.Value(ev.file_origin))
 
-        nix_multi_tag.references = NixIO._get_contained_signals(parent_group)
+        nix_multi_tag.references.extend(
+            NixIO._get_contained_signals(parent_group)
+        )
         return nix_multi_tag
 
     def write_spiketrain(self, sptr, parent_path):
@@ -583,8 +587,8 @@ class NixIO(BaseIO):
     @staticmethod
     def _get_contained_signals(obj):
         return [da for da in obj.data_arrays
-                if da.type in ["neo.analogsignals",
-                               "neo.irregularlysampledsignals"]]
+                if da.type in ["neo.analogsignal",
+                               "neo.irregularlysampledsignal"]]
 
     @staticmethod
     def _equals(neo_obj, nix_obj, cascade=True):
