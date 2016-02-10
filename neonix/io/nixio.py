@@ -214,10 +214,14 @@ class NixIO(BaseIO):
             self.write_unit(unit, object_path)
 
         # add signal references
-        for nix_asig in self.get_mapped_objects(rcg.analogsignals):
-            nix_asig.sources.append(nix_source)
-        for nix_isig in self.get_mapped_objects(rcg.irregularlysampledsignals):
-            nix_isig.sources.append(nix_source)
+        for nix_asigs in self.get_mapped_objects(rcg.analogsignals):
+            # One AnalogSignal maps to list of DataArrays
+            for da in nix_asigs:
+                da.sources.append(nix_source)
+        for nix_isigs in self.get_mapped_objects(rcg.irregularlysampledsignals):
+            # One IrregularlySampledSignal maps to list of DataArrays
+            for da in nix_isigs:
+                da.sources.append(nix_source)
 
         return nix_source
 
