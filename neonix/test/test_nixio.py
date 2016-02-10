@@ -138,9 +138,9 @@ class NixIOTest(unittest.TestCase):
                 seg = Segment(name="segment_{}".format(ind),
                               description="{} segment {}".format(blk.name, ind))
                 blk.segments.append(seg)
-                asig_data = np.array([np.linspace(0, ind+1, 1000)*(ind+1),
-                                      np.linspace(0, ind+2, 1000)*(ind+1),
-                                      np.linspace(0, ind+3, 1000)*(ind+1)]
+                asig_data = np.array([np.linspace(0, ind+1, 100)*(ind+1),
+                                      np.linspace(0, ind+2, 100)*(ind+1),
+                                      np.linspace(0, ind+3, 100)*(ind+1)]
                                      ).transpose()*pq.mV
                 asignal = AnalogSignal(asig_data,
                                        name="some_sort_of_signal_{}".format(ind),
@@ -148,8 +148,8 @@ class NixIOTest(unittest.TestCase):
                                        sampling_rate=10*pq.kHz)
                 seg.analogsignals.append(asignal)
 
-                isig_times = np.cumsum(np.random.random(300))*pq.ms
-                isig_data = np.random.random((300, 10))*pq.nA
+                isig_times = np.cumsum(np.random.random(50))*pq.ms
+                isig_data = np.random.random((50, 10))*pq.nA
                 isignal = IrregularlySampledSignal(isig_times, isig_data)
                 seg.irregularlysampledsignals.append(isignal)
 
