@@ -377,11 +377,16 @@ class NixIOTest(unittest.TestCase):
 
         # - RCG_1 referenced by first signal
         neo_first_signal = neo_blocks[0].segments[0].analogsignals[0]
+        nix_first_signal_group = []
         for sig_idx in range(len(neo_first_signal)):
             nix_name = "{}.{}".format(neo_first_signal.name, sig_idx)
             nix_signal = nix_blocks[0].groups[0].data_arrays[nix_name]
             nix_rcg_a = nix_blocks[0].sources["RCG_1"]
             self.assertIn(nix_rcg_a, nix_signal.sources)
+            nix_first_signal_group.append(nix_signal)
+        # test metadata grouping
+        for signal in nix_first_signal_group[1:]:
+            self.assertIs(signal.metadata, nix_first_signal_group[0].metadata)
 
         # Get Event and compare attributes
         nix_event = nix_blocks[0].multi_tags["Trigger events"]
