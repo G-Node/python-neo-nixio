@@ -48,7 +48,7 @@ class NixIOTest(unittest.TestCase):
                                         channel_indexes=[])
         neo_block.segments.append(neo_segment)
         neo_block.recordingchannelgroups.append(neo_rcg)
-        self.io.write_block(neo_block, cascade=True)
+        self.io.write_block(neo_block)
 
         nix_block = self.io.nix_file.blocks[0]
         nix_group = nix_block.groups[0]
@@ -87,7 +87,7 @@ class NixIOTest(unittest.TestCase):
         neo_segment = Segment(name="test_segment_neq",
                               description="segment for testing neq")
         neo_block.segments.append(neo_segment)
-        self.io.write_block(neo_block, cascade=True)
+        self.io.write_block(neo_block)
         nix_block = self.io.nix_file.blocks[0]
         neo_segment.name = "foo"  # changing neo segment (child) name
         self.assertFalse(NixIO._equals(neo_block, nix_block))
@@ -97,7 +97,7 @@ class NixIOTest(unittest.TestCase):
         neo_segment = Segment(name="test_segment",
                               description="segment for testing")
         neo_block.segments.append(neo_segment)
-        self.io.write_block(neo_block, cascade=True)
+        self.io.write_block(neo_block)
         nix_block = self.io.nix_file.blocks[0]
         neo_segment_new = Segment(name="test_segment_2",
                                   description="second segment for testing")
@@ -109,7 +109,7 @@ class NixIOTest(unittest.TestCase):
         neo_block.rec_datetime = datetime(year=2015, month=12, day=18, hour=20)
         neo_block.file_datetime = datetime(year=2016, month=1, day=1, hour=15)
         neo_block.file_origin = "test_file_origin"
-        self.io.write_block(neo_block, cascade=True)
+        self.io.write_block(neo_block)
         nix_block = self.io.nix_file.blocks[0]
 
         self.assertEqual(neo_block.name, nix_block.name)

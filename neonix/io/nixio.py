@@ -60,13 +60,11 @@ class NixIO(BaseIO):
     def __del__(self):
         self.nix_file.close()
 
-    def write_block(self, neo_block, cascade=True):
+    def write_block(self, neo_block):
         """
         Convert ``neo_block`` to the NIX equivalent and write it to the file.
-        If ``cascade`` is True, write all the block's child objects as well.
 
         :param neo_block: Neo block to be written
-        :param cascade: Save all child objects (default: True)
         :return: The new NIX Block
         """
         nix_name = neo_block.name
@@ -92,25 +90,23 @@ class NixIO(BaseIO):
             block_metadata = self._get_or_init_metadata(nix_block)
             block_metadata.create_property("file_origin",
                                            nix.Value(neo_block.file_origin))
-        if cascade:
-            for segment in neo_block.segments:
-                self.write_segment(segment, object_path)
-            for rcg in neo_block.recordingchannelgroups:
-                self.write_recordingchannelgroup(rcg, object_path)
+        for segment in neo_block.segments:
+            self.write_segment(segment, object_path)
+        for rcg in neo_block.recordingchannelgroups:
+            self.write_recordingchannelgroup(rcg, object_path)
         return nix_block
 
-    def write_all_blocks(self, neo_blocks, cascade=True):
+    def write_all_blocks(self, neo_blocks):
         """
         Convert all ``neo_blocks`` to the NIX equivalent and write them to the
-        file. If ``cascade`` is True, write all child objects as well.
+        file.
 
         :param neo_blocks: List (or iterable) containing Neo blocks
-        :param cascade: Save all child objects (default: True)
         :return: A list containing the new NIX Blocks
         """
         nix_blocks = list()
         for nb in neo_blocks:
-            nix_blocks.append(self.write_block(nb, cascade))
+            nix_blocks.append(self.write_block(nb))
         return nix_blocks
 
     def write_segment(self, segment, parent_path):
@@ -591,24 +587,19 @@ class NixIO(BaseIO):
                                "neo.irregularlysampledsignal"]]
 
     @staticmethod
-    def _equals(neo_obj, nix_obj, cascade=True):
+    def _equals(neo_obj, nix_obj):
         """
         Returns ``True`` if the attributes of ``neo_obj`` match the attributes
         of the ``nix_obj``.
 
         :param neo_obj: A Neo object (block, segment, etc.)
         :param nix_obj: A NIX object to compare to (block, group, etc.)
-        :param cascade: test all child objects for equivalence recursively
-                        (default: True)
-        :return: True if the attributes and child objects (if cascade=True)
-         of the two objects, as defined in the object mapping, are equal
+        :return: True if the attributes and child objects of the two objects,
+        as defined in the object mapping, are equal
         """
         if not NixIO._equals_attr(neo_obj, nix_obj):
             return False
-        if cascade:
-            return NixIO._equals_child_objects(neo_obj, nix_obj)
-        else:
-            return True
+        return NixIO._equals_child_objects(neo_obj, nix_obj)
 
     @staticmethod
     def _equals_attr(neo_obj, nix_obj):
