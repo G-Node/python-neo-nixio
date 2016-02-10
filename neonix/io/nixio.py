@@ -608,8 +608,14 @@ class NixIO(BaseIO):
         return [self.get_mapped_object(neo_obj) for neo_obj in neo_object_list]
 
     def get_mapped_object(self, neo_object):
-        # TODO: Throw meaningful error if object not found
-        return self.neo_nix_map[id(neo_object)]
+        try:
+            return self.neo_nix_map[id(neo_object)]
+        except KeyError:
+            raise KeyError("Attempting to get reference to NIX equivalent "
+                           "object before writing. This can occur if a signal "
+                           "or spiketrain object is referenced only by a "
+                           "RecordingChannelGroup or Unit and is not part of a "
+                           "Segment.")
 
     @staticmethod
     def _get_contained_signals(obj):
