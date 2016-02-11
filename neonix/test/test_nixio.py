@@ -99,6 +99,64 @@ class NixIOTest(unittest.TestCase):
         self.assertEqual(neo_block.rec_datetime,
                          datetime.fromtimestamp(nix_block.created_at))
 
+    def test_anonymous_objects(self):
+        """
+        Create multiple trees that contain all types of objects, with no name or
+        data to test the name generation.
+        """
+        nblocks = 3
+        nsegs = 4
+        nanasig = 4
+        nirrseg = 2
+        nepochs = 3
+        nevents = 4
+        nspiketrains = 5
+        nrcg = 5
+        nunits = 30
+
+        times = np.array([1])*pq.s
+        signal = np.array([1])*pq.V
+        blocks = []
+        for blkidx in range(nblocks):
+            blk = Block()
+            blocks.append(blk)
+            for segidx in range(nsegs):
+                seg = Segment()
+                blk.segments.append(seg)
+                for anaidx in range(nanasig):
+                    seg.analogsignals.append(AnalogSignal(signal=signal,
+                                                          sampling_rate=pq.Hz))
+                for irridx in range(nirrseg):
+                    seg.irregularlysampledsignals.append(
+                        IrregularlySampledSignal(times=times,
+                                                 signal=signal,
+                                                 time_units=pq.s)
+                    )
+                for epidx in range(nepochs):
+                    seg.epochs.append(Epoch(times=times, durations=times))
+                for evidx in range(nevents):
+                    seg.events.append(Event(times=times))
+                for stidx in range(nspiketrains):
+                    seg.spiketrains.append(SpikeTrain(times=times, t_stop=pq.s,
+                                                      units=pq.s))
+            for rcgidx in range(nrcg):
+                rcg = RecordingChannelGroup(channel_indexes=[1, 2])
+                blk.recordingchannelgroups.append(rcg)
+                for unidx in range(nunits):
+                    unit = Unit()
+                    rcg.units.append(unit)
+
+        self.io.write_all_blocks(blocks)
+
+    def test_annotations(self):
+        self.fail("Write annotations test")
+
+    def test_left_sweep(self):
+        self.fail("Write test for siketrain with waveforms and left_sweep")
+
+    def test_all_metadata(self):
+        self.fail("Write test for all attributes that are converted to metadata")
+
     def test_all(self):
         # Test writing of all objects based on examples from the neo docs
         # api_reference.html
@@ -381,53 +439,4 @@ class NixIOTest(unittest.TestCase):
         nix_epoch = nix_blocks[0].multi_tags["Button events"]
         self.assertIn(nix_epoch, nix_blocks[0].groups[1].multi_tags)
         # - times, units, labels
-
-    def test_anonymous_objects(self):
-        """
-        Create multiple trees that contain all types of objects, with no name or
-        data to test the name generation.
-        """
-        nblocks = 3
-        nsegs = 4
-        nanasig = 4
-        nirrseg = 2
-        nepochs = 3
-        nevents = 4
-        nspiketrains = 5
-        nrcg = 5
-        nunits = 30
-
-        times = np.array([1])*pq.s
-        signal = np.array([1])*pq.V
-        blocks = []
-        for blkidx in range(nblocks):
-            blk = Block()
-            blocks.append(blk)
-            for segidx in range(nsegs):
-                seg = Segment()
-                blk.segments.append(seg)
-                for anaidx in range(nanasig):
-                    seg.analogsignals.append(AnalogSignal(signal=signal,
-                                                          sampling_rate=pq.Hz))
-                for irridx in range(nirrseg):
-                    seg.irregularlysampledsignals.append(
-                        IrregularlySampledSignal(times=times,
-                                                 signal=signal,
-                                                 time_units=pq.s)
-                    )
-                for epidx in range(nepochs):
-                    seg.epochs.append(Epoch(times=times, durations=times))
-                for evidx in range(nevents):
-                    seg.events.append(Event(times=times))
-                for stidx in range(nspiketrains):
-                    seg.spiketrains.append(SpikeTrain(times=times, t_stop=pq.s,
-                                                      units=pq.s))
-            for rcgidx in range(nrcg):
-                rcg = RecordingChannelGroup(channel_indexes=[1, 2])
-                blk.recordingchannelgroups.append(rcg)
-                for unidx in range(nunits):
-                    unit = Unit()
-                    rcg.units.append(unit)
-
-        self.io.write_all_blocks(blocks)
 
