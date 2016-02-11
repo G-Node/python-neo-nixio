@@ -178,8 +178,7 @@ class NixIOTest(unittest.TestCase):
                     self.assertAlmostEqual(nix_wf[spk, chan, t],
                                            wf_array[spk, chan, t])
 
-    def test_all_metadata(self):
-        # metadata attributes such as rec_datetime and file_datetime
+    def test_basic_attr(self):
         def rand_date():
             return datetime(year=np.random.randint(1980, 2020),
                             month=np.random.randint(1, 13),
