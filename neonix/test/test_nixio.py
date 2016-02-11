@@ -181,7 +181,7 @@ class NixIOTest(unittest.TestCase):
     def test_all_metadata(self):
         # metadata attributes such as rec_datetime and file_datetime
         def rand_date():
-            return datetime(year=np.random.randint(1980, 2100),
+            return datetime(year=np.random.randint(1900, 2100),
                             month=np.random.randint(1, 13),
                             day=np.random.randint(1, 30))
 
@@ -248,8 +248,8 @@ class NixIOTest(unittest.TestCase):
         nixspiketrains = [mtag for mtag in nixblk.groups[0].multi_tags
                           if mtag.type == "neo.spiketrain"]
         self.check_equal_attr(spiketrain, nixspiketrains[0])
-        nixrcgs = [mtag for mtag in nixblk.groups[0].multi_tags
-                   if mtag.type == "neo.recordingchannelgroup"]
+        nixrcgs = [src for src in nixblk.sources
+                   if src.type == "neo.recordingchannelgroup"]
         self.check_equal_attr(rcg, nixrcgs[0])
 
     def test_all(self):
