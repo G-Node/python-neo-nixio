@@ -9,7 +9,7 @@
 
 from __future__ import absolute_import
 
-from datetime import datetime
+import time
 
 
 from neo.io.baseio import BaseIO
@@ -24,7 +24,7 @@ except ImportError:  # pragma: no cover
 
 
 def calculate_timestamp(dt):
-    return int((dt - datetime.fromtimestamp(0)).total_seconds())
+    return int(time.mktime(dt.timetuple()))
 
 # TODO: Copy neo annotations for all objects into metadata segments
 
@@ -255,6 +255,10 @@ class NixIO(BaseIO):
         anasig_group_segment = parent_metadata.create_section(nix_name,
                                                               nix_type)
 
+        if anasig.file_origin:
+            anasig_group_segment.create_property("file_origin",
+                                                 nix.Value(anasig.file_origin))
+
         # common properties
         data_units = str(anasig.units.dimensionality)
         # often sampling period is in 1/Hz or 1/kHz - simplifying to s
@@ -309,6 +313,10 @@ class NixIO(BaseIO):
         parent_metadata = self._get_or_init_metadata(parent_group, parent_path)
         irsig_group_segment = parent_metadata.create_section(nix_name,
                                                              nix_type)
+
+        if irsig.file_origin:
+            irsig_group_segment.create_property("file_origin",
+                                                nix.Value(irsig.file_origin))
 
         # common properties
         data_units = str(irsig.units.dimensionality)
