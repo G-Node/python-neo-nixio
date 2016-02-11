@@ -538,12 +538,19 @@ class NixIOTest(unittest.TestCase):
         if neoobj.name:
             self.assertEqual(neoobj.name, nixobj.name)
         self.assertEqual(neoobj.description, nixobj.definition)
-        if hasattr(neoobj, "rec_datetime"):
+        if hasattr(neoobj, "rec_datetime") and neoobj.rec_datetime:
             self.assertEqual(neoobj.rec_datetime,
                              datetime.fromtimestamp(nixobj.created_at))
-        if hasattr(neoobj, "file_datetime"):
+        if hasattr(neoobj, "file_datetime") and neoobj.file_datetime:
             self.assertEqual(neoobj.file_datetime,
                              datetime.fromtimestamp(
                                  nixobj.metadata["file_datetime"]))
-        self.assertEqual(neoobj.file_origin, nixobj.metadata["file_origin"])
+        if neoobj.file_origin:
+            self.assertEqual(neoobj.file_origin,
+                             nixobj.metadata["file_origin"])
+        if neoobj.annotations:
+            annotations = nixobj.name+".annotations"
+            nixannotations = nixobj.metadata.sections[annotations]
+            for k, v, in neoobj.annotations.items():
+                self.assertEqual(nixannotations[k], v)
 
