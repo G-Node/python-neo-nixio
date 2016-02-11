@@ -396,6 +396,8 @@ class NixIOTest(unittest.TestCase):
         nrcg = 5
         nunits = 30
 
+        times = np.array([1])*pq.s
+        signal = np.array([1])*pq.V
         blocks = []
         for blkidx in range(nblocks):
             blk = Block()
@@ -404,25 +406,23 @@ class NixIOTest(unittest.TestCase):
                 seg = Segment()
                 blk.segments.append(seg)
                 for anaidx in range(nanasig):
-                    seg.analogsignals.append(AnalogSignal(signal=[1],
-                                                          units=pq.V,
+                    seg.analogsignals.append(AnalogSignal(signal=signal,
                                                           sampling_rate=pq.Hz))
                 for irridx in range(nirrseg):
                     seg.irregularlysampledsignals.append(
-                        IrregularlySampledSignal(times=[1],
-                                                 units=pq.V,
-                                                 signal=[1],
+                        IrregularlySampledSignal(times=times,
+                                                 signal=signal,
                                                  time_units=pq.s)
                     )
                 for epidx in range(nepochs):
-                    seg.epochs.append(Epoch())
+                    seg.epochs.append(Epoch(times=times, durations=times))
                 for evidx in range(nevents):
-                    seg.events.append(Event())
+                    seg.events.append(Event(times=times))
                 for stidx in range(nspiketrains):
-                    seg.spiketrains.append(SpikeTrain(times=[], t_stop=pq.s,
+                    seg.spiketrains.append(SpikeTrain(times=times, t_stop=pq.s,
                                                       units=pq.s))
             for rcgidx in range(nrcg):
-                rcg = RecordingChannelGroup(channel_indexes=[])
+                rcg = RecordingChannelGroup(channel_indexes=[1, 2])
                 blk.recordingchannelgroups.append(rcg)
                 for unidx in range(nunits):
                     unit = Unit()
