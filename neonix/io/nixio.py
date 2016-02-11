@@ -604,8 +604,7 @@ class NixIO(BaseIO):
             elif obj_type == "feature":
                 obj = obj.features[obj_name]
             else:
-                # TODO: Raise error
-                pass
+                return None
         return obj
 
     def get_mapped_objects(self, neo_object_list):
