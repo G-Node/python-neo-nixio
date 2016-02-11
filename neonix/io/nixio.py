@@ -603,7 +603,7 @@ class NixIO(BaseIO):
                 parent_metadata = self._get_or_init_metadata(obj_parent,
                                                              obj_path[:-1])
             nix_obj.metadata = parent_metadata.create_section(
-                    nix_obj.name, nix_obj.type+".metadata",
+                    nix_obj.name, nix_obj.type+".metadata"
             )
         return nix_obj.metadata
 
