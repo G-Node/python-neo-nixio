@@ -382,6 +382,10 @@ class NixIOTest(unittest.TestCase):
         # - times, units, labels
 
     def test_anonymous_objects(self):
+        """
+        Create multiple trees that contain all types of objects, with no name or
+        data to test the name generation.
+        """
         nblocks = 3
         nsegs = 4
         nanasig = 4
