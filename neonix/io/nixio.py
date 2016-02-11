@@ -10,8 +10,7 @@
 from __future__ import absolute_import
 
 from datetime import datetime
-import numpy as np
-import quantities as pq
+
 
 from neo.io.baseio import BaseIO
 from neo.core import (Block, Segment, RecordingChannelGroup, AnalogSignal,
@@ -38,9 +37,13 @@ class NixIO(BaseIO):
     is_readable = False  # for now
     is_writable = True
 
-    supported_objects = [Block, Segment, RecordingChannelGroup]
+    supported_objects = [Block, Segment, RecordingChannelGroup,
+                         AnalogSignal, IrregularlySampledSignal,
+                         Epoch, Event, SpikeTrain, Unit]
     readable_objects = []
-    writeable_objects = [Block, Segment, RecordingChannelGroup]
+    writeable_objects = [Block, Segment, RecordingChannelGroup,
+                         AnalogSignal, IrregularlySampledSignal,
+                         Epoch, Event, SpikeTrain, Unit]
 
     name = "NIX"
     extensions = ["h5"]
