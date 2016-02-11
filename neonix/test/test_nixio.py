@@ -380,3 +380,49 @@ class NixIOTest(unittest.TestCase):
         nix_epoch = nix_blocks[0].multi_tags["Button events"]
         self.assertIn(nix_epoch, nix_blocks[0].groups[1].multi_tags)
         # - times, units, labels
+
+    def test_anonymous_objects(self):
+        nblocks = 3
+        nsegs = 4
+        nanasig = 10
+        nirrseg = 10
+        nepochs = 3
+        nevents = 4
+        nspiketrains = 5
+        nrcg = 5
+        nunits = 30
+
+        blocks = []
+        for blkidx in range(nblocks):
+            blk = Block()
+            blocks.append(blk)
+            for segidx in range(nsegs):
+                seg = Segment()
+                blk.segments.append(seg)
+                for anaidx in range(nanasig):
+                    seg.analogsignals.append(AnalogSignal(signal=[],
+                                                          units=pq.V,
+                                                          sampling_rate=pq.Hz))
+                for irridx in range(nirrseg):
+                    seg.irregularlysampledsignals.append(
+                        IrregularlySampledSignal(times=[1],
+                                                 units=pq.V,
+                                                 signal=[1],
+                                                 time_units=pq.s)
+                    )
+                for epidx in range(nepochs):
+                    seg.epochs.append(Epoch())
+                for evidx in range(nevents):
+                    seg.events.append(Event())
+                for stidx in range(nspiketrains):
+                    seg.spiketrains.append(SpikeTrain(times=[], t_stop=pq.s,
+                                                      units=pq.s))
+            for rcgidx in range(nrcg):
+                rcg = RecordingChannelGroup(channel_indexes=[])
+                blk.recordingchannelgroups.append(rcg)
+                for unidx in range(nunits):
+                    unit = Unit()
+                    rcg.units.append(unit)
+
+        self.io.write_all_blocks(blocks)
+
