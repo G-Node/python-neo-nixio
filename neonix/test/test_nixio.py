@@ -69,29 +69,6 @@ class NixIOTest(unittest.TestCase):
         self.assertEqual(nix_source.type, "neo.recordingchannelgroup")
         self.assertEqual(nix_source.definition, neo_rcg.description)
 
-        # Using _equals
-        # self.assertTrue(NixIO._equals(neo_segment, nix_group))
-        # self.assertTrue(NixIO._equals(neo_rcg, nix_source))
-        # self.assertTrue(NixIO._equals(neo_block, nix_block))
-
-    def test_block_neq(self):
-        neo_block = Block(name="test_block_neq",
-                          description="block for testing neq")
-        self.io.write_block(neo_block)
-        nix_block = self.io.nix_file.blocks[0]
-        neo_block.name = "foo"  # changing neo block name
-        self.assertFalse(NixIO._equals(neo_block, nix_block))
-
-    def test_segment_neq(self):
-        neo_block = Block(name="test_block", description="block for testing")
-        neo_segment = Segment(name="test_segment_neq",
-                              description="segment for testing neq")
-        neo_block.segments.append(neo_segment)
-        self.io.write_block(neo_block)
-        nix_block = self.io.nix_file.blocks[0]
-        neo_segment.name = "foo"  # changing neo segment (child) name
-        self.assertFalse(NixIO._equals(neo_block, nix_block))
-
     def test_container_len_neq(self):
         neo_block = Block(name="test_block", description="block for testing")
         neo_segment = Segment(name="test_segment",
