@@ -404,7 +404,7 @@ class NixIOTest(unittest.TestCase):
                 seg = Segment()
                 blk.segments.append(seg)
                 for anaidx in range(nanasig):
-                    seg.analogsignals.append(AnalogSignal(signal=[],
+                    seg.analogsignals.append(AnalogSignal(signal=[1],
                                                           units=pq.V,
                                                           sampling_rate=pq.Hz))
                 for irridx in range(nirrseg):
