@@ -151,8 +151,32 @@ class NixIOTest(unittest.TestCase):
     def test_annotations(self):
         self.fail("Write annotations test")
 
-    def test_left_sweep(self):
-        self.fail("Write test for siketrain with waveforms and left_sweep")
+    def test_waveforms(self):
+        blk = Block()
+        seg = Segment()
+
+        # create a spiketrain with some waveforms and attach it to a segment
+        wf_array = np.array([[[1., 10.]], [[2., 20.]], [[3., 30.]]]) * pq.mV
+        spkt = SpikeTrain([1.0, 50.0, 60.0]*pq.s, waveforms=wf_array,
+                          name='spkt_with_waveform', t_stop=100.0,
+                          t_start=0.5, left_sweep=5*pq.ms)
+        seg.spiketrains.append(spkt)
+        blk.segments.append(seg)
+
+        nix_block = self.io.write_block(blk)
+
+        nix_spkt = nix_block.multi_tags["spkt_with_waveform"]
+        self.assertAlmostEqual(nix_spkt.metadata["t_stop"], 100)
+        self.assertAlmostEqual(nix_spkt.metadata["t_start"], 0.5)
+
+        nix_wf = nix_spkt.features[0].data
+        self.assertAlmostEqual(nix_wf.metadata["left_sweep"], 0.005)
+        nspk, nchan, ntime = np.shape(nix_wf)
+        for spk in range(nspk):
+            for chan in range(nchan):
+                for t in range(ntime):
+                    self.assertAlmostEqual(nix_wf[spk, chan, t],
+                                           wf_array[spk, chan, t])
 
     def test_all_metadata(self):
         self.fail("Write test for all attributes that are converted to metadata")
