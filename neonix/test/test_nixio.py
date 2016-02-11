@@ -36,9 +36,8 @@ class NixIOTest(unittest.TestCase):
     def test_block(self):
         neo_block = Block(name="test_block", description="block for testing")
         nix_block = self.io.write_block(neo_block)
-        self.assertEqual(neo_block.name, nix_block.name)
-        self.assertEqual(neo_block.description, nix_block.definition)
         self.assertEqual(nix_block.type, "neo.block")
+        self.check_equal_attr(neo_block, nix_block)
 
     def test_block_cascade(self):
         neo_block = Block(name="test_block", description="block for testing")
@@ -56,19 +55,16 @@ class NixIOTest(unittest.TestCase):
         nix_source = nix_block.sources[0]
 
         # block -> block base attr
-        self.assertEqual(nix_block.name, neo_block.name)
         self.assertEqual(nix_block.type, "neo.block")
-        self.assertEqual(nix_block.definition, neo_block.description)
+        self.check_equal_attr(neo_block, nix_block)
 
         # segment -> group base attr
-        self.assertEqual(nix_group.name, neo_segment.name)
         self.assertEqual(nix_group.type, "neo.segment")
-        self.assertEqual(nix_group.definition, neo_segment.description)
+        self.check_equal_attr(neo_segment, nix_group)
 
         # rcg -> source base attr
-        self.assertEqual(nix_source.name, neo_rcg.name)
         self.assertEqual(nix_source.type, "neo.recordingchannelgroup")
-        self.assertEqual(nix_source.definition, neo_rcg.description)
+        self.check_equal_attr(neo_rcg, nix_source)
 
     def test_container_len_neq(self):
         neo_block = Block(name="test_block", description="block for testing")
@@ -90,20 +86,12 @@ class NixIOTest(unittest.TestCase):
         self.io.write_block(neo_block)
         nix_block = self.io.nix_file.blocks[0]
 
-        self.assertEqual(neo_block.name, nix_block.name)
-        self.assertEqual(neo_block.description, nix_block.definition)
-        self.assertEqual(neo_block.file_origin,
-                         nix_block.metadata["file_origin"])
-        self.assertEqual(neo_block.file_datetime,
-                         datetime.fromtimestamp(
-                             nix_block.metadata["file_datetime"]))
-        self.assertEqual(neo_block.rec_datetime,
-                         datetime.fromtimestamp(nix_block.created_at))
+        self.check_equal_attr(neo_block, nix_block)
 
     def test_anonymous_objects(self):
         """
         Create multiple trees that contain all types of objects, with no name or
-        data to test the name generation.
+        data to test the unique name generation.
         """
         nblocks = 3
         nsegs = 4
@@ -418,11 +406,11 @@ class NixIOTest(unittest.TestCase):
         # ================== TESTING WRITTEN DATA ==================
 
         for nixblk, neoblk in zip(nix_blocks, neo_blocks):
-            self.assertEqual(nixblk.name, neoblk.name)
-            self.assertEqual(nixblk.definition, neoblk.description)
             self.assertEqual(nixblk.type, "neo.block")
+            self.check_equal_attr(neoblk, nixblk)
 
             for nixgrp, neoseg in zip(nixblk.groups, neoblk.segments):
+                self.check_equal_attr(neoseg, nixgrp)
                 nix_analog_signals = [da for da in nixgrp.data_arrays
                                       if da.type == "neo.analogsignal"]
                 nix_analog_signals = sorted(nix_analog_signals,
@@ -481,6 +469,7 @@ class NixIOTest(unittest.TestCase):
         # spiketrains and waveforms
         neo_spiketrain = neo_blocks[0].segments[0].spiketrains[0]
         nix_spiketrain = nix_blocks[0].groups[0].multi_tags[neo_spiketrain.name]
+        self.check_equal_attr(neo_spiketrain, nix_spiketrain)
 
         self.assertEqual(len(nix_spiketrain.positions),
                          len(neo_spiketrain))
@@ -522,6 +511,7 @@ class NixIOTest(unittest.TestCase):
         # RCGs
         # - Octotrode
         nix_octotrode = nix_blocks[1].sources["octotrode A"]
+        self.check_equal_attr(octotrode_rcg, nix_octotrode)
         nix_channels = [src for src in nix_octotrode.sources
                         if src.type == "neo.recordingchannel"]
         self.assertEqual(len(nix_channels),
@@ -531,8 +521,7 @@ class NixIOTest(unittest.TestCase):
                      if src.type == "neo.unit"]
         self.assertEqual(len(nix_units), len(octotrode_rcg.units))
         for nix_u, neo_u in zip(nix_units, octotrode_rcg.units):
-            self.assertEqual(nix_u.name, neo_u.name)
-            self.assertEqual(nix_u.definition, neo_u.description)
+            self.check_equal_attr(neo_u, nix_u)
 
         nix_coordinates = [chan.metadata["coordinates"] for chan in nix_channels]
         nix_coordinate_units = [chan.metadata["coordinates.units"]
@@ -549,6 +538,7 @@ class NixIOTest(unittest.TestCase):
 
         # - Spiketrain Container
         nix_pyram_rcg = nix_blocks[1].sources["PyramRCG"]
+        self.check_equal_attr(spiketrain_container_rcg, nix_pyram_rcg)
         nix_channels = [src for src in nix_pyram_rcg.sources
                         if src.type == "neo.recordingchannel"]
         self.assertEqual(len(nix_channels),
@@ -560,6 +550,7 @@ class NixIOTest(unittest.TestCase):
 
         # - Pyramidal neuron Unit
         nix_pyram_nrn = nix_pyram_rcg.sources["Pyramidal neuron"]
+        self.check_equal_attr(pyram_unit, nix_pyram_nrn)
 
         # - PyramRCG and Pyram neuron must be referenced by the same spiketrains
         all_spiketrains = [mtag for mtag in nix_blocks[1].multi_tags
@@ -600,11 +591,13 @@ class NixIOTest(unittest.TestCase):
         nix_event = nix_blocks[0].multi_tags["Trigger events"]
         self.assertIn(nix_event, nix_blocks[0].groups[0].multi_tags)
         # - times, units, labels
+        # TODO: times units labels
 
         # Get Epoch and compare attributes
         nix_epoch = nix_blocks[0].multi_tags["Button events"]
         self.assertIn(nix_epoch, nix_blocks[0].groups[1].multi_tags)
         # - times, units, labels
+        # TODO: times durations units labels
 
     def check_equal_attr(self, neoobj, nixobj):
         if neoobj.name:
