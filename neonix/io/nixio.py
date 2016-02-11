@@ -506,8 +506,6 @@ class NixIO(BaseIO):
             waveforms_da = parent_block.create_data_array(wf_name,
                                                           "neo.waveforms",
                                                           data=wf_data)
-            # don't simplify wf_unit - waveforms are usually volts which
-            # simplifies to kg*m^2/(s^3*a)
             wf_unit = str(sptr.waveforms.units.dimensionality)
             waveforms_da.unit = wf_unit
             nix_multi_tag.create_feature(waveforms_da, nix.LinkType.Indexed)
