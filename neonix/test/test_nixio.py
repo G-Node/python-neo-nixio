@@ -179,7 +179,78 @@ class NixIOTest(unittest.TestCase):
                                            wf_array[spk, chan, t])
 
     def test_all_metadata(self):
-        self.fail("Write test for all attributes that are converted to metadata")
+        # metadata attributes such as rec_datetime and file_datetime
+        def rand_date():
+            return datetime(year=np.random.randint(1980, 2100),
+                            month=np.random.randint(1, 13),
+                            day=np.random.randint(1, 30))
+
+        def populate_dates(obj):
+            obj.file_datetime = rand_date()
+            obj.rec_datetime = rand_date()
+
+        times = np.array([1])*pq.s
+        signal = np.array([1])*pq.V
+        blk = Block()
+        blk.file_origin = "/home/user/data/blockfile"
+        populate_dates(blk)
+
+        seg = Segment()
+        populate_dates(seg)
+        seg.file_origin = "/home/user/data/segfile"
+        blk.segments.append(seg)
+
+        asig = AnalogSignal(signal=signal, sampling_rate=pq.Hz)
+        asig.file_origin = "/home/user/data/asigfile"
+        seg.analogsignals.append(asig)
+
+        isig = IrregularlySampledSignal(times=times, signal=signal,
+                                        time_units=pq.s)
+        isig.file_origin = "/home/user/data/isigfile"
+        seg.irregularlysampledsignals.append(isig)
+
+        epoch = Epoch(times=times, durations=times)
+        epoch.file_origin = "/home/user/data/epochfile"
+        seg.epochs.append(epoch)
+
+        event = Event(times=times)
+        event.file_origin = "/home/user/data/eventfile"
+        seg.events.append(event)
+
+        spiketrain = SpikeTrain(times=times, t_stop=pq.s, units=pq.s)
+        spiketrain.file_origin = "/home/user/data/spiketrainfile"
+        seg.spiketrains.append(spiketrain)
+
+        rcg = RecordingChannelGroup(channel_indexes=[1, 2])
+        rcg.file_origin = "/home/user/data/rcgfile"
+        blk.recordingchannelgroups.append(rcg)
+
+        unit = Unit()
+        unit.file_origin = "/home/user/data/unitfile"
+        rcg.units.append(unit)
+
+        nixblk = self.io.write_block(blk)
+
+        self.check_equal_attr(blk, nixblk)
+        self.check_equal_attr(seg, nixblk.groups[0])
+        for signal in [da for da in nixblk.data_arrays
+                       if da.type == "neo.analogsignal"]:
+            self.check_equal_attr(asig, signal)
+        for signal in [da for da in nixblk.data_arrays
+                       if da.type == "neo.irregularlysampledsignal"]:
+            self.check_equal_attr(isig, signal)
+        nixepochs = [mtag for mtag in nixblk.groups[0].multi_tags
+                     if mtag.type == "neo.epoch"]
+        self.check_equal_attr(epoch, nixepochs[0])
+        nixevents = [mtag for mtag in nixblk.groups[0].multi_tags
+                     if mtag.type == "neo.event"]
+        self.check_equal_attr(event, nixevents[0])
+        nixspiketrains = [mtag for mtag in nixblk.groups[0].multi_tags
+                          if mtag.type == "neo.spiketrain"]
+        self.check_equal_attr(spiketrain, nixspiketrains[0])
+        nixrcgs = [mtag for mtag in nixblk.groups[0].multi_tags
+                   if mtag.type == "neo.recordingchannelgroup"]
+        self.check_equal_attr(rcg, nixrcgs[0])
 
     def test_all(self):
         # Test writing of all objects based on examples from the neo docs
@@ -463,4 +534,17 @@ class NixIOTest(unittest.TestCase):
         nix_epoch = nix_blocks[0].multi_tags["Button events"]
         self.assertIn(nix_epoch, nix_blocks[0].groups[1].multi_tags)
         # - times, units, labels
+
+    def check_equal_attr(self, neoobj, nixobj):
+        if neoobj.name:
+            self.assertEqual(neoobj.name, nixobj.name)
+        self.assertEqual(neoobj.description, nixobj.definition)
+        if hasattr(neoobj, "rec_datetime"):
+            self.assertEqual(neoobj.rec_datetime,
+                             datetime.fromtimestamp(nixobj.created_at))
+        if hasattr(neoobj, "file_datetime"):
+            self.assertEqual(neoobj.file_datetime,
+                             datetime.fromtimestamp(
+                                 nixobj.metadata["file_datetime"]))
+        self.assertEqual(neoobj.file_origin, nixobj.metadata["file_origin"])
 
