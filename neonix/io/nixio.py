@@ -119,7 +119,7 @@ class NixIO(BaseIO):
         :param parent_path: Path to the parent of the new segment
         :return: The newly created NIX Group
         """
-        parent_block = self.get_object_at(parent_path)
+        parent_block = self._get_object_at(parent_path)
         nix_name = segment.name
         if not nix_name:
             ngroups = len(parent_block.groups)
@@ -165,7 +165,7 @@ class NixIO(BaseIO):
         :param parent_path: Path to the parent of the new segment
         :return: The newly created NIX Source
         """
-        parent_block = self.get_object_at(parent_path)
+        parent_block = self._get_object_at(parent_path)
         nix_name = rcg.name
         if not nix_name:
             nsources = len(parent_block.sources)
@@ -214,11 +214,11 @@ class NixIO(BaseIO):
             self.write_unit(unit, object_path)
 
         # add signal references
-        for nix_asigs in self.get_mapped_objects(rcg.analogsignals):
+        for nix_asigs in self._get_mapped_objects(rcg.analogsignals):
             # One AnalogSignal maps to list of DataArrays
             for da in nix_asigs:
                 da.sources.append(nix_source)
-        for nix_isigs in self.get_mapped_objects(rcg.irregularlysampledsignals):
+        for nix_isigs in self._get_mapped_objects(rcg.irregularlysampledsignals):
             # One IrregularlySampledSignal maps to list of DataArrays
             for da in nix_isigs:
                 da.sources.append(nix_source)
@@ -236,8 +236,8 @@ class NixIO(BaseIO):
         :param parent_path: Path to the parent of the new segment
         :return: A list containing the newly created NIX DataArrays
         """
-        parent_group = self.get_object_at(parent_path)
-        parent_block = self.get_object_at([parent_path[0]])
+        parent_group = self._get_object_at(parent_path)
+        parent_block = self._get_object_at([parent_path[0]])
         nix_name = anasig.name
         if not nix_name:
             nda = len(parent_block.data_arrays)
@@ -290,8 +290,8 @@ class NixIO(BaseIO):
         :param parent_path: Path to the parent of the new
         :return: The newly created NIX DataArray
         """
-        parent_group = self.get_object_at(parent_path)
-        parent_block = self.get_object_at([parent_path[0]])
+        parent_group = self._get_object_at(parent_path)
+        parent_block = self._get_object_at([parent_path[0]])
         nix_name = irsig.name
         if not nix_name:
             nda = len(parent_block.data_arrays)
@@ -337,8 +337,8 @@ class NixIO(BaseIO):
         :param parent_path: Path to the parent of the new MultiTag
         :return: The newly created NIX MultiTag
         """
-        parent_group = self.get_object_at(parent_path)
-        parent_block = self.get_object_at([parent_path[0]])
+        parent_group = self._get_object_at(parent_path)
+        parent_block = self._get_object_at([parent_path[0]])
         nix_name = ep.name
         if not nix_name:
             nmt = len(parent_group.multi_tags)
@@ -396,8 +396,8 @@ class NixIO(BaseIO):
         :param parent_path: Path to the parent of the new MultiTag
         :return: The newly created NIX MultiTag
         """
-        parent_group = self.get_object_at(parent_path)
-        parent_block = self.get_object_at([parent_path[0]])
+        parent_group = self._get_object_at(parent_path)
+        parent_block = self._get_object_at([parent_path[0]])
         nix_name = ev.name
         if not nix_name:
             nmt = len(parent_group.multi_tags)
@@ -444,8 +444,8 @@ class NixIO(BaseIO):
         :param parent_path: Path to the parent of the new MultiTag
         :return: The newly created NIX MultiTag
         """
-        parent_obj = self.get_object_at(parent_path)
-        parent_block = self.get_object_at([parent_path[0]])
+        parent_obj = self._get_object_at(parent_path)
+        parent_block = self._get_object_at([parent_path[0]])
         nix_name = sptr.name
         if not nix_name:
             nmt = len(parent_block.multi_tags)
@@ -529,7 +529,7 @@ class NixIO(BaseIO):
         :param parent_path: Path to the parent of the new Source
         :return: The newly created NIX Source
         """
-        parent_source = self.get_object_at(parent_path)
+        parent_source = self._get_object_at(parent_path)
         nix_name = ut.name
         if not nix_name:
             nsrc = len(parent_source.sources)
@@ -548,7 +548,7 @@ class NixIO(BaseIO):
                                           nix.Value(ut.file_origin))
 
         # Make contained spike trains refer to parent rcg and new unit
-        for nix_st in self.get_mapped_objects(ut.spiketrains):
+        for nix_st in self._get_mapped_objects(ut.spiketrains):
             nix_st.sources.append(parent_source)
             nix_st.sources.append(nix_source)
 
@@ -567,14 +567,14 @@ class NixIO(BaseIO):
             if len(obj_path) <= 1:  # nix_obj is root block
                 parent_metadata = self.nix_file
             else:
-                obj_parent = self.get_object_at(obj_path[:-1])
+                obj_parent = self._get_object_at(obj_path[:-1])
                 parent_metadata = self._get_or_init_metadata(obj_parent,
                                                              obj_path[:-1])
             nix_obj.metadata = parent_metadata.create_section(
                     nix_obj.name, nix_obj.type+".metadata")
         return nix_obj.metadata
 
-    def get_object_at(self, path):
+    def _get_object_at(self, path):
         """
         Returns the object at the location defined by the path. ``path`` is a
         list of tuples. Each tuple contains the NIX type of each object as a
@@ -607,10 +607,10 @@ class NixIO(BaseIO):
                 return None
         return obj
 
-    def get_mapped_objects(self, neo_object_list):
-        return [self.get_mapped_object(neo_obj) for neo_obj in neo_object_list]
+    def _get_mapped_objects(self, neo_object_list):
+        return [self._get_mapped_object(neo_obj) for neo_obj in neo_object_list]
 
-    def get_mapped_object(self, neo_object):
+    def _get_mapped_object(self, neo_object):
         try:
             return self.neo_nix_map[id(neo_object)]
         except KeyError:
