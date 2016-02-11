@@ -389,14 +389,14 @@ class NixIOTest(unittest.TestCase):
 
         # Events associated with first segment of first block
         evt = Event(name="Trigger events",
-                    times=np.arange(0, 30, 10)*pq.s,
+                    times=np.random.random(3)*pq.s,
                     labels=np.array(["trig0", "trig1", "trig2"], dtype="S"))
         neo_block_a.segments[0].events.append(evt)
 
         # Epochs associated with the second segment of the first block
         epc = Epoch(name="Button events",
-                    times=np.arange(0, 30, 10)*pq.s,
-                    durations=[10, 5, 7]*pq.ms,
+                    times=np.random.random(3)*pq.s,
+                    durations=np.random.random(3)*pq.ms,
                     labels=np.array(["btn0", "btn1", "btn2"], dtype="S"))
         neo_block_a.segments[1].epochs.append(epc)
 
@@ -591,13 +591,36 @@ class NixIOTest(unittest.TestCase):
         nix_event = nix_blocks[0].multi_tags["Trigger events"]
         self.assertIn(nix_event, nix_blocks[0].groups[0].multi_tags)
         # - times, units, labels
-        # TODO: times units labels
+        self.check_equal_attr(evt, nix_event)
+        neo_evt_times = evt.times.magnitude
+        nix_evt_times = nix_event.positions
+        for nix_value, neo_value in zip(nix_evt_times, neo_evt_times):
+            self.assertAlmostEqual(nix_value, neo_value)
+        self.assertEqual(nix_event.positions.unit, "s")
+        neo_evt_labels = evt.labels
+        nix_evt_labels = nix_event.positions.dimensions[0].labels
+        for nix_label, neo_label in zip(nix_evt_labels, neo_evt_labels):
+            self.assertEqual(nix_label, neo_label.decode())
 
         # Get Epoch and compare attributes
         nix_epoch = nix_blocks[0].multi_tags["Button events"]
         self.assertIn(nix_epoch, nix_blocks[0].groups[1].multi_tags)
         # - times, units, labels
-        # TODO: times durations units labels
+        self.check_equal_attr(epc, nix_epoch)
+        neo_epc_times = epc.times.magnitude
+        nix_epc_times = nix_epoch.positions
+        for nix_value, neo_value in zip(nix_epc_times, neo_epc_times):
+            self.assertAlmostEqual(nix_value, neo_value)
+        neo_epc_dura = epc.durations.magnitude
+        nix_epc_dura = nix_epoch.extents
+        for nix_value, neo_value in zip(nix_epc_dura, neo_epc_dura):
+            self.assertAlmostEqual(nix_value, neo_value)
+        self.assertEqual(nix_epoch.positions.unit, "s")
+        self.assertEqual(nix_epoch.extents.unit, "ms")
+        neo_epc_labels = epc.labels
+        nix_epc_labels = nix_epoch.positions.dimensions[0].labels
+        for nix_label, neo_label in zip(nix_epc_labels, neo_epc_labels):
+            self.assertEqual(nix_label, neo_label.decode())
 
     def check_equal_attr(self, neoobj, nixobj):
         if neoobj.name:
