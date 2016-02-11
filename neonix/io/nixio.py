@@ -491,7 +491,7 @@ class NixIO(BaseIO):
             mtag_metadata.create_property("file_origin",
                                           nix.Value(sptr.file_origin))
         if sptr.t_start:
-            t_start = sptr.t_start.rescale(time_units).magnitude
+            t_start = sptr.t_start.rescale(time_units).magnitude.item()
             mtag_metadata.create_property("t_start",
                                           nix.Value(t_start))
         # t_stop is not optional
