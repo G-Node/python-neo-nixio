@@ -81,13 +81,11 @@ class NixIO(BaseIO):
         object_path = [("block", nix_name)]
         self.neo_nix_map[id(neo_block)] = nix_block
         if neo_block.rec_datetime:
-            # Truncating timestamp to seconds
             nix_block.force_created_at(
                     calculate_timestamp(neo_block.rec_datetime)
             )
         if neo_block.file_datetime:
             block_metadata = self._get_or_init_metadata(nix_block)
-            # Truncating timestamp to seconds
             block_metadata.create_property(
                     "file_datetime",
                     nix.Value(calculate_timestamp(neo_block.file_datetime))
@@ -136,11 +134,9 @@ class NixIO(BaseIO):
         object_path = parent_path + [("group", nix_name)]
         self.neo_nix_map[id(segment)] = nix_group
         if segment.rec_datetime:
-            # Truncating timestamp to seconds
             nix_group.force_created_at(calculate_timestamp(segment.rec_datetime))
         if segment.file_datetime:
             group_metadata = self._get_or_init_metadata(nix_group, object_path)
-            # Truncating timestamp to seconds
             group_metadata .create_property(
                     "file_datetime",
                     nix.Value(calculate_timestamp(segment.file_datetime))
