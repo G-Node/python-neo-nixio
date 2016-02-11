@@ -364,7 +364,7 @@ class NixIO(BaseIO):
         times_da.unit = time_units
 
         # durations -> extents
-        durations = ep.durations.magnitude  # .tolist()
+        durations = ep.durations.magnitude
         duration_units = str(ep.durations.units.dimensionality)
 
         durations_da = parent_block.create_data_array(
