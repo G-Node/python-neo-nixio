@@ -384,8 +384,8 @@ class NixIOTest(unittest.TestCase):
     def test_anonymous_objects(self):
         nblocks = 3
         nsegs = 4
-        nanasig = 10
-        nirrseg = 10
+        nanasig = 4
+        nirrseg = 2
         nepochs = 3
         nevents = 4
         nspiketrains = 5
