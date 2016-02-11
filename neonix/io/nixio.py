@@ -80,13 +80,15 @@ class NixIO(BaseIO):
         if neo_block.rec_datetime:
             # Truncating timestamp to seconds
             nix_block.force_created_at(
-                    calculate_timestamp(neo_block.rec_datetime))
+                    calculate_timestamp(neo_block.rec_datetime)
+            )
         if neo_block.file_datetime:
             block_metadata = self._get_or_init_metadata(nix_block)
             # Truncating timestamp to seconds
             block_metadata.create_property(
                     "file_datetime",
-                    nix.Value(calculate_timestamp(neo_block.file_datetime)))
+                    nix.Value(calculate_timestamp(neo_block.file_datetime))
+            )
         if neo_block.file_origin:
             block_metadata = self._get_or_init_metadata(nix_block)
             block_metadata.create_property("file_origin",
@@ -138,7 +140,8 @@ class NixIO(BaseIO):
             # Truncating timestamp to seconds
             group_metadata .create_property(
                     "file_datetime",
-                    nix.Value(calculate_timestamp(segment.file_datetime)))
+                    nix.Value(calculate_timestamp(segment.file_datetime))
+            )
         if segment.file_origin:
             group_metadata = self._get_or_init_metadata(nix_group, object_path)
             group_metadata.create_property("file_origin",
@@ -362,7 +365,8 @@ class NixIO(BaseIO):
         durations_da = parent_block.create_data_array(
             "{}.durations".format(nix_name),
             "neo.epoch.durations",
-            data=durations)
+            data=durations
+        )
         durations_da.unit = duration_units
 
         # ready to create MTag
@@ -571,7 +575,8 @@ class NixIO(BaseIO):
                 parent_metadata = self._get_or_init_metadata(obj_parent,
                                                              obj_path[:-1])
             nix_obj.metadata = parent_metadata.create_section(
-                    nix_obj.name, nix_obj.type+".metadata")
+                    nix_obj.name, nix_obj.type+".metadata"
+            )
         return nix_obj.metadata
 
     def _get_object_at(self, path):
