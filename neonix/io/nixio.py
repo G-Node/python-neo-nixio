@@ -26,8 +26,6 @@ except ImportError:  # pragma: no cover
 def calculate_timestamp(dt):
     return int(time.mktime(dt.timetuple()))
 
-# TODO: Copy neo annotations for all objects into metadata segments
-
 
 class NixIO(BaseIO):
     """
@@ -94,6 +92,7 @@ class NixIO(BaseIO):
             block_metadata = self._get_or_init_metadata(nix_block)
             block_metadata.create_property("file_origin",
                                            nix.Value(neo_block.file_origin))
+        self._add_annotations(neo_block, nix_block, object_path)
         for segment in neo_block.segments:
             self.write_segment(segment, object_path)
         for rcg in neo_block.recordingchannelgroups:
@@ -145,6 +144,7 @@ class NixIO(BaseIO):
             group_metadata = self._get_or_init_metadata(nix_group, object_path)
             group_metadata.create_property("file_origin",
                                            nix.Value(segment.file_origin))
+        self._add_annotations(segment, nix_group, object_path)
         for anasig in segment.analogsignals:
             self.write_analogsignal(anasig, object_path)
         for irsig in segment.irregularlysampledsignals:
@@ -184,6 +184,7 @@ class NixIO(BaseIO):
                                                          object_path)
             source_metadata.create_property("file_origin",
                                             nix.Value(rcg.file_origin))
+        self._add_annotations(rcg, nix_source, object_path)
         for idx, channel in enumerate(rcg.channel_indexes):
             # create a child source object to represent the individual channel
             if len(rcg.channel_names):
@@ -248,12 +249,19 @@ class NixIO(BaseIO):
         nix_type = "neo.analogsignal"
         nix_definition = anasig.description
         parent_metadata = self._get_or_init_metadata(parent_group, parent_path)
-        anasig_group_segment = parent_metadata.create_section(nix_name,
-                                                              nix_type)
+        anasig_group_segment = parent_metadata.create_section(
+            nix_name, nix_type+".metadata"
+        )
 
         if anasig.file_origin:
             anasig_group_segment.create_property("file_origin",
                                                  nix.Value(anasig.file_origin))
+        if anasig.annotations:
+            anasig_group_annotations = anasig_group_segment.create_section(
+                nix_name+".annotations", nix_type+".annotations"
+            )
+            for k, v in anasig.annotations.items():
+                anasig_group_annotations.create_property(k, nix.Value(v))
 
         # common properties
         data_units = str(anasig.units.dimensionality)
@@ -307,12 +315,20 @@ class NixIO(BaseIO):
         nix_type = "neo.irregularlysampledsignal"
         nix_definition = irsig.description
         parent_metadata = self._get_or_init_metadata(parent_group, parent_path)
-        irsig_group_segment = parent_metadata.create_section(nix_name,
-                                                             nix_type)
+        irsig_group_segment = parent_metadata.create_section(
+            nix_name, nix_type+".metadata"
+        )
 
         if irsig.file_origin:
             irsig_group_segment.create_property("file_origin",
                                                 nix.Value(irsig.file_origin))
+
+        if irsig.annotations:
+            irsig_group_annotations = irsig_group_segment.create_section(
+                nix_name+".annotations", nix_type+".annotations"
+            )
+            for k, v in irsig.annotations.items():
+                irsig_group_annotations.create_property(k, nix.Value(v))
 
         # common properties
         data_units = str(irsig.units.dimensionality)
@@ -394,6 +410,7 @@ class NixIO(BaseIO):
                                                        object_path)
             mtag_metadata.create_property("file_origin",
                                           nix.Value(ep.file_origin))
+        self._add_annotations(ep, nix_multi_tag, object_path)
 
         nix_multi_tag.references.extend(
             NixIO._get_contained_signals(parent_group)
@@ -442,6 +459,7 @@ class NixIO(BaseIO):
                                                        object_path)
             mtag_metadata.create_property("file_origin",
                                           nix.Value(ev.file_origin))
+        self._add_annotations(ev, nix_multi_tag, object_path)
 
         nix_multi_tag.references.extend(
             NixIO._get_contained_signals(parent_group)
@@ -489,6 +507,7 @@ class NixIO(BaseIO):
 
         mtag_metadata = self._get_or_init_metadata(nix_multi_tag,
                                                    object_path)
+        self._add_annotations(sptr, nix_multi_tag, object_path)
 
         # other attributes
         if sptr.file_origin:
@@ -552,6 +571,7 @@ class NixIO(BaseIO):
         nix_source.definition = nix_definition
         object_path = parent_path + [("source", nix_name)]
         self.neo_nix_map[id(ut)] = nix_source
+        self._add_annotations(ut, nix_source, object_path)
 
         if ut.file_origin:
             mtag_metadata = self._get_or_init_metadata(nix_source,
@@ -583,7 +603,7 @@ class NixIO(BaseIO):
                 parent_metadata = self._get_or_init_metadata(obj_parent,
                                                              obj_path[:-1])
             nix_obj.metadata = parent_metadata.create_section(
-                    nix_obj.name, nix_obj.type+".metadata"
+                    nix_obj.name, nix_obj.type+".metadata",
             )
         return nix_obj.metadata
 
@@ -632,6 +652,15 @@ class NixIO(BaseIO):
                            "or spiketrain object is referenced only by a "
                            "RecordingChannelGroup or Unit and is not part of a "
                            "Segment.")
+
+    def _add_annotations(self, neo_object, nix_object, object_path):
+        if neo_object.annotations:
+            metadata = self._get_or_init_metadata(nix_object, object_path)
+            annotations = metadata.create_section(
+                nix_object.name+".annotations", nix_object.type+".annotations"
+            )
+            for k, v in neo_object.annotations.items():
+                annotations.create_property(k, nix.Value(v))
 
     @staticmethod
     def _get_contained_signals(obj):
