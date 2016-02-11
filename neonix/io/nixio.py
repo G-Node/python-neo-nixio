@@ -518,12 +518,13 @@ class NixIO(BaseIO):
             wf_timedim.unit = time_units
             wf_timedim.label = "time"
             wf_path = object_path + [("data_array", wf_name)]
-            self._get_or_init_metadata(nix_multi_tag, object_path)
             waveforms_da.metadata = self._get_or_init_metadata(waveforms_da,
                                                                wf_path)
             if sptr.left_sweep:
-                left_sweep = sptr.left_sweep.rescale(time_units).magnitude
-                waveforms_da.metadata.create_property("left_sweep", left_sweep)
+                left_sweep = sptr.left_sweep.rescale(time_units).\
+                    magnitude.item()
+                waveforms_da.metadata.create_property("left_sweep",
+                                                      nix.Value(left_sweep))
 
         return nix_multi_tag
 
