@@ -133,7 +133,8 @@ class NixIOTest(unittest.TestCase):
         # create a spiketrain with some waveforms and attach it to a segment
         wf_array = np.array([[[0., 1.]], [[2., 3.]], [[4., 5.]]]) * pq.mV
         seg_train = SpikeTrain([3, 4, 5]*pq.s, waveforms=wf_array,
-                               name='segment_spiketrain', t_stop=10.0)
+                               name='segment_spiketrain', t_stop=10.0,
+                               t_start=0.0, left_sweep=1*pq.ms)
         neo_blocks[0].segments[0].spiketrains.append(seg_train)
 
         # group 3 channels from the analog signal in the first segment of the
