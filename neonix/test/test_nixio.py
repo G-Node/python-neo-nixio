@@ -181,7 +181,7 @@ class NixIOTest(unittest.TestCase):
     def test_all_metadata(self):
         # metadata attributes such as rec_datetime and file_datetime
         def rand_date():
-            return datetime(year=np.random.randint(1900, 2100),
+            return datetime(year=np.random.randint(1980, 2020),
                             month=np.random.randint(1, 13),
                             day=np.random.randint(1, 30))
 
