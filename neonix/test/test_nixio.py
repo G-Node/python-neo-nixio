@@ -250,41 +250,53 @@ class NixIOTest(unittest.TestCase):
 
         times = np.array([1])*pq.s
         signal = np.array([1])*pq.V
-        blk = Block()
+        blk = Block(name="theblock", description="I am a block")
         blk.file_origin = "/home/user/data/blockfile"
         populate_dates(blk)
 
-        seg = Segment()
+        seg = Segment(name="thesegment", description="I am a segment")
         populate_dates(seg)
         seg.file_origin = "/home/user/data/segfile"
         blk.segments.append(seg)
 
-        asig = AnalogSignal(signal=signal, sampling_rate=pq.Hz)
+        asig = AnalogSignal(name="theanalogsignal",
+                            description="I am an analogsignal",
+                            signal=signal, sampling_rate=pq.Hz)
         asig.file_origin = "/home/user/data/asigfile"
         seg.analogsignals.append(asig)
 
-        isig = IrregularlySampledSignal(times=times, signal=signal,
+        isig = IrregularlySampledSignal(name="theirregularlysampledsignal",
+                                        description="I have a very long name",
+                                        times=times, signal=signal,
                                         time_units=pq.s)
         isig.file_origin = "/home/user/data/isigfile"
         seg.irregularlysampledsignals.append(isig)
 
-        epoch = Epoch(times=times, durations=times)
+        epoch = Epoch(name="theepoch", description="I am an epoch",
+                      times=times, durations=times)
         epoch.file_origin = "/home/user/data/epochfile"
         seg.epochs.append(epoch)
 
-        event = Event(times=times)
+        event = Event(name="theevent", description="I am en event",
+                      times=times)
         event.file_origin = "/home/user/data/eventfile"
         seg.events.append(event)
 
-        spiketrain = SpikeTrain(times=times, t_stop=pq.s, units=pq.s)
+        spiketrain = SpikeTrain(name="thespiketrain",
+                                description="I am a spiketrain",
+                                times=times, t_stop=pq.s, units=pq.s)
         spiketrain.file_origin = "/home/user/data/spiketrainfile"
         seg.spiketrains.append(spiketrain)
 
-        rcg = RecordingChannelGroup(channel_indexes=[1, 2])
+        rcg = RecordingChannelGroup(
+            name="thercg",
+            description="I had a long name but it was abbreviated",
+            channel_indexes=[1, 2]
+        )
         rcg.file_origin = "/home/user/data/rcgfile"
         blk.recordingchannelgroups.append(rcg)
 
-        unit = Unit()
+        unit = Unit(name="theunit", description="I am a unit")
         unit.file_origin = "/home/user/data/unitfile"
         rcg.units.append(unit)
 
@@ -432,6 +444,8 @@ class NixIOTest(unittest.TestCase):
 
                 for nixasig, neoasig in zip(nix_analog_signals,
                                             neo_analog_signals):
+                    self.check_equal_attr(neoseg.analogsignals[0],
+                                          nixasig)
                     self.assertEqual(nixasig.unit, "mV")
                     self.assertIs(nixasig.dimensions[0].dimension_type,
                                   nix.DimensionType.Sample)
@@ -449,6 +463,8 @@ class NixIOTest(unittest.TestCase):
 
                 for nixisig, neoisig in zip(nix_irreg_signals,
                                             neo_irreg_signals):
+                    self.check_equal_attr(neoseg.irregularlysampledsignals[0],
+                                          nixisig)
                     self.assertEqual(nixisig.unit, "nA")
                     self.assertIs(nixisig.dimensions[0].dimension_type,
                                   nix.DimensionType.Range)
@@ -624,7 +640,11 @@ class NixIOTest(unittest.TestCase):
 
     def check_equal_attr(self, neoobj, nixobj):
         if neoobj.name:
-            self.assertEqual(neoobj.name, nixobj.name)
+            if isinstance(neoobj, (AnalogSignal, IrregularlySampledSignal)):
+                nix_name = "".join(nixobj.name.split(".")[:-1])
+            else:
+                nix_name = nixobj.name
+            self.assertEqual(neoobj.name, nix_name)
         self.assertEqual(neoobj.description, nixobj.definition)
         if hasattr(neoobj, "rec_datetime") and neoobj.rec_datetime:
             self.assertEqual(neoobj.rec_datetime,
