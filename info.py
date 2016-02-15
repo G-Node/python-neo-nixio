@@ -11,6 +11,6 @@ STATUS          = 'Dev'
 RELEASE         = '%s %s' % (VERSION, STATUS)
 AUTHOR          = 'Achilleas Koutsou'
 COPYRIGHT       = '2016, German Neuroinformatics Node, ' + AUTHOR
-CONTACT         = ''
+CONTACT         = 'achilleas.k@gmail.com'
 BRIEF           = 'Neo IO for the NIX format'
 HOMEPAGE        = 'https://github.com/G-Node/python-neo-nixio'
