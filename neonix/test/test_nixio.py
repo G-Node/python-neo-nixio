@@ -177,6 +177,30 @@ class NixIOTest(unittest.TestCase):
                    if src.type == "neo.recordingchannelgroup"]
         self.check_equal_attr(rcg, nixrcgs[0])
 
+    def test_metadata_structure(self):
+        blk = NixIOTest.create_all_annotated()
+        blk = self.io.write_block(blk)
+
+        blkmd = blk.metadata
+        self.assertEqual(blk.name, blkmd.name)
+
+        grp = blk.groups[0]  # segment
+        self.assertIn(grp.name, blkmd.sections)
+
+        grpmd = blkmd.sections[grp.name]
+        for da in grp.data_arrays:  # signals
+            name = ".".join(da.name.split(".")[:-1])
+            self.assertIn(name, grpmd.sections)
+        for mtag in grp.multi_tags:  # spiketrains, events, and epochs
+            self.assertIn(mtag.name, grpmd.sections)
+
+        srcrcg = blk.sources[0]  # rcg
+        self.assertIn(srcrcg.name, blkmd.sections)
+        srcrcgmd = blkmd.sections[srcrcg.name]
+        for srcrc in srcrcg.sources:  # unit
+            if srcrc.type == "neo.unit":  # ignore channels - no metadata
+                self.assertIn(srcrc.name, srcrcgmd.sections)
+
     def test_waveforms(self):
         blk = Block()
         seg = Segment()
