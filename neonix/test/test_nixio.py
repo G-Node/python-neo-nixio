@@ -631,7 +631,7 @@ class NixIOTest(unittest.TestCase):
     def check_equal_attr(self, neoobj, nixobj):
         if neoobj.name:
             if isinstance(neoobj, (AnalogSignal, IrregularlySampledSignal)):
-                nix_name = "".join(nixobj.name.split(".")[:-1])
+                nix_name = ".".join(nixobj.name.split(".")[:-1])
             else:
                 nix_name = nixobj.name
             self.assertEqual(neoobj.name, nix_name)
