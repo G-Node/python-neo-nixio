@@ -54,8 +54,7 @@ install:
 script:
     - python setup.py build
     - if [ $COVERALLS = 1 ]; then
-        coverage run --source=neonix setup.py test;
-        coverage report -m;
+        coverage run --source=neonix setup.py test && coverage report -m;
       else
         python setup.py test;
       fi;
