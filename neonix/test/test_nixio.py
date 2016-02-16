@@ -138,75 +138,41 @@ class NixIOTest(unittest.TestCase):
         self.io.write_all_blocks(blocks)
 
     def test_annotations(self):
-        def rand_word():
-            return "".join(np.random.choice(list(string.ascii_letters), 10))
-
-        def rand_dict(nitems):
-            rd = dict()
-            for _ in range(nitems):
-                key = rand_word()
-                value = rand_word() if np.random.choice((0, 1))\
-                    else np.random.uniform()
-                rd[key] = value
-            return rd
-
-        times = np.array([1])*pq.s
-        signal = np.array([1])*pq.V
-        blk = Block()
-        blk.annotate(**rand_dict(3))
-
-        seg = Segment()
-        seg.annotate(**rand_dict(4))
-        blk.segments.append(seg)
-
-        asig = AnalogSignal(signal=signal, sampling_rate=pq.Hz)
-        asig.annotate(**rand_dict(2))
-        seg.analogsignals.append(asig)
-
-        isig = IrregularlySampledSignal(times=times, signal=signal,
-                                        time_units=pq.s)
-        isig.annotate(**rand_dict(2))
-        seg.irregularlysampledsignals.append(isig)
-
-        epoch = Epoch(times=times, durations=times)
-        epoch.annotate(**rand_dict(4))
-        seg.epochs.append(epoch)
-
-        event = Event(times=times)
-        event.annotate(**rand_dict(4))
-        seg.events.append(event)
-
-        spiketrain = SpikeTrain(times=times, t_stop=pq.s, units=pq.s)
-        spiketrain.annotate(**rand_dict(6))
-        seg.spiketrains.append(spiketrain)
-
-        rcg = RecordingChannelGroup(channel_indexes=[1, 2])
-        rcg.annotate(**rand_dict(4))
-        blk.recordingchannelgroups.append(rcg)
-
-        unit = Unit()
-        unit.annotate(**rand_dict(2))
-        rcg.units.append(unit)
+        blk = NixIOTest.create_all_annotated()
 
         nixblk = self.io.write_block(blk)
 
         self.check_equal_attr(blk, nixblk)
+
+        seg = blk.segments[0]
         self.check_equal_attr(seg, nixblk.groups[0])
+
+        asig = seg.analogsignals[0]
         for signal in [da for da in nixblk.data_arrays
                        if da.type == "neo.analogsignal"]:
             self.check_equal_attr(asig, signal)
+
+        isig = seg.irregularlysampledsignals[0]
         for signal in [da for da in nixblk.data_arrays
                        if da.type == "neo.irregularlysampledsignal"]:
             self.check_equal_attr(isig, signal)
+
+        epoch = seg.epochs[0]
         nixepochs = [mtag for mtag in nixblk.groups[0].multi_tags
                      if mtag.type == "neo.epoch"]
         self.check_equal_attr(epoch, nixepochs[0])
+
+        event = seg.events[0]
         nixevents = [mtag for mtag in nixblk.groups[0].multi_tags
                      if mtag.type == "neo.event"]
         self.check_equal_attr(event, nixevents[0])
+
+        spiketrain = seg.spiketrains[0]
         nixspiketrains = [mtag for mtag in nixblk.groups[0].multi_tags
                           if mtag.type == "neo.spiketrain"]
         self.check_equal_attr(spiketrain, nixspiketrains[0])
+
+        rcg = blk.recordingchannelgroups[0]
         nixrcgs = [src for src in nixblk.sources
                    if src.type == "neo.recordingchannelgroup"]
         self.check_equal_attr(rcg, nixrcgs[0])
@@ -660,4 +626,58 @@ class NixIOTest(unittest.TestCase):
             nixmd = nixobj.metadata
             for k, v, in neoobj.annotations.items():
                 self.assertEqual(nixmd[k], v)
+
+    @staticmethod
+    def create_all_annotated():
+        def rand_word():
+            return "".join(np.random.choice(list(string.ascii_letters), 10))
+
+        def rand_dict(nitems):
+            rd = dict()
+            for _ in range(nitems):
+                key = rand_word()
+                value = rand_word() if np.random.choice((0, 1)) \
+                    else np.random.uniform()
+                rd[key] = value
+            return rd
+
+        times = np.array([1])*pq.s
+        signal = np.array([1])*pq.V
+        blk = Block()
+        blk.annotate(**rand_dict(3))
+
+        seg = Segment()
+        seg.annotate(**rand_dict(4))
+        blk.segments.append(seg)
+
+        asig = AnalogSignal(signal=signal, sampling_rate=pq.Hz)
+        asig.annotate(**rand_dict(2))
+        seg.analogsignals.append(asig)
+
+        isig = IrregularlySampledSignal(times=times, signal=signal,
+                                        time_units=pq.s)
+        isig.annotate(**rand_dict(2))
+        seg.irregularlysampledsignals.append(isig)
+
+        epoch = Epoch(times=times, durations=times)
+        epoch.annotate(**rand_dict(4))
+        seg.epochs.append(epoch)
+
+        event = Event(times=times)
+        event.annotate(**rand_dict(4))
+        seg.events.append(event)
+
+        spiketrain = SpikeTrain(times=times, t_stop=pq.s, units=pq.s)
+        spiketrain.annotate(**rand_dict(6))
+        seg.spiketrains.append(spiketrain)
+
+        rcg = RecordingChannelGroup(channel_indexes=[1, 2])
+        rcg.annotate(**rand_dict(4))
+        blk.recordingchannelgroups.append(rcg)
+
+        unit = Unit()
+        unit.annotate(**rand_dict(2))
+        rcg.units.append(unit)
+
+        return blk
 
