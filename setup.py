@@ -6,9 +6,6 @@ import re
 
 __author__ = "Achilleas Koutsou"
 
-install_requires = ["numpy>=1.3.0",
-                    "quantities>=0.9.0"]
-
 with open("README.md") as f:
     description_text = f.read()
 
@@ -36,7 +33,7 @@ setup(name             = 'neonix',
       packages         = ['neonix', 'neonix.io'],
       tests_require    = ['nose'],
       test_suite       = 'nose.collector',
-      requires         = ['nix', 'neo'],
+      insall_requires  = ['nix', 'neo'],
       package_data     = {'neonix': [license_text, description_text]},
       include_package_data = True,
       zip_safe         = False,
