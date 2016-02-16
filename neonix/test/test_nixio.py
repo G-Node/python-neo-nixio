@@ -92,6 +92,9 @@ class NixIOTest(unittest.TestCase):
         """
         Create multiple trees that contain all types of objects, with no name or
         data to test the unique name generation.
+
+        Results are not checked. The purpose of this test it to check that the
+        data can be written without causing conflicts in NIX.
         """
         nblocks = 3
         nsegs = 4
