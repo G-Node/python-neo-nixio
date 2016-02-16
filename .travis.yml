@@ -53,8 +53,7 @@ install:
 
 script:
     - if [ $COVERALLS = 1 ]; then
-        nosetests -v --with-coverage --cover-tests --cover-package=neonix;
-        coverage report;
+        nosetests -v --with-coverage --cover-tests --cover-package=neonix && coverage report;
       else
         nosetests;
       fi;
