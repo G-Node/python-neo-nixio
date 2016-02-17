@@ -46,7 +46,7 @@ install:
     - python setup.py build
     - cd ..
     # neo
-    - git clone -b apibreak --depth 1 https://github.com/NeuralEnsemble/python-neo neo
+    - git clone -b analogsignal --depth 1 https://github.com/apdavison/python-neo neo
     - cd neo
     - python setup.py build
     - cd ..
