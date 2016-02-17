@@ -260,9 +260,9 @@ class NixIO(BaseIO):
             NixIO._add_annotations(anasig.annotations, anasig_group_segment)
 
         # common properties
-        data_units = str(anasig.units.dimensionality)
+        data_units = NixIO._get_units(anasig)
         # often sampling period is in 1/Hz or 1/kHz - simplifying to s
-        time_units = str(anasig.sampling_period.units.dimensionality.simplified)
+        time_units = NixIO._get_units(anasig.sampling_period, True)
         # rescale after simplification
         offset = anasig.t_start.rescale(time_units).item()
         sampling_interval = anasig.sampling_period.rescale(time_units).item()
@@ -323,8 +323,8 @@ class NixIO(BaseIO):
             NixIO._add_annotations(irsig.annotations, irsig_group_segment)
 
         # common properties
-        data_units = str(irsig.units.dimensionality)
-        time_units = str(irsig.times.units.dimensionality)
+        data_units = NixIO._get_units(irsig)
+        time_units = NixIO._get_units(irsig.times)
         times = irsig.times.magnitude.tolist()
 
         nix_data_arrays = list()
@@ -368,7 +368,7 @@ class NixIO(BaseIO):
 
         # times -> positions
         times = ep.times.magnitude
-        time_units = str(ep.times.units.dimensionality)
+        time_units = NixIO._get_units(ep.times)
 
         times_da = parent_block.create_data_array("{}.times".format(nix_name),
                                                   "neo.epoch.times",
@@ -377,7 +377,7 @@ class NixIO(BaseIO):
 
         # durations -> extents
         durations = ep.durations.magnitude
-        duration_units = str(ep.durations.units.dimensionality)
+        duration_units = NixIO._get_units(ep.durations)
 
         durations_da = parent_block.create_data_array(
             "{}.durations".format(nix_name),
@@ -429,7 +429,7 @@ class NixIO(BaseIO):
 
         # times -> positions
         times = ev.times.magnitude
-        time_units = str(ev.times.units.dimensionality)
+        time_units = NixIO._get_units(ev.times)
 
         times_da = parent_block.create_data_array("{}.times".format(nix_name),
                                                   "neo.event.times",
@@ -477,7 +477,7 @@ class NixIO(BaseIO):
         nix_definition = sptr.description
 
         # spike times
-        time_units = str(sptr.times.units.dimensionality)
+        time_units = NixIO._get_units(sptr.times)
         times = sptr.times.magnitude
         times_da = parent_block.create_data_array("{}.times".format(nix_name),
                                                   "neo.epoch.times",
@@ -521,11 +521,10 @@ class NixIO(BaseIO):
             waveforms_da = parent_block.create_data_array(wf_name,
                                                           "neo.waveforms",
                                                           data=wf_data)
-            wf_unit = str(sptr.waveforms.units.dimensionality)
+            wf_unit = NixIO._get_units(sptr.waveforms)
             waveforms_da.unit = wf_unit
             nix_multi_tag.create_feature(waveforms_da, nix.LinkType.Indexed)
-            time_units = str(sptr.sampling_period.units.dimensionality.
-                             simplified)
+            time_units = NixIO._get_units(sptr.sampling_period, True)
             sampling_interval = sptr.sampling_period.rescale(time_units).item()
             wf_spikedim = waveforms_da.append_set_dimension()
             wf_chandim = waveforms_da.append_set_dimension()
@@ -660,3 +659,22 @@ class NixIO(BaseIO):
         return [da for da in obj.data_arrays
                 if da.type in ["neo.analogsignal",
                                "neo.irregularlysampledsignal"]]
+
+    @staticmethod
+    def _get_units(quantity, simplify=False):
+        """
+        Returns the units of a quantity value or array as a string, or 1 if it
+        is dimensionless.
+
+        :param quantity: Quantity scalar or array
+        :param simplify: True/False Simplify units
+        :return: Units of the quantity or None if dimensionless
+        """
+        units = quantity.units.dimensionality
+        if simplify:
+            units = units.simplified
+        units = str(units)
+        if units == "dimensionless":
+            units = None
+        return units
+
