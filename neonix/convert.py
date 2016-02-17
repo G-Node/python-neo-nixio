@@ -1,3 +1,4 @@
+from __future__ import print_function
 import os
 import neo
 from neonix.io.nixio import NixIO
@@ -5,19 +6,20 @@ from neonix.io.nixio import NixIO
 
 def main():
     for datafilename in [f for f in os.listdir(".") if os.path.isfile(f)]:
-        # print("\nProcessing {}".format(datafilename))
+        print("- {}".format(datafilename), end="")
         try:
             reader = neo.io.get_io(datafilename)
+            data = reader.read()
+            reader.close()
         except OSError:
-            print("X {}\n\tdoes not have an extension known to Neo.".format(
+            print("\rX {}\n\tdoes not have an extension known to Neo.".format(
                 datafilename
             ))
             continue
-        try:
-            data = reader.read()
-            reader.close()
         except Exception:
-            # print("\tSomething went wrong while reading data.")
+            print("\rX {}\n\tCould not read data.".format(
+                datafilename
+            ))
             continue
         blocks = []
         try:
@@ -32,7 +34,7 @@ def main():
             nixfilename = os.path.splitext(datafilename)[0]+"_nix.h5"
             nixfile = NixIO(nixfilename)
             nixfile.write_all_blocks(blocks)
-            print("* {}\n\tconverted and saved to {}".format(datafilename,
+            print("\r* {}\n\tconverted and saved to {}".format(datafilename,
                                                              nixfilename))
 
 
