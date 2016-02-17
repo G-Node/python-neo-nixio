@@ -657,8 +657,7 @@ class NixIOTest(unittest.TestCase):
             self.assertEqual(neoobj.file_origin,
                              nixobj.metadata["file_origin"])
         if neoobj.annotations:
-            annotations = nixobj.metadata.name+".annotations"
-            nixannotations = nixobj.metadata.sections[annotations]
+            nixmd = nixobj.metadata
             for k, v, in neoobj.annotations.items():
-                self.assertEqual(nixannotations[k], v)
+                self.assertEqual(nixmd[k], v)
 

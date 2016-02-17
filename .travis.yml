@@ -52,10 +52,11 @@ install:
     - cd ..
 
 script:
+    - python setup.py build
     - if [ $COVERALLS = 1 ]; then
-        nosetests -v --with-coverage --cover-tests --cover-package=neonix && coverage report;
+        coverage run --source=neonix setup.py test && coverage report -m;
       else
-        nosetests;
+        python setup.py test;
       fi;
 
 after_success:
