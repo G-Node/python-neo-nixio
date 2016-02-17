@@ -10,7 +10,8 @@
 from __future__ import absolute_import
 
 import time
-
+from collections import Iterable
+from six import string_types
 
 from neo.io.baseio import BaseIO
 from neo.core import (Block, Segment, RecordingChannelGroup, AnalogSignal,
@@ -652,7 +653,17 @@ class NixIO(BaseIO):
     @staticmethod
     def _add_annotations(annotations, metadata):
             for k, v in annotations.items():
-                metadata.create_property(k, nix.Value(v))
+                if isinstance(v, string_types):
+                    v = nix.Value(v)
+                elif isinstance(v, bytes):
+                    v = nix.Value(v.decode())
+                elif isinstance(v, Iterable):
+                    v = list(nix.Value(item) for item in v)
+                elif type(v).__module__ == "numpy":
+                    v = nix.Value(v.item())
+                else:
+                    v = nix.Value(v)
+                metadata.create_property(k, v)
 
     @staticmethod
     def _get_contained_signals(obj):
