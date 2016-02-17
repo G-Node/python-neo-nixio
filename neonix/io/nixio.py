@@ -10,8 +10,12 @@
 from __future__ import absolute_import
 
 import time
+from datetime import datetime
 from collections import Iterable
 from six import string_types
+import warnings
+
+import quantities as pq
 
 from neo.io.baseio import BaseIO
 from neo.core import (Block, Segment, RecordingChannelGroup, AnalogSignal,
@@ -108,9 +112,7 @@ class NixIO(BaseIO):
         :param neo_blocks: List (or iterable) containing Neo blocks
         :return: A list containing the new NIX Blocks
         """
-        nix_blocks = list()
-        for nb in neo_blocks:
-            nix_blocks.append(self.write_block(nb))
+        nix_blocks = list(map(self.write_block, neo_blocks))
         return nix_blocks
 
     def write_segment(self, segment, parent_path):
@@ -652,18 +654,50 @@ class NixIO(BaseIO):
 
     @staticmethod
     def _add_annotations(annotations, metadata):
-            for k, v in annotations.items():
-                if isinstance(v, string_types):
-                    v = nix.Value(v)
-                elif isinstance(v, bytes):
-                    v = nix.Value(v.decode())
-                elif isinstance(v, Iterable):
-                    v = list(nix.Value(item) for item in v)
-                elif type(v).__module__ == "numpy":
-                    v = nix.Value(v.item())
-                else:
-                    v = nix.Value(v)
+        for k, v in annotations.items():
+            v = NixIO._to_value(v)
+            if v:
                 metadata.create_property(k, v)
+
+    @staticmethod
+    def _to_value(v):
+        """
+        Helper function for converting arbitrary variables to types compatible
+        with nix.Value().
+
+        :param v: The value to be converted
+        :return: a nix.Value() object
+        """
+        if isinstance(v, pq.Quantity):
+            # v = nix.Value((v.magnitude.item(), str(v.dimensionality)))
+            warnings.warn("Quantities in annotations are not currently "
+                          "supported when writing to NIX.")
+            return None
+        elif isinstance(v, datetime):
+            v = nix.Value(calculate_timestamp(v))
+        elif isinstance(v, string_types):
+            v = nix.Value(v)
+        elif isinstance(v, bytes):
+            v = nix.Value(v.decode())
+        elif isinstance(v, Iterable):
+            vv = list()
+            for item in v:
+                if isinstance(v, Iterable):
+                    warnings.warn("Multidimensional arrays and nested "
+                                  "containers are not currently supported "
+                                  "when writing to NIX.")
+                    return None
+                if type(item).__module__ == "numpy":
+                    item = nix.Value(item.item())
+                else:
+                    item = nix.Value(item)
+                vv.append(item)
+            v = vv
+        elif type(v).__module__ == "numpy":
+            v = nix.Value(v.item())
+        else:
+            v = nix.Value(v)
+        return v
 
     @staticmethod
     def _get_contained_signals(obj):
