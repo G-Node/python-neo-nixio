@@ -22,6 +22,77 @@ from neo.core import (Block, Segment, RecordingChannelGroup, AnalogSignal,
 from neonix.io.nixio import NixIO
 
 
+def rand_date():
+    return datetime(year=np.random.randint(1980, 2020),
+                    month=np.random.randint(1, 13),
+                    day=np.random.randint(1, 29))
+
+
+def populate_dates(obj):
+    obj.file_datetime = rand_date()
+    obj.rec_datetime = rand_date()
+
+
+def rand_word(n=10):
+    return "".join(np.random.choice(list(string.ascii_letters), n))
+
+
+def rand_sentence(n=3, maxwl=10):
+    return " ".join(rand_word(np.random.randint(1, maxwl)) for _ in range(n))
+
+
+def rand_dict(nitems):
+    rd = dict()
+    for _ in range(nitems):
+        key = rand_word()
+        value = rand_word() if np.random.choice((0, 1)) \
+            else np.random.uniform()
+        rd[key] = value
+    return rd
+
+
+def create_all_annotated():
+    times = np.array([1])*pq.s
+    signal = np.array([1])*pq.V
+    blk = Block()
+    blk.annotate(**rand_dict(3))
+
+    seg = Segment()
+    seg.annotate(**rand_dict(4))
+    blk.segments.append(seg)
+
+    asig = AnalogSignal(signal=signal, sampling_rate=pq.Hz)
+    asig.annotate(**rand_dict(2))
+    seg.analogsignals.append(asig)
+
+    isig = IrregularlySampledSignal(times=times, signal=signal,
+                                    time_units=pq.s)
+    isig.annotate(**rand_dict(2))
+    seg.irregularlysampledsignals.append(isig)
+
+    epoch = Epoch(times=times, durations=times)
+    epoch.annotate(**rand_dict(4))
+    seg.epochs.append(epoch)
+
+    event = Event(times=times)
+    event.annotate(**rand_dict(4))
+    seg.events.append(event)
+
+    spiketrain = SpikeTrain(times=times, t_stop=pq.s, units=pq.s)
+    spiketrain.annotate(**rand_dict(6))
+    seg.spiketrains.append(spiketrain)
+
+    rcg = RecordingChannelGroup(channel_indexes=[1, 2])
+    rcg.annotate(**rand_dict(4))
+    blk.recordingchannelgroups.append(rcg)
+
+    unit = Unit()
+    unit.annotate(**rand_dict(2))
+    rcg.units.append(unit)
+
+    return blk
+
+
 class NixIOTest(unittest.TestCase):
 
     def setUp(self):
@@ -141,7 +212,7 @@ class NixIOTest(unittest.TestCase):
         self.io.write_all_blocks(blocks)
 
     def test_annotations(self):
-        blk = NixIOTest.create_all_annotated()
+        blk = create_all_annotated()
 
         nixblk = self.io.write_block(blk)
 
@@ -181,7 +252,7 @@ class NixIOTest(unittest.TestCase):
         self.check_equal_attr(rcg, nixrcgs[0])
 
     def test_metadata_structure(self):
-        blk = NixIOTest.create_all_annotated()
+        blk = create_all_annotated()
         blk = self.io.write_block(blk)
 
         blkmd = blk.metadata
@@ -211,7 +282,7 @@ class NixIOTest(unittest.TestCase):
         # create a spiketrain with some waveforms and attach it to a segment
         wf_array = np.array([[[1., 10.]], [[2., 20.]], [[3., 30.]]]) * pq.mV
         spkt = SpikeTrain([1.0, 50.0, 60.0]*pq.s, waveforms=wf_array,
-                          name='spkt_with_waveform', t_stop=100.0,
+                          name="spkt_with_waveform", t_stop=100.0,
                           t_start=0.5, left_sweep=5*pq.ms)
         seg.spiketrains.append(spkt)
         blk.segments.append(seg)
@@ -232,64 +303,55 @@ class NixIOTest(unittest.TestCase):
                                            wf_array[spk, chan, t])
 
     def test_basic_attr(self):
-        def rand_date():
-            return datetime(year=np.random.randint(1980, 2020),
-                            month=np.random.randint(1, 13),
-                            day=np.random.randint(1, 29))
-
-        def populate_dates(obj):
-            obj.file_datetime = rand_date()
-            obj.rec_datetime = rand_date()
-
         times = np.array([1])*pq.s
         signal = np.array([1])*pq.V
-        blk = Block(name="theblock", description="I am a block")
+        blk = Block(name=rand_word(5), description=rand_sentence(2))
         blk.file_origin = "/home/user/data/blockfile"
         populate_dates(blk)
 
-        seg = Segment(name="thesegment", description="I am a segment")
+        seg = Segment(name=rand_word(4), description=rand_sentence(5))
         populate_dates(seg)
         seg.file_origin = "/home/user/data/segfile"
         blk.segments.append(seg)
 
-        asig = AnalogSignal(name="theanalogsignal",
-                            description="I am an analogsignal",
+        asig = AnalogSignal(name=rand_word(9),
+                            description=rand_sentence(4),
                             signal=signal, sampling_rate=pq.Hz)
         asig.file_origin = "/home/user/data/asigfile"
         seg.analogsignals.append(asig)
 
-        isig = IrregularlySampledSignal(name="theirregularlysampledsignal",
-                                        description="I have a very long name",
+        isig = IrregularlySampledSignal(name=rand_word(30),
+                                        description=rand_sentence(5, 7),
                                         times=times, signal=signal,
                                         time_units=pq.s)
         isig.file_origin = "/home/user/data/isigfile"
         seg.irregularlysampledsignals.append(isig)
 
-        epoch = Epoch(name="theepoch", description="I am an epoch",
+        epoch = Epoch(name=rand_word(14), description=rand_sentence(40, 10),
                       times=times, durations=times)
         epoch.file_origin = "/home/user/data/epochfile"
         seg.epochs.append(epoch)
 
-        event = Event(name="theevent", description="I am en event",
+        event = Event(name=rand_word(), description=rand_sentence(50, 3),
                       times=times)
         event.file_origin = "/home/user/data/eventfile"
         seg.events.append(event)
 
-        spiketrain = SpikeTrain(name="thespiketrain",
-                                description="I am a spiketrain",
+        spiketrain = SpikeTrain(name=rand_word(20),
+                                description=rand_sentence(70, 5),
                                 times=times, t_stop=pq.s, units=pq.s)
         spiketrain.file_origin = "/home/user/data/spiketrainfile"
         seg.spiketrains.append(spiketrain)
 
         rcg = RecordingChannelGroup(
-            name="thercg",
-            description="I had a long name but it was abbreviated",
+            name=rand_sentence(3, 10),
+            description=rand_sentence(10, 8),
             channel_indexes=[1, 2]
         )
         rcg.file_origin = "/home/user/data/rcgfile"
         blk.recordingchannelgroups.append(rcg)
 
-        unit = Unit(name="theunit", description="I am a unit")
+        unit = Unit(name=rand_word(40), description=rand_sentence(30))
         unit.file_origin = "/home/user/data/unitfile"
         rcg.units.append(unit)
 
@@ -320,11 +382,11 @@ class NixIOTest(unittest.TestCase):
         # Test writing of all objects based on examples from the neo docs
         # api_reference.html
 
-        neo_block_a = Block(name="full_test_block_1",
-                            description="root block one for full test")
+        neo_block_a = Block(name=rand_word(10),
+                            description=rand_sentence(10))
 
-        neo_block_b = Block(name="full_test_block_2",
-                            description="root block two for full test")
+        neo_block_b = Block(name=rand_word(3),
+                            description=rand_sentence(7, 20))
         neo_blocks = [neo_block_a, neo_block_b]
 
         for blk in neo_blocks:
@@ -350,7 +412,7 @@ class NixIOTest(unittest.TestCase):
         # create a spiketrain with some waveforms and attach it to a segment
         wf_array = np.array([[[0., 1.]], [[2., 3.]], [[4., 5.]]]) * pq.mV
         seg_train = SpikeTrain([3, 4, 5]*pq.s, waveforms=wf_array,
-                               name='segment_spiketrain', t_stop=10.0,
+                               name="segment_spiketrain", t_stop=10.0,
                                t_start=0.0, left_sweep=1*pq.ms)
         neo_blocks[0].segments[0].spiketrains.append(seg_train)
 
@@ -653,58 +715,4 @@ class NixIOTest(unittest.TestCase):
             nixmd = nixobj.metadata
             for k, v, in neoobj.annotations.items():
                 self.assertEqual(nixmd[k], v)
-
-    @staticmethod
-    def create_all_annotated():
-        def rand_word():
-            return "".join(np.random.choice(list(string.ascii_letters), 10))
-
-        def rand_dict(nitems):
-            rd = dict()
-            for _ in range(nitems):
-                key = rand_word()
-                value = rand_word() if np.random.choice((0, 1)) \
-                    else np.random.uniform()
-                rd[key] = value
-            return rd
-
-        times = np.array([1])*pq.s
-        signal = np.array([1])*pq.V
-        blk = Block()
-        blk.annotate(**rand_dict(3))
-
-        seg = Segment()
-        seg.annotate(**rand_dict(4))
-        blk.segments.append(seg)
-
-        asig = AnalogSignal(signal=signal, sampling_rate=pq.Hz)
-        asig.annotate(**rand_dict(2))
-        seg.analogsignals.append(asig)
-
-        isig = IrregularlySampledSignal(times=times, signal=signal,
-                                        time_units=pq.s)
-        isig.annotate(**rand_dict(2))
-        seg.irregularlysampledsignals.append(isig)
-
-        epoch = Epoch(times=times, durations=times)
-        epoch.annotate(**rand_dict(4))
-        seg.epochs.append(epoch)
-
-        event = Event(times=times)
-        event.annotate(**rand_dict(4))
-        seg.events.append(event)
-
-        spiketrain = SpikeTrain(times=times, t_stop=pq.s, units=pq.s)
-        spiketrain.annotate(**rand_dict(6))
-        seg.spiketrains.append(spiketrain)
-
-        rcg = RecordingChannelGroup(channel_indexes=[1, 2])
-        rcg.annotate(**rand_dict(4))
-        blk.recordingchannelgroups.append(rcg)
-
-        unit = Unit()
-        unit.annotate(**rand_dict(2))
-        rcg.units.append(unit)
-
-        return blk
 
