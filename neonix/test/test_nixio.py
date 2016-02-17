@@ -105,17 +105,17 @@ class NixIOTest(unittest.TestCase):
             os.remove(self.filename)
 
     def test_block(self):
-        neo_block = Block(name="test_block", description="block for testing")
+        neo_block = Block(name=rand_word(), description=rand_sentence())
         nix_block = self.io.write_block(neo_block)
         self.assertEqual(nix_block.type, "neo.block")
         self.check_equal_attr(neo_block, nix_block)
 
     def test_block_cascade(self):
-        neo_block = Block(name="test_block", description="block for testing")
-        neo_segment = Segment(name="test_segment",
-                              description="segment for testing")
-        neo_rcg = RecordingChannelGroup(name="test_rcg",
-                                        description="rcg for testing",
+        neo_block = Block(name=rand_word(), description=rand_sentence())
+        neo_segment = Segment(name=rand_word(),
+                              description=rand_sentence(100))
+        neo_rcg = RecordingChannelGroup(name=rand_word(30),
+                                        description=rand_sentence(4),
                                         channel_indexes=[])
         neo_block.segments.append(neo_segment)
         neo_block.recordingchannelgroups.append(neo_rcg)
@@ -138,19 +138,19 @@ class NixIOTest(unittest.TestCase):
         self.check_equal_attr(neo_rcg, nix_source)
 
     def test_container_len_neq(self):
-        neo_block = Block(name="test_block", description="block for testing")
-        neo_segment = Segment(name="test_segment",
-                              description="segment for testing")
+        neo_block = Block(name=rand_word(20), description=rand_sentence(10, 10))
+        neo_segment = Segment(name=rand_sentence(3, 13),
+                              description=rand_sentence(10, 23))
         neo_block.segments.append(neo_segment)
         self.io.write_block(neo_block)
         nix_block = self.io.nix_file.blocks[0]
-        neo_segment_new = Segment(name="test_segment_2",
-                                  description="second segment for testing")
+        neo_segment_new = Segment(name=rand_word(40),
+                                  description=rand_sentence(6, 7))
         neo_block.segments.append(neo_segment_new)
         self.assertNotEqual(len(neo_block.segments), len(nix_block.groups))
 
     def test_block_metadata(self):
-        neo_block = Block(name="test_block", description="block for testing")
+        neo_block = Block(name=rand_word(44), description=rand_sentence(5))
         neo_block.rec_datetime = datetime(year=2015, month=12, day=18, hour=20)
         neo_block.file_datetime = datetime(year=2016, month=1, day=1, hour=15)
         neo_block.file_origin = "test_file_origin"
