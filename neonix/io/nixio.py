@@ -658,8 +658,7 @@ class NixIO(BaseIO):
     def _add_annotations(annotations, metadata):
         for k, v in annotations.items():
             v = NixIO._to_value(v)
-            if v:
-                metadata.create_property(k, v)
+            metadata.create_property(k, v)
 
     @staticmethod
     def _to_value(v):
