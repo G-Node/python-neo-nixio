@@ -11,14 +11,13 @@ def main():
             reader = neo.io.get_io(datafilename)
             print("Filetype: {}".format(reader.name))
             data = reader.read()
-            reader.close()
         except OSError:
-            print("NOTICE: file does not have an extension known to Neo.".
+            print("\tNOTICE: file does not have an extension known to Neo.".
                   format(datafilename))
             continue
         except Exception as exc:
-            print("ERROR: Could not read data.".format(datafilename))
-            print(exc)
+            print("\tERROR: Could not read data.".format(datafilename))
+            print("\t     - {}".format(exc))
             continue
         blocks = []
         try:
@@ -33,7 +32,7 @@ def main():
             nixfilename = os.path.splitext(datafilename)[0]+"_nix.h5"
             nixfile = NixIO(nixfilename)
             nixfile.write_all_blocks(blocks)
-            print("DONE: file converted and saved to {}".
+            print("\tDONE: file converted and saved to {}".
                   format(datafilename, nixfilename))
 
 
