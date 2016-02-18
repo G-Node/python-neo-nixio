@@ -693,6 +693,8 @@ class NixIO(BaseIO):
                 else:
                     item = nix.Value(item)
                 vv.append(item)
+            if not len(vv):
+                vv = None
             v = vv
         elif type(v).__module__ == "numpy":
             v = nix.Value(v.item())
