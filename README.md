@@ -7,4 +7,4 @@ NIX IO for python-neo.
 
 ## Tests
 
-To run all tests, run `nosetests` from the project root.
+To run all tests, run `python setup.py test` from the project root.
