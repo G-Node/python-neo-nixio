@@ -193,7 +193,9 @@ class NixIO(BaseIO):
             if len(rcg.channel_names):
                 nix_chan_name = rcg.channel_names[idx]
             else:
-                nix_chan_name = "{}.{}".format(nix_name, idx)
+                nix_chan_name = "{}.RecordingChannel{}".format(
+                    parent_block.name, idx
+                )
             nix_chan_type = "neo.recordingchannel"
             nix_chan = nix_source.create_source(nix_chan_name, nix_chan_type)
             nix_chan.definition = nix_definition
