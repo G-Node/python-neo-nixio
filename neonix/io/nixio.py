@@ -709,8 +709,8 @@ class NixIO(BaseIO):
     @staticmethod
     def _get_units(quantity, simplify=False):
         """
-        Returns the units of a quantity value or array as a string, or 1 if it
-        is dimensionless.
+        Returns the units of a quantity value or array as a string, or None if
+        it is dimensionless.
 
         :param quantity: Quantity scalar or array
         :param simplify: True/False Simplify units
