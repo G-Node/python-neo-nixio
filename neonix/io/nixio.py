@@ -43,10 +43,8 @@ class NixIO(BaseIO):
     supported_objects = [Block, Segment, RecordingChannelGroup,
                          AnalogSignal, IrregularlySampledSignal,
                          Epoch, Event, SpikeTrain, Unit]
-    readable_objects = []
-    writeable_objects = [Block, Segment, RecordingChannelGroup,
-                         AnalogSignal, IrregularlySampledSignal,
-                         Epoch, Event, SpikeTrain, Unit]
+    readable_objects = [Block]
+    writeable_objects = [Block]
 
     name = "NIX"
     extensions = ["h5"]
