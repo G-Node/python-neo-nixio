@@ -65,7 +65,7 @@ class NixIO(BaseIO):
         elif mode == "ow":
             filemode = nix.FileMode.Overwrite
         else:
-            ValueError("Invalid mode specified {}. "
+            ValueError("Invalid mode specified '{}'. "
                        "Valid modes: 'ro' (ReadOnly)', 'rw' (ReadWrite), "
                        "'ow' (Overwrite).".format(mode))
         self.nix_file = nix.File.open(self.filename, filemode)
@@ -733,4 +733,25 @@ class NixIO(BaseIO):
         if units == "dimensionless":
             units = None
         return units
+
+    @staticmethod
+    def _nix_attr_to_neo(nix_obj):
+        neo_attrs = dict()
+        neo_attrs["name"] = nix_obj.name
+
+        neo_attrs["description"] = nix_obj.definition
+        if nix_obj.metadata is None:
+            metadata = dict()
+        else:
+            metadata = nix_obj.metadata
+        neo_attrs.update(**metadata)
+
+        if hasattr(nix_obj, "created_at"):
+            neo_attrs["rec_datetime"] = datetime.fromtimestamp(
+                nix_obj.created_at)
+        if "file_datetime" in neo_attrs:
+            neo_attrs["file_datetime"] = datetime.fromtimestamp(
+                neo_attrs["file_datetime"]
+            )
+        return neo_attrs
 
