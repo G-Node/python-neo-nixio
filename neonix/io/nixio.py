@@ -614,26 +614,14 @@ class NixIO(BaseIO):
         :param path: List of tuples that define a location in the file
         :return: The object at the location defined by the path
         """
-        # NOTE: This could be simplified to:
-        #   return parent.__getattribute__(obj_type+"s")[obj_name]
         obj = self.nix_file
         for obj_type, obj_name in path:
-            if obj_type == "block":
-                obj = obj.blocks[obj_name]
-            elif obj_type == "group":
-                obj = obj.groups[obj_name]
-            elif obj_type == "source":
-                obj = obj.sources[obj_name]
-            elif obj_type == "data_array":
-                obj = obj.data_arrays[obj_name]
-            elif obj_type == "tag":
-                obj = obj.tags[obj_name]
-            elif obj_type == "multi_tag":
-                obj = obj.multi_tags[obj_name]
-            elif obj_type == "feature":
-                obj = obj.features[obj_name]
-            else:
-                return None
+            container = "{}s".format(obj_type)
+            try:
+                obj = getattr(obj, container)[obj_name]
+            except AttributeError:
+                raise AttributeError("Invalid child container {} for NIX "
+                                     "type {}".format(container, type(obj)))
         return obj
 
     def _get_mapped_objects(self, neo_object_list):
