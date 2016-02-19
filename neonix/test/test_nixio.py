@@ -111,7 +111,7 @@ class NixIOTest(unittest.TestCase):
 
     def setUp(self):
         self.filename = "nixio_testfile.hd5"
-        self.io = NixIO(self.filename)
+        self.io = NixIO(self.filename, "ow")
 
     def tearDown(self):
         del self.io

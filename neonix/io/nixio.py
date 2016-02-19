@@ -50,7 +50,7 @@ class NixIO(BaseIO):
     extensions = ["h5"]
     mode = "file"
 
-    def __init__(self, filename):
+    def __init__(self, filename, mode="ro"):
         """
         Initialise IO instance and NIX file.
 
@@ -58,7 +58,17 @@ class NixIO(BaseIO):
         """
         BaseIO.__init__(self, filename)
         self.filename = filename
-        self.nix_file = nix.File.open(self.filename, nix.FileMode.Overwrite)
+        if mode == "ro":
+            filemode = nix.FileMode.ReadOnly
+        elif mode == "rw":
+            filemode = nix.FileMode.ReadWrite
+        elif mode == "ow":
+            filemode = nix.FileMode.Overwrite
+        else:
+            ValueError("Invalid mode specified {}. "
+                       "Valid modes: 'ro' (ReadOnly)', 'rw' (ReadWrite), "
+                       "'ow' (Overwrite).".format(mode))
+        self.nix_file = nix.File.open(self.filename, filemode)
         self.neo_nix_map = {}
 
     def __del__(self):
