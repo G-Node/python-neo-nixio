@@ -267,10 +267,12 @@ class NixIO(BaseIO):
                 chan_metadata = self._get_or_init_metadata(nix_chan,
                                                            chan_obj_path)
 
-                nix_coord_values = tuple(nix.Value(c.magnitude.item())
-                                         for c in chan_coords)
-                nix_coord_units = tuple(nix.Value(str(c.dimensionality))
-                                        for c in chan_coords)
+                nix_coord_values = tuple(
+                    map(lambda c: nix.Value(c.magnitude.item()), chan_coords)
+                )
+                nix_coord_units = tuple(
+                    map(lambda c: nix.Value(str(c.dimensionality)), chan_coords)
+                )
                 chan_metadata.create_property("coordinates",
                                               nix_coord_values)
                 chan_metadata.create_property("coordinates.units",
@@ -670,30 +672,19 @@ class NixIO(BaseIO):
         :param path: List of tuples that define a location in the file
         :return: The object at the location defined by the path
         """
-        # NOTE: This could be simplified to:
-        #   return parent.__getattribute__(obj_type+"s")[obj_name]
         obj = self.nix_file
         for obj_type, obj_name in path:
-            if obj_type == "block":
-                obj = obj.blocks[obj_name]
-            elif obj_type == "group":
-                obj = obj.groups[obj_name]
-            elif obj_type == "source":
-                obj = obj.sources[obj_name]
-            elif obj_type == "data_array":
-                obj = obj.data_arrays[obj_name]
-            elif obj_type == "tag":
-                obj = obj.tags[obj_name]
-            elif obj_type == "multi_tag":
-                obj = obj.multi_tags[obj_name]
-            elif obj_type == "feature":
-                obj = obj.features[obj_name]
-            else:
-                return None
+            container = "{}s".format(obj_type)
+            try:
+                obj = getattr(obj, container)[obj_name]
+            except AttributeError:
+                AttributeError("Container with name '{}' not found in "
+                               "NIX object with name '{}'".format(container,
+                                                                  obj.name))
         return obj
 
     def _get_mapped_objects(self, neo_object_list):
-        return [self._get_mapped_object(neo_obj) for neo_obj in neo_object_list]
+        return list(map(self._get_mapped_object, neo_object_list))
 
     def _get_mapped_object(self, neo_object):
         try:
@@ -760,9 +751,11 @@ class NixIO(BaseIO):
 
     @staticmethod
     def _get_contained_signals(obj):
-        return [da for da in obj.data_arrays
-                if da.type in ["neo.analogsignal",
-                               "neo.irregularlysampledsignal"]]
+        return list(filter(
+            lambda da: da.type in ["neo.analogsignal",
+                                   "neo.irregularlysampledsignal"],
+            obj.data_arrays
+            ))
 
     @staticmethod
     def _get_units(quantity, simplify=False):
