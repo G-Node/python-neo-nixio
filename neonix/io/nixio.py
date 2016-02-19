@@ -99,9 +99,27 @@ class NixIO(BaseIO):
         neo_group.irregularlysampledsignals = list(
             filter(lambda s: isinstance(s, IrregularlySampledSignal), signals)
         )
+        eest = list(
+            map(self._mtag_to_neo, nix_group.multi_tags)
+        )
+        neo_group.epochs = list(
+            filter(lambda e: isinstance(e, Epoch), eest)
+        )
+        neo_group.epochs = list(
+            filter(lambda e: isinstance(e, Event), eest)
+        )
+        neo_group.epochs = list(
+            filter(lambda st: isinstance(st, SpikeTrain), eest)
+        )
         return neo_group
 
     def _source_to_neo(self, nix_source):
+        return None
+
+    def _signal_da_to_neo(self, nix_da):
+        return None
+
+    def _mtag_to_neo(selfself, nix_mtag):
         return None
 
     def write_block(self, neo_block):
