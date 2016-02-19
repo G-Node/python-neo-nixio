@@ -73,10 +73,11 @@ class NixIO(BaseIO):
         :param neo_block: Neo block to be written
         :return: The new NIX Block
         """
-        nix_name = neo_block.name
-        if not nix_name:
-            nblocks = len(self.nix_file.blocks)
-            nix_name = "neo.Block{}".format(nblocks)
+        nix_name = self._create_name(neo_block, "Block", self.nix_file)
+        # nix_name = neo_block.name
+        # if not nix_name:
+        #     nblocks = len(self.nix_file.blocks)
+        #     nix_name = "neo.Block{}".format(nblocks)
         nix_type = "neo.block"
         nix_definition = neo_block.description
         nix_block = self.nix_file.create_block(nix_name, nix_type)
@@ -125,10 +126,11 @@ class NixIO(BaseIO):
         :return: The newly created NIX Group
         """
         parent_block = self._get_object_at(parent_path)
-        nix_name = segment.name
-        if not nix_name:
-            ngroups = len(parent_block.groups)
-            nix_name = "{}.Segment{}".format(parent_block.name, ngroups)
+        nix_name = self._create_name(segment, "Segment", parent_block)
+        # nix_name = segment.name
+        # if not nix_name:
+        #     ngroups = len(parent_block.groups)
+        #     nix_name = "{}.Segment{}".format(parent_block.name, ngroups)
         nix_type = "neo.segment"
         nix_definition = segment.description
         nix_group = parent_block.create_group(nix_name, nix_type)
@@ -171,11 +173,12 @@ class NixIO(BaseIO):
         :return: The newly created NIX Source
         """
         parent_block = self._get_object_at(parent_path)
-        nix_name = rcg.name
-        if not nix_name:
-            nsources = len(parent_block.sources)
-            nix_name = "{}.RecordingChannelGroup{}".format(parent_block.name,
-                                                           nsources)
+        nix_name = self._create_name(rcg, "RecordingChannelGroup", parent_block)
+        # nix_name = rcg.name
+        # if not nix_name:
+        #     nsources = len(parent_block.sources)
+        #     nix_name = "{}.RecordingChannelGroup{}".format(parent_block.name,
+        #                                                    nsources)
         nix_type = "neo.recordingchannelgroup"
         nix_definition = rcg.description
         nix_source = parent_block.create_source(nix_name, nix_type)
@@ -247,10 +250,11 @@ class NixIO(BaseIO):
         """
         parent_group = self._get_object_at(parent_path)
         parent_block = self._get_object_at([parent_path[0]])
-        nix_name = anasig.name
-        if not nix_name:
-            nda = len(parent_block.data_arrays)
-            nix_name = "{}.AnalogSignal{}".format(parent_block.name, nda)
+        nix_name = self._create_name(anasig, "AnalogSignal", parent_group)
+        # nix_name = anasig.name
+        # if not nix_name:
+        #     nda = len(parent_block.data_arrays)
+        #     nix_name = "{}.AnalogSignal{}".format(parent_block.name, nda)
         nix_type = "neo.analogsignal"
         nix_definition = anasig.description
         parent_metadata = self._get_or_init_metadata(parent_group, parent_path)
@@ -308,11 +312,13 @@ class NixIO(BaseIO):
         """
         parent_group = self._get_object_at(parent_path)
         parent_block = self._get_object_at([parent_path[0]])
-        nix_name = irsig.name
-        if not nix_name:
-            nda = len(parent_block.data_arrays)
-            nix_name = "{}.IrregularlySampledSignal{}".format(parent_block.name,
-                                                              nda)
+        nix_name = self._create_name(irsig, "IrregularlySampledSignal",
+                                     parent_group)
+        # nix_name = irsig.name
+        # if not nix_name:
+        #     nda = len(parent_block.data_arrays)
+        #     nix_name = "{}.IrregularlySampledSignal{}".format(parent_block.name,
+        #                                                       nda)
         nix_type = "neo.irregularlysampledsignal"
         nix_definition = irsig.description
         parent_metadata = self._get_or_init_metadata(parent_group, parent_path)
@@ -364,10 +370,11 @@ class NixIO(BaseIO):
         """
         parent_group = self._get_object_at(parent_path)
         parent_block = self._get_object_at([parent_path[0]])
-        nix_name = ep.name
-        if not nix_name:
-            nmt = len(parent_group.multi_tags)
-            nix_name = "{}.Epoch{}".format(parent_group.name, nmt)
+        nix_name = self._create_name(ep, "Epoch", parent_group)
+        # nix_name = ep.name
+        # if not nix_name:
+        #     nmt = len(parent_group.multi_tags)
+        #     nix_name = "{}.Epoch{}".format(parent_group.name, nmt)
         nix_type = "neo.epoch"
         nix_definition = ep.description
 
@@ -425,10 +432,11 @@ class NixIO(BaseIO):
         """
         parent_group = self._get_object_at(parent_path)
         parent_block = self._get_object_at([parent_path[0]])
-        nix_name = ev.name
-        if not nix_name:
-            nmt = len(parent_group.multi_tags)
-            nix_name = "{}.Event{}".format(parent_group.name, nmt)
+        nix_name = self._create_name(ev, "Event", parent_group)
+        # nix_name = ev.name
+        # if not nix_name:
+        #     nmt = len(parent_group.multi_tags)
+        #     nix_name = "{}.Event{}".format(parent_group.name, nmt)
         nix_type = "neo.event"
         nix_definition = ev.description
 
@@ -474,10 +482,11 @@ class NixIO(BaseIO):
         """
         parent_group = self._get_object_at(parent_path)
         parent_block = self._get_object_at([parent_path[0]])
-        nix_name = sptr.name
-        if not nix_name:
-            nmt = len(parent_block.multi_tags)
-            nix_name = "{}.SpikeTrain{}".format(parent_block.name, nmt)
+        nix_name = self._create_name(sptr, "SpikeTrain", parent_group)
+        # nix_name = sptr.name
+        # if not nix_name:
+        #     nmt = len(parent_block.multi_tags)
+        #     nix_name = "{}.SpikeTrain{}".format(parent_block.name, nmt)
         nix_type = "neo.spiketrain"
         nix_definition = sptr.description
 
@@ -553,10 +562,11 @@ class NixIO(BaseIO):
         :return: The newly created NIX Source
         """
         parent_source = self._get_object_at(parent_path)
-        nix_name = ut.name
-        if not nix_name:
-            nsrc = len(parent_source.sources)
-            nix_name = "{}.Unit{}".format(parent_source.name, nsrc)
+        nix_name = self._create_name(ut, "Unit", parent_source)
+        # nix_name = ut.name
+        # if not nix_name:
+        #     nsrc = len(parent_source.sources)
+        #     nix_name = "{}.Unit{}".format(parent_source.name, nsrc)
         nix_type = "neo.unit"
         nix_definition = ut.description
         nix_source = parent_source.create_source(nix_name, nix_type)
@@ -577,6 +587,28 @@ class NixIO(BaseIO):
             nix_st.sources.append(nix_source)
 
         return nix_source
+
+    def _create_name(self, neo_obj, neo_type, parent_obj):
+        nix_name = neo_obj.name
+        containermap = {"Block": "blocks",
+                        "Segment": "groups",
+                        "RecordingChannelGroup": "sources",
+                        "AnalogSignal": "data_arrays",
+                        "IrregularlySampledSignal": "data_arrays",
+                        "Epoch": "multi_tags",
+                        "Event": "multi_tags",
+                        "SpikeTrain": "multi_tags",
+                        "Unit": "sources"
+                        }
+        container = containermap[neo_type]
+        if not nix_name:
+            nsib = len(getattr(parent_obj, container))
+            if neo_type == "Block":
+                parent_name = "neo"
+            else:
+                parent_name = parent_obj.name
+            nix_name = "{}.{}{}".format(parent_name, neo_type, nsib)
+        return nix_name
 
     def _get_or_init_metadata(self, nix_obj, obj_path=list()):
         """
