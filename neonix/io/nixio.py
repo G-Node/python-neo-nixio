@@ -10,7 +10,12 @@
 from __future__ import absolute_import
 
 import time
+from datetime import datetime
+from collections import Iterable
+from six import string_types
+import warnings
 
+import quantities as pq
 
 from neo.io.baseio import BaseIO
 from neo.core import (Block, Segment, RecordingChannelGroup, AnalogSignal,
@@ -107,9 +112,7 @@ class NixIO(BaseIO):
         :param neo_blocks: List (or iterable) containing Neo blocks
         :return: A list containing the new NIX Blocks
         """
-        nix_blocks = list()
-        for nb in neo_blocks:
-            nix_blocks.append(self.write_block(nb))
+        nix_blocks = list(map(self.write_block, neo_blocks))
         return nix_blocks
 
     def write_segment(self, segment, parent_path):
@@ -262,9 +265,9 @@ class NixIO(BaseIO):
             NixIO._add_annotations(anasig.annotations, anasig_group_segment)
 
         # common properties
-        data_units = str(anasig.units.dimensionality)
+        data_units = NixIO._get_units(anasig)
         # often sampling period is in 1/Hz or 1/kHz - simplifying to s
-        time_units = str(anasig.sampling_period.units.dimensionality.simplified)
+        time_units = NixIO._get_units(anasig.sampling_period, True)
         # rescale after simplification
         offset = anasig.t_start.rescale(time_units).item()
         sampling_interval = anasig.sampling_period.rescale(time_units).item()
@@ -325,8 +328,8 @@ class NixIO(BaseIO):
             NixIO._add_annotations(irsig.annotations, irsig_group_segment)
 
         # common properties
-        data_units = str(irsig.units.dimensionality)
-        time_units = str(irsig.times.units.dimensionality)
+        data_units = NixIO._get_units(irsig)
+        time_units = NixIO._get_units(irsig.times)
         times = irsig.times.magnitude.tolist()
 
         nix_data_arrays = list()
@@ -370,7 +373,7 @@ class NixIO(BaseIO):
 
         # times -> positions
         times = ep.times.magnitude
-        time_units = str(ep.times.units.dimensionality)
+        time_units = NixIO._get_units(ep.times)
 
         times_da = parent_block.create_data_array("{}.times".format(nix_name),
                                                   "neo.epoch.times",
@@ -379,7 +382,7 @@ class NixIO(BaseIO):
 
         # durations -> extents
         durations = ep.durations.magnitude
-        duration_units = str(ep.durations.units.dimensionality)
+        duration_units = NixIO._get_units(ep.durations)
 
         durations_da = parent_block.create_data_array(
             "{}.durations".format(nix_name),
@@ -431,7 +434,7 @@ class NixIO(BaseIO):
 
         # times -> positions
         times = ev.times.magnitude
-        time_units = str(ev.times.units.dimensionality)
+        time_units = NixIO._get_units(ev.times)
 
         times_da = parent_block.create_data_array("{}.times".format(nix_name),
                                                   "neo.event.times",
@@ -479,7 +482,7 @@ class NixIO(BaseIO):
         nix_definition = sptr.description
 
         # spike times
-        time_units = str(sptr.times.units.dimensionality)
+        time_units = NixIO._get_units(sptr.times)
         times = sptr.times.magnitude
         times_da = parent_block.create_data_array("{}.times".format(nix_name),
                                                   "neo.epoch.times",
@@ -523,11 +526,10 @@ class NixIO(BaseIO):
             waveforms_da = parent_block.create_data_array(wf_name,
                                                           "neo.waveforms",
                                                           data=wf_data)
-            wf_unit = str(sptr.waveforms.units.dimensionality)
+            wf_unit = NixIO._get_units(sptr.waveforms)
             waveforms_da.unit = wf_unit
             nix_multi_tag.create_feature(waveforms_da, nix.LinkType.Indexed)
-            time_units = str(sptr.sampling_period.units.dimensionality.
-                             simplified)
+            time_units = NixIO._get_units(sptr.sampling_period, True)
             sampling_interval = sptr.sampling_period.rescale(time_units).item()
             wf_spikedim = waveforms_da.append_set_dimension()
             wf_chandim = waveforms_da.append_set_dimension()
@@ -654,11 +656,73 @@ class NixIO(BaseIO):
 
     @staticmethod
     def _add_annotations(annotations, metadata):
-            for k, v in annotations.items():
-                metadata.create_property(k, nix.Value(v))
+        for k, v in annotations.items():
+            v = NixIO._to_value(v)
+            metadata.create_property(k, v)
+
+    @staticmethod
+    def _to_value(v):
+        """
+        Helper function for converting arbitrary variables to types compatible
+        with nix.Value().
+
+        :param v: The value to be converted
+        :return: a nix.Value() object
+        """
+        if isinstance(v, pq.Quantity):
+            # v = nix.Value((v.magnitude.item(), str(v.dimensionality)))
+            warnings.warn("Quantities in annotations are not currently "
+                          "supported when writing to NIX.")
+            return None
+        elif isinstance(v, datetime):
+            v = nix.Value(calculate_timestamp(v))
+        elif isinstance(v, string_types):
+            v = nix.Value(v)
+        elif isinstance(v, bytes):
+            v = nix.Value(v.decode())
+        elif isinstance(v, Iterable):
+            vv = list()
+            for item in v:
+                if isinstance(v, Iterable):
+                    warnings.warn("Multidimensional arrays and nested "
+                                  "containers are not currently supported "
+                                  "when writing to NIX.")
+                    return None
+                if type(item).__module__ == "numpy":
+                    item = nix.Value(item.item())
+                else:
+                    item = nix.Value(item)
+                vv.append(item)
+            if not len(vv):
+                vv = None
+            v = vv
+        elif type(v).__module__ == "numpy":
+            v = nix.Value(v.item())
+        else:
+            v = nix.Value(v)
+        return v
 
     @staticmethod
     def _get_contained_signals(obj):
         return [da for da in obj.data_arrays
                 if da.type in ["neo.analogsignal",
                                "neo.irregularlysampledsignal"]]
+
+    @staticmethod
+    def _get_units(quantity, simplify=False):
+        """
+        Returns the units of a quantity value or array as a string, or None if
+        it is dimensionless.
+
+        :param quantity: Quantity scalar or array
+        :param simplify: True/False Simplify units
+        :return: Units of the quantity or None if dimensionless
+        """
+        units = quantity.units.dimensionality
+        if simplify:
+            units = units.simplified
+        units = str(units)
+        if units == "dimensionless":
+            units = None
+        return units
+
