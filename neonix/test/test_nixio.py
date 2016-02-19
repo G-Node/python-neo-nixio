@@ -308,7 +308,7 @@ class NixIOTest(unittest.TestCase):
         self.assertAlmostEqual(nix_spkt.metadata["t_stop"], 100)
         self.assertAlmostEqual(nix_spkt.metadata["t_start"], 0.5)
 
-        nix_wf = nix_spkt.features[0].data
+        nix_wf = nix_spkt.features[0]
         self.assertAlmostEqual(nix_wf.metadata["left_sweep"], 0.005)
         nspk, nchan, ntime = np.shape(nix_wf)
         for spk in range(nspk):
@@ -569,7 +569,7 @@ class NixIOTest(unittest.TestCase):
         self.assertEqual(nix_spiketrain.positions.unit, "s")
 
         neo_waveforms = neo_spiketrain.waveforms
-        nix_waveforms = nix_spiketrain.features[0].data
+        nix_waveforms = nix_spiketrain.features[0]
 
         self.assertEqual(np.shape(nix_waveforms), np.shape(neo_waveforms))
         self.assertEqual(nix_waveforms.unit, "mV")
