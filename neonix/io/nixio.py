@@ -74,6 +74,36 @@ class NixIO(BaseIO):
     def __del__(self):
         self.nix_file.close()
 
+    def read_all_blocks(self):
+        return list(map(self._nix_to_neo, self.nix_file.blocks))
+
+    def _block_to_neo(self, nix_block):
+        neo_attrs = NixIO._nix_attr_to_neo(nix_block)
+        neo_block = Block(**neo_attrs)
+
+        neo_block.segments = list(map(self._group_to_neo, nix_block.groups))
+        neo_block.recordingchannelgroups = list(
+            map(self._source_to_neo, nix_block.sources)
+        )
+        return neo_block
+
+    def _group_to_neo(self, nix_group):
+        neo_attrs = NixIO._nix_attr_to_neo(nix_group)
+        neo_group = Block(**neo_attrs)
+        signals = list(
+            map(self._signal_da_to_neo, nix_group.data_arrays)
+        )
+        neo_group.analogsignals = list(
+            filter(lambda s: isinstance(s, AnalogSignal), signals)
+        )
+        neo_group.irregularlysampledsignals = list(
+            filter(lambda s: isinstance(s, IrregularlySampledSignal), signals)
+        )
+        return neo_group
+
+    def _source_to_neo(self, nix_source):
+        return None
+
     def write_block(self, neo_block):
         """
         Convert ``neo_block`` to the NIX equivalent and write it to the file.
