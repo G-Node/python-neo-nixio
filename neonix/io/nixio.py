@@ -692,7 +692,7 @@ class NixIO(BaseIO):
         except KeyError:
             raise KeyError("Attempting to get reference to NIX equivalent "
                            "object before writing. This can occur if a signal "
-                           "or spiketrain object is referenced only by a "
+                           "or SpikeTrain object is referenced only by a "
                            "RecordingChannelGroup or Unit and is not part of a "
                            "Segment.")
 
