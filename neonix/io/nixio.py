@@ -76,7 +76,7 @@ class NixIO(BaseIO):
         self.nix_file.close()
 
     def read_all_blocks(self):
-        return list(map(self._nix_to_neo, self.nix_file.blocks))
+        return list(map(self._block_to_neo, self.nix_file.blocks))
 
     def _block_to_neo(self, nix_block):
         neo_attrs = NixIO._nix_attr_to_neo(nix_block)
