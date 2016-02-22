@@ -16,6 +16,7 @@ from six import string_types
 import warnings
 
 import quantities as pq
+import numpy as np
 
 from neo.io.baseio import BaseIO
 from neo.core import (Block, Segment, RecordingChannelGroup, AnalogSignal,
@@ -145,6 +146,21 @@ class NixIO(BaseIO):
         :param nix_da_group: a list of NIX DataArray objects
         :return: a Neo Signal object
         """
+        group_segment = nix_da_group[0].metadata
+        name = group_segment.name
+        unit = nix_da_group[0].unit
+        # TODO: Check if all DAs have the same unit (they should)
+        neo_type = nix_da_group[0].type
+        # TODO: Check if all DAs have the same type
+        signaldata = pq.Quantity(np.transpose(nix_da_group), unit)
+        if neo_type == "neo.analogsignal":
+            neo_signal = AnalogSignal()
+        elif neo_type == "neo.irregularlysampledsignal":
+            neo_signal = IrregularlySampledSignal()
+        else:
+            # TODO: Multiple Signal objects?
+            neo_signal = None
+
         return None
 
     def _mtag_to_neo(self, nix_mtag):
