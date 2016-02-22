@@ -825,16 +825,13 @@ class NixIO(BaseIO):
         neo_attrs["name"] = nix_obj.name
 
         neo_attrs["description"] = nix_obj.definition
-        metadata = dict()
         if nix_obj.metadata:
             for prop in nix_obj.metadata:
                 values = prop.values
                 if len(values) == 1:
-                    metadata[prop.name] = values[0].value
+                    neo_attrs[prop.name] = values[0].value
                 else:
-                    metadata[prop.name] = [v.value for v in values]
-
-        neo_attrs.update(**metadata)
+                    neo_attrs[prop.name] = [v.value for v in values]
 
         if hasattr(nix_obj, "created_at"):
             neo_attrs["rec_datetime"] = datetime.fromtimestamp(
