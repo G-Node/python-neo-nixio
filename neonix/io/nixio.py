@@ -146,22 +146,33 @@ class NixIO(BaseIO):
         :param nix_da_group: a list of NIX DataArray objects
         :return: a Neo Signal object
         """
-        group_segment = nix_da_group[0].metadata
-        name = group_segment.name
+        neo_attrs = NixIO._nix_attr_to_neo(nix_da_group[0])
         unit = nix_da_group[0].unit
         # TODO: Check if all DAs have the same unit (they should)
         neo_type = nix_da_group[0].type
         # TODO: Check if all DAs have the same type
         signaldata = pq.Quantity(np.transpose(nix_da_group), unit)
-        if neo_type == "neo.analogsignal":
-            neo_signal = AnalogSignal()
-        elif neo_type == "neo.irregularlysampledsignal":
-            neo_signal = IrregularlySampledSignal()
+        timedim = nix_da_group[0].dimensions["time"]
+        if neo_type == "neo.analogsignal"\
+                or isinstance(timedim, nix.SampledDimension):
+            sampling_period = pq.Quantity(timedim.sampling_interval,
+                                          timedim.unit)
+            t_start = pq.Quantity(timedim.offset, timedim.unit)
+            neo_signal = AnalogSignal(
+                signal=signaldata, sampling_period=sampling_period,
+                t_start=t_start, **neo_attrs
+            )
+        elif neo_type == "neo.irregularlysampledsignal"\
+                or isinstance(timedim, nix.RangeDimension):
+            times = pq.Quantity(timedim.times, timedim.unit)
+
+            neo_signal = IrregularlySampledSignal(
+                signal=signaldata, times=times, **neo_attrs
+            )
         else:
             # TODO: Multiple Signal objects?
-            neo_signal = None
-
-        return None
+            return None
+        return neo_signal
 
     def _mtag_to_neo(self, nix_mtag):
         return None
