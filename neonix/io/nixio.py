@@ -610,7 +610,7 @@ class NixIO(BaseIO):
         :param parent_path: Path to the parent of the new MultiTag
         :return: The newly created NIX MultiTag
         """
-        parent_obj = self._get_object_at(parent_path)
+        parent_group = self._get_object_at(parent_path)
         parent_block = self._get_object_at([parent_path[0]])
         nix_name = sptr.name
         if not nix_name:
@@ -630,11 +630,7 @@ class NixIO(BaseIO):
         # ready to create MTag
         nix_multi_tag = parent_block.create_multi_tag(nix_name, nix_type,
                                                       times_da)
-        # attach MTag to parent object
-        if isinstance(parent_obj, nix.Group):
-            parent_obj.multi_tags.append(nix_multi_tag)
-        elif isinstance(parent_obj, nix.Source):
-            nix_multi_tag.sources.append(parent_obj)
+        parent_group.multi_tags.append(nix_multi_tag)
 
         nix_multi_tag.definition = nix_definition
         object_path = parent_path + [("multi_tag", nix_name)]
