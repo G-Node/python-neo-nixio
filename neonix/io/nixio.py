@@ -84,7 +84,7 @@ class NixIO(BaseIO):
 
         neo_block.segments = list(map(self._group_to_neo, nix_block.groups))
         neo_block.recordingchannelgroups = list(
-            map(self._source_to_neo, nix_block.sources)
+            map(self._source_rcg_to_neo, nix_block.sources)
         )
         return neo_block
 
@@ -101,16 +101,17 @@ class NixIO(BaseIO):
         neo_group.irregularlysampledsignals = list(
             filter(lambda s: isinstance(s, IrregularlySampledSignal), signals)
         )
+        # eest: Epoch, Event, SpikeTrain
         eest = list(
-            map(self._mtag_to_neo, nix_group.multi_tags)
+            map(self._mtag_eest_to_neo, nix_group.multi_tags)
         )
         neo_group.epochs = list(
             filter(lambda e: isinstance(e, Epoch), eest)
         )
-        neo_group.epochs = list(
+        neo_group.events = list(
             filter(lambda e: isinstance(e, Event), eest)
         )
-        neo_group.epochs = list(
+        neo_group.spiketrains = list(
             filter(lambda st: isinstance(st, SpikeTrain), eest)
         )
         return neo_group
@@ -132,7 +133,7 @@ class NixIO(BaseIO):
                 signals_dict[mdsection] = [da]
         return list(signals_dict.values())
 
-    def _source_to_neo(self, nix_source):
+    def _source_rcg_to_neo(self, nix_source):
         neo_attrs = NixIO._nix_attr_to_neo(nix_source)
         return None
 
@@ -174,8 +175,21 @@ class NixIO(BaseIO):
             return None
         return neo_signal
 
-    def _mtag_to_neo(self, nix_mtag):
-        return None
+    def _mtag_eest_to_neo(self, nix_mtag):
+        neo_attrs = NixIO._nix_attr_to_neo(nix_mtag)
+        neo_type = nix_mtag.type
+        times = pq.Quantity(nix_mtag.times, nix_mtag.times.unit)
+        if neo_type == "neo.epoch":
+            durations = pq.Quantity(nix_mtag.extents, nix_mtag.extents.unit)
+            labels = nix_mtag.dimensions[0]
+            eest = Epoch(times=times, durations=durations, labels=labels,
+                         **neo_attrs)
+        elif neo_type == "neo.event":
+            labels = nix_mtag.dimensions[0]
+            eest = Event(times=times, labels=labels, **neo_attrs)
+        elif neo_type == "neo.spiketrain":
+            eest = SpikeTrain(times=times, **neo_attrs)
+        return eest
 
     def write_block(self, neo_block):
         """
