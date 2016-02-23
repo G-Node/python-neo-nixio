@@ -96,23 +96,23 @@ class NixIO(BaseIO):
             map(self._signal_da_to_neo, nix_grouped_signals)
         )
         neo_group.analogsignals = list(
-            filter(lambda s: isinstance(s, AnalogSignal), signals)
+            s for s in signals if isinstance(s, AnalogSignal)
         )
         neo_group.irregularlysampledsignals = list(
-            filter(lambda s: isinstance(s, IrregularlySampledSignal), signals)
+            s for s in signals if isinstance(s, IrregularlySampledSignal)
         )
         # eest: Epoch, Event, SpikeTrain
         eest = list(
             map(self._mtag_eest_to_neo, nix_group.multi_tags)
         )
         neo_group.epochs = list(
-            filter(lambda e: isinstance(e, Epoch), eest)
+            e for e in eest if isinstance(e, Epoch)
         )
         neo_group.events = list(
-            filter(lambda e: isinstance(e, Event), eest)
+            e for e in eest if isinstance(e, Event)
         )
         neo_group.spiketrains = list(
-            filter(lambda st: isinstance(st, SpikeTrain), eest)
+            st for st in eest if isinstance(st, SpikeTrain)
         )
         return neo_group
 
@@ -363,7 +363,7 @@ class NixIO(BaseIO):
                                                            chan_obj_path)
 
                 nix_coord_values = tuple(
-                    map(lambda c: nix.Value(c.magnitude.item()), chan_coords)
+                    nix.Value(c.magnitude.item()) for c in chan_coords
                 )
                 nix_coord_units = str(chan_coords.dimensionality)
                 chan_metadata.create_property("coordinates",
@@ -840,11 +840,10 @@ class NixIO(BaseIO):
 
     @staticmethod
     def _get_contained_signals(obj):
-        return list(filter(
-            lambda da: da.type in ["neo.analogsignal",
-                                   "neo.irregularlysampledsignal"],
-            obj.data_arrays
-            ))
+        return list(
+             da for da in obj.data_arrays
+             if da.type in ["neo.analogsignal", "neo.irregularlysampledsignal"]
+        )
 
     @staticmethod
     def _get_units(quantity, simplify=False):
