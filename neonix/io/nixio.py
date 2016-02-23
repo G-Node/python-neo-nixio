@@ -709,13 +709,14 @@ class NixIO(BaseIO):
         :return: The newly created NIX Source
         """
         parent_source = self._get_object_at(parent_path)
+        parent_block = self._get_object_at([parent_path[0]])
         nix_name = ut.name
         if not nix_name:
             nsrc = len(parent_source.sources)
             nix_name = "{}.Unit{}".format(parent_source.name, nsrc)
         nix_type = "neo.unit"
         nix_definition = ut.description
-        nix_source = parent_source.create_source(nix_name, nix_type)
+        nix_source = parent_block.create_source(nix_name, nix_type)
         nix_source.definition = nix_definition
         object_path = parent_path + [("source", nix_name)]
         self.neo_nix_map[id(ut)] = nix_source
