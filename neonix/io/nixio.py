@@ -135,7 +135,22 @@ class NixIO(BaseIO):
 
     def _source_rcg_to_neo(self, nix_source):
         neo_attrs = NixIO._nix_attr_to_neo(nix_source)
-        return None
+        rec_channels = list(map(NixIO._nix_attr_to_neo, nix_source.sources))
+        # TODO: Make sure all RCs have the same name, desc, etc as the RCG
+        neo_attrs["channel_names"] = np.array(c["name"] for c in rec_channels)
+        # TODO: fix channel indexes
+        neo_attrs["channel_indexes"] = np.arange(len(rec_channels))
+        # TODO: Make sure all RCs have the same coordinate units
+        if "coordinates" in rec_channels[0]:
+            coord_units = rec_channels[0]["coordinates.units"]
+            coord_values = list(c["coordinates"] for c in rec_channels)
+            neo_attrs["coordinates"] = pq.Quantity(coord_values, coord_units)
+        rcg = RecordingChannelGroup(**neo_attrs)
+        # TODO: Units
+        # TODO: References to signals
+
+    def _source_unit_to_neo(self):
+        pass
 
     def _signal_da_to_neo(self, nix_da_group):
         """
@@ -149,9 +164,9 @@ class NixIO(BaseIO):
         """
         neo_attrs = NixIO._nix_attr_to_neo(nix_da_group[0])
         unit = nix_da_group[0].unit
-        # TODO: Check if all DAs have the same unit (they should)
+        # TODO: Make sure all DAs have the same unit
         neo_type = nix_da_group[0].type
-        # TODO: Check if all DAs have the same type
+        # TODO: Make sure all DAs have the same type
         signaldata = pq.Quantity(np.transpose(nix_da_group), unit)
         timedim = nix_da_group[0].dimensions["time"]
         if neo_type == "neo.analogsignal"\
@@ -350,9 +365,7 @@ class NixIO(BaseIO):
                 nix_coord_values = tuple(
                     map(lambda c: nix.Value(c.magnitude.item()), chan_coords)
                 )
-                nix_coord_units = tuple(
-                    map(lambda c: nix.Value(str(c.dimensionality)), chan_coords)
-                )
+                nix_coord_units = str(chan_coords.dimensionality)
                 chan_metadata.create_property("coordinates",
                                               nix_coord_values)
                 chan_metadata.create_property("coordinates.units",
