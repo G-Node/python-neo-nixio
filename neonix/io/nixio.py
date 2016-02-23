@@ -697,7 +697,7 @@ class NixIO(BaseIO):
     def write_unit(self, ut, parent_path):
         """
         Convert the provided ``ut`` (Unit) to a NIX Source and write it to the
-        NIX file at the location defined by ``parent_path``.
+        NIX file at the parent Block.
 
         :param ut: The Neo Unit to be written
         :param parent_path: Path to the parent of the new Source
