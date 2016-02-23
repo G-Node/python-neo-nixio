@@ -189,6 +189,17 @@ class NixIO(BaseIO):
             eest = Event(times=times, labels=labels, **neo_attrs)
         elif neo_type == "neo.spiketrain":
             eest = SpikeTrain(times=times, **neo_attrs)
+            if len(nix_mtag.features):
+                wfda = nix_mtag.features[0].data
+                eest.waveforms = pq.Quantity(wfda, wfda.unit)
+                wftime = wfda.dimensions["time"]
+                eest.sampling_period = pq.Quantity(
+                    wftime.sampling_interval, wftime.unit
+                )
+                eest.left_sweep = wfda.metadata["left_sweep"]
+        else:
+            # TODO: Infer type from attributes?
+            return None
         return eest
 
     def write_block(self, neo_block):
