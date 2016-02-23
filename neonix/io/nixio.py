@@ -135,7 +135,9 @@ class NixIO(BaseIO):
 
     def _source_rcg_to_neo(self, nix_source):
         neo_attrs = NixIO._nix_attr_to_neo(nix_source)
-        rec_channels = list(map(NixIO._nix_attr_to_neo, nix_source.sources))
+        rec_channels = list(NixIO._nix_attr_to_neo(src)
+                            for src in nix_source.sources
+                            if src.type == "neo.recordingchannel")
         # TODO: Make sure all RCs have the same name, desc, etc as the RCG
         neo_attrs["channel_names"] = np.array(c["name"] for c in rec_channels)
         # TODO: fix channel indexes
@@ -147,6 +149,9 @@ class NixIO(BaseIO):
             neo_attrs["coordinates"] = pq.Quantity(coord_values, coord_units)
         rcg = RecordingChannelGroup(**neo_attrs)
         # TODO: Units
+        units = list(self._source_rcg_to_neo(src)
+                     for src in nix_source.sources
+                     if src.type == "neo.unit")
         # TODO: References to signals
 
     def _source_unit_to_neo(self):
