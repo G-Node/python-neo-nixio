@@ -284,10 +284,9 @@ class NixIOTest(unittest.TestCase):
 
         srcrcg = blk.sources[0]  # rcg
         self.assertIn(srcrcg.name, blkmd.sections)
-        srcrcgmd = blkmd.sections[srcrcg.name]
-        for srcrc in srcrcg.sources:  # unit
-            if srcrc.type == "neo.unit":  # ignore channels - no metadata
-                self.assertIn(srcrc.name, srcrcgmd.sections)
+
+        for srcunit in blk.sources:  # units
+            self.assertIn(srcunit.name, blkmd.sections)
 
     def test_waveforms(self):
         blk = Block()
@@ -597,16 +596,14 @@ class NixIOTest(unittest.TestCase):
         # - Octotrode
         nix_octotrode = nix_blocks[1].sources["octotrode A"]
         self.check_equal_attr(octotrode_rcg, nix_octotrode)
-        nix_channels = [src for src in nix_octotrode.sources
-                        if src.type == "neo.recordingchannel"]
+        nix_channels = nix_octotrode.sources
         self.assertEqual(len(nix_channels),
                          len(octotrode_rcg.channel_indexes))
-
-        nix_units = [src for src in nix_octotrode.sources
-                     if src.type == "neo.unit"]
-        self.assertEqual(len(nix_units), len(octotrode_rcg.units))
-        for nix_u, neo_u in zip(nix_units, octotrode_rcg.units):
-            self.check_equal_attr(neo_u, nix_u)
+        # nix_units = [unit for unit in nix_blocks[1].sources
+        #              if nix_octotrode in unit.sources]
+        # self.assertEqual(len(nix_units), len(octotrode_rcg.units))
+        # for nix_u, neo_u in zip(nix_units, octotrode_rcg.units):
+        #     self.check_equal_attr(neo_u, nix_u)
 
         nix_coordinates = [chan.metadata["coordinates"] for chan in nix_channels]
         nix_coordinate_units = [chan.metadata["coordinates.units"]
@@ -617,8 +614,8 @@ class NixIOTest(unittest.TestCase):
             for cnix, cneo in zip(nix_xyz, neo_xyz):
                 self.assertAlmostEqual(cnix, cneo.magnitude)
 
-        for nix_xyz, neo_xyz in zip(nix_coordinate_units, neo_coordinates):
-            for cnix, cneo in zip(nix_xyz, neo_xyz):
+        for cnix, neo_xyz in zip(nix_coordinate_units, neo_coordinates):
+            for cneo in neo_xyz:
                 self.assertEqual(cnix, str(cneo.dimensionality))
 
         # - Spiketrain Container
@@ -629,33 +626,20 @@ class NixIOTest(unittest.TestCase):
         self.assertEqual(len(nix_channels),
                          len(spiketrain_container_rcg.channel_indexes))
 
-        nix_units = [src for src in nix_pyram_rcg.sources
-                     if src.type == "neo.unit"]
-        self.assertEqual(len(nix_units), len(spiketrain_container_rcg.units))
+        # nix_units = [src for src in nix_blocks[1].sources
+        #              if src.type == "neo.unit" and src.]
+        # self.assertEqual(len(nix_units), len(spiketrain_container_rcg.units))
 
         # - Pyramidal neuron Unit
-        nix_pyram_nrn = nix_pyram_rcg.sources["Pyramidal neuron"]
+        nix_pyram_nrn = nix_blocks[1].sources["Pyramidal neuron"]
         self.check_equal_attr(pyram_unit, nix_pyram_nrn)
 
         # - PyramRCG and Pyram neuron must be referenced by the same spiketrains
-        all_spiketrains = [mtag for mtag in nix_blocks[1].multi_tags
-                           if mtag.type == "neo.spiketrain"]
-        nrn_spiketrains = [src for src in nix_pyram_nrn.sources
-                           if src.type == "neo.spiketrain"]
-        rcg_spiketrains = [src for chan in nix_channels
-                           for src in chan.sources
-                           if src.type == "neo.spiketrain"]
-        for spiketrain in all_spiketrains:
-            if spiketrain in nrn_spiketrains:
-                if spiketrain not in rcg_spiketrains:
-                    self.fail("Spiketrain reference failure: "
-                              "{} referenced by Unit but not by parent RCG."
-                              "".format(spiketrain))
-            if spiketrain in rcg_spiketrains:
-                if spiketrain not in nrn_spiketrains:
-                    self.fail("Spiketrain reference failure: "
-                              "{} referenced by RCG but not by a child Unit."
-                              "".format(spiketrain))
+        pyram_spiketrains = [mtag for mtag in nix_blocks[1].multi_tags
+                             if mtag.type == "neo.spiketrain" and
+                             nix_pyram_nrn in mtag.sources]
+        for spiketrain in pyram_spiketrains:
+            self.assertIn(nix_pyram_rcg, spiketrain.sources)
 
         # - RCG_1 referenced by first signal
         neo_first_signal = neo_blocks[0].segments[0].analogsignals[0]

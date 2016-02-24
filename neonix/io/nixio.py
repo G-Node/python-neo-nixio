@@ -347,6 +347,7 @@ class NixIO(BaseIO):
                 nix_chan_name = "{}.RecordingChannel{}".format(
                     parent_block.name, idx
                 )
+            # TODO: channel number in metadata
             nix_chan_type = "neo.recordingchannel"
             nix_chan = nix_source.create_source(nix_chan_name, nix_chan_type)
             nix_chan.definition = nix_definition
@@ -362,14 +363,16 @@ class NixIO(BaseIO):
                 chan_metadata = self._get_or_init_metadata(nix_chan,
                                                            chan_obj_path)
 
+                coord_unit = str(chan_coords[0].dimensionality)
+                nix_coord_unit = nix.Value(coord_unit)
                 nix_coord_values = tuple(
-                    nix.Value(c.magnitude.item()) for c in chan_coords
+                    nix.Value(c.rescale(coord_unit).magnitude.item())
+                    for c in chan_coords
                 )
-                nix_coord_units = str(chan_coords.dimensionality)
                 chan_metadata.create_property("coordinates",
                                               nix_coord_values)
                 chan_metadata.create_property("coordinates.units",
-                                              nix_coord_units)
+                                              nix_coord_unit)
         for unit in rcg.units:
             self.write_unit(unit, object_path)
 
@@ -713,7 +716,8 @@ class NixIO(BaseIO):
         nix_definition = ut.description
         nix_source = parent_block.create_source(nix_name, nix_type)
         nix_source.definition = nix_definition
-        object_path = parent_path + [("source", nix_name)]
+        # Units are children of the Block
+        object_path = [parent_path[0]] + [("source", nix_name)]
         self.neo_nix_map[id(ut)] = nix_source
         self._copy_annotations(ut, nix_source, object_path)
 
