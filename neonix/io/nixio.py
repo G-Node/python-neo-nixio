@@ -138,8 +138,7 @@ class NixIO(BaseIO):
         rec_channels = list(map(NixIO._nix_attr_to_neo, nix_source.sources))
         # TODO: Make sure all RCs have the same name, desc, etc as the RCG
         neo_attrs["channel_names"] = np.array(c["name"] for c in rec_channels)
-        # TODO: fix channel indexes
-        neo_attrs["channel_indexes"] = np.arange(len(rec_channels))
+        neo_attrs["channel_indexes"] = np.array(c["index"] for c in rec_channels)
         # TODO: Make sure all RCs have the same coordinate units
         if "coordinates" in rec_channels[0]:
             coord_units = rec_channels[0]["coordinates.units"]
@@ -347,22 +346,19 @@ class NixIO(BaseIO):
                 nix_chan_name = "{}.RecordingChannel{}".format(
                     parent_block.name, idx
                 )
-            # TODO: channel number in metadata
             nix_chan_type = "neo.recordingchannel"
             nix_chan = nix_source.create_source(nix_chan_name, nix_chan_type)
             nix_chan.definition = nix_definition
             chan_obj_path = object_path + [("source", nix_chan_name)]
+            chan_metadata = self._get_or_init_metadata(nix_chan,
+                                                       chan_obj_path)
+            chan_metadata.create_property("index", nix.Value(int(channel)))
             if rcg.file_origin:
-                chan_metadata = self._get_or_init_metadata(nix_chan,
-                                                           chan_obj_path)
                 chan_metadata.create_property("file_origin",
                                               nix.Value(rcg.file_origin))
 
             if hasattr(rcg, "coordinates"):
                 chan_coords = rcg.coordinates[idx]
-                chan_metadata = self._get_or_init_metadata(nix_chan,
-                                                           chan_obj_path)
-
                 coord_unit = str(chan_coords[0].dimensionality)
                 nix_coord_unit = nix.Value(coord_unit)
                 nix_coord_values = tuple(
