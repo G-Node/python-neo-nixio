@@ -209,6 +209,7 @@ Maps to a `nix.Source` with `type = neo.unit`.
 
   - Objects
     - Unit.spiketrains is represented by the `MultiTag` which references a given `nix.Source` object.
+    - Each `nix.Source` references its original parent `neo.RecordingChannelGroup` in its `sources` list.
     See the description of the mapping for [neo.RecordingChannelGroup](#neorecordingchannelgroup).
 
 
