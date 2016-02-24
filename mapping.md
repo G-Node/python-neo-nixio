@@ -74,7 +74,7 @@ Maps to nix.Source with `type = neo.recordingchannelgroup`.
       - The name of each channel is taken from the parent `channel_names` list.
       - Each channel holds a metadata section with coordinates, which is a tuple of size 3 `(x, y, z)`.
       - Each channel has a metadata section with a property that specifies its channel index, from `channel_indexes`.
-    - For objects contained in the `RecordingChannelGroup`, the corresponding `DataArray` (for signals) or `MultiTag` (for units) reference the main `nix.Source` object.
+    - For signals referenced by the `RecordingChannelGroup`, the corresponding `nix.DataArray` objects reference the main `nix.Source` object.
 
 
 ## neo.AnalogSignal
@@ -193,6 +193,8 @@ Maps to a `nix.MultiTag` with `type = neo.spiketrain`.
       - `SetDimension`.
       - `SetDimension`.
       - `SampledDimension`: The `SpikeTrain.sampling_rate` is stored in this dimension's `sampling_interval` and the `unit` is set accordingly.
+      - If a `neo.SpikeTrain` is referenced by a `neo.RecordingChannelGroup`, the `nix.MultiTag` references the corresponding `nix.Source`.
+      - If a `neo.SpikeTrain` contains `neo.Unit` objects, the `nix.MultiTag` references the corresponding `nix.Source`.
 
 
 ## neo.Unit
@@ -207,11 +209,8 @@ Maps to a `nix.Source` with `type = neo.unit`.
     | Unit.description(string)         | Source.definition(string)             |
     | Unit.file_origin(string)         | Source.metadata(**Section**) [[1]](#notes) |
 
-  - Objects
-    - Unit.spiketrains is represented by the `MultiTag` which references a given `nix.Source` object.
-    - Each `nix.Source` references its original parent `neo.RecordingChannelGroup` in its `sources` list.
-    See the description of the mapping for [neo.RecordingChannelGroup](#neorecordingchannelgroup).
-
+  - The `nix.MultiTag` objects which represent the SpikeTrains referenced by the `neo.Unit`, reference the respective `nix.Source` object (the reference direction is reversed).
+  - `nix.Source` objects that represent `neo.Unit`s are created on the corresponding `nix.Block`.
 
 -------
 
