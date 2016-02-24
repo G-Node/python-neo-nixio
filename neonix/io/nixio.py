@@ -707,7 +707,7 @@ class NixIO(BaseIO):
         parent_block = self._get_object_at([parent_path[0]])
         nix_name = ut.name
         if not nix_name:
-            nsrc = len(parent_source.sources)
+            nsrc = len(parent_block.sources)
             nix_name = "{}.Unit{}".format(parent_source.name, nsrc)
         nix_type = "neo.unit"
         nix_definition = ut.description
