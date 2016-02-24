@@ -599,11 +599,10 @@ class NixIOTest(unittest.TestCase):
         nix_channels = nix_octotrode.sources
         self.assertEqual(len(nix_channels),
                          len(octotrode_rcg.channel_indexes))
-        # nix_units = [unit for unit in nix_blocks[1].sources
-        #              if nix_octotrode in unit.sources]
-        # self.assertEqual(len(nix_units), len(octotrode_rcg.units))
-        # for nix_u, neo_u in zip(nix_units, octotrode_rcg.units):
-        #     self.check_equal_attr(neo_u, nix_u)
+        nix_channel_indexes = [c.metadata["index"] for c in nix_channels]
+        for nixci, neoci in zip(nix_channel_indexes,
+                                octotrode_rcg.channel_indexes):
+            self.assertEqual(nixci, neoci)
 
         nix_coordinates = [chan.metadata["coordinates"] for chan in nix_channels]
         nix_coordinate_units = [chan.metadata["coordinates.units"]
@@ -621,14 +620,13 @@ class NixIOTest(unittest.TestCase):
         # - Spiketrain Container
         nix_pyram_rcg = nix_blocks[1].sources["PyramRCG"]
         self.check_equal_attr(spiketrain_container_rcg, nix_pyram_rcg)
-        nix_channels = [src for src in nix_pyram_rcg.sources
-                        if src.type == "neo.recordingchannel"]
+        nix_channels = nix_pyram_rcg.sources
         self.assertEqual(len(nix_channels),
                          len(spiketrain_container_rcg.channel_indexes))
-
-        # nix_units = [src for src in nix_blocks[1].sources
-        #              if src.type == "neo.unit" and src.]
-        # self.assertEqual(len(nix_units), len(spiketrain_container_rcg.units))
+        nix_channel_indexes = [c.metadata["index"] for c in nix_channels]
+        for nixci, neoci in zip(nix_channel_indexes,
+                                spiketrain_container_rcg.channel_indexes):
+            self.assertEqual(nixci, neoci)
 
         # - Pyramidal neuron Unit
         nix_pyram_nrn = nix_blocks[1].sources["Pyramidal neuron"]
@@ -645,10 +643,17 @@ class NixIOTest(unittest.TestCase):
         neo_first_signal = neo_blocks[0].segments[0].analogsignals[0]
         _, n_neo_signals = np.shape(neo_first_signal)
         nix_first_signal_group = []
+        nix_rcg_a = nix_blocks[0].sources["RCG_1"]
+
+        nix_channels = nix_rcg_a.sources
+        nix_channel_indexes = [c.metadata["index"] for c in nix_channels]
+        for nixci, neoci in zip(nix_channel_indexes,
+                                rcg_a.channel_indexes):
+            self.assertEqual(nixci, neoci)
+
         for sig_idx in range(n_neo_signals):
             nix_name = "{}.{}".format(neo_first_signal.name, sig_idx)
             nix_signal = nix_blocks[0].groups[0].data_arrays[nix_name]
-            nix_rcg_a = nix_blocks[0].sources["RCG_1"]
             self.assertIn(nix_rcg_a, nix_signal.sources)
             nix_first_signal_group.append(nix_signal)
         # test metadata grouping
