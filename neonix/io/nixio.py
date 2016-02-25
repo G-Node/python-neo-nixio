@@ -134,6 +134,8 @@ class NixIO(BaseIO):
         self.object_map[id(nix_source)] = rcg
         # TODO: References to SpikeTrains
         # Find MultiTags with type = neo.spiketrain that reference nix_source
+        nix_spiketrains = list(mtag for mtag in parent_block.multi_tags
+                               if mtag.type == "neo.spiketrain")
         # Get their mapped neo.SpikeTrain
         # Add references to the neo.SpikeTrains in rcg.spiketrains
         # TODO: Units
@@ -667,8 +669,8 @@ class NixIO(BaseIO):
 
         # waveforms
         if sptr.waveforms is not None:
-            wf_data = [wf.magnitude for wf in
-                       [wfgroup for wfgroup in sptr.waveforms]]
+            wf_data = list(wf.magnitude for wf in
+                           list(wfgroup for wfgroup in sptr.waveforms))
             wf_name = "{}.waveforms".format(nix_name)
             waveforms_da = parent_block.create_data_array(wf_name,
                                                           "neo.waveforms",
@@ -874,7 +876,7 @@ class NixIO(BaseIO):
                 if len(values) == 1:
                     neo_attrs[prop.name] = values[0].value
                 else:
-                    neo_attrs[prop.name] = [v.value for v in values]
+                    neo_attrs[prop.name] = list(v.value for v in values)
 
         if hasattr(nix_obj, "created_at"):
             neo_attrs["rec_datetime"] = datetime.fromtimestamp(
