@@ -131,8 +131,19 @@ class NixIO(BaseIO):
             neo_attrs["coordinates"] = pq.Quantity(coord_values, coord_units)
         rcg = RecordingChannelGroup(**neo_attrs)
         self.object_map[id(nix_source)] = rcg
+        # TODO: References to SpikeTrains
+        # Find MultiTags with type = neo.spiketrain that reference nix_source
+        # Get their mapped neo.SpikeTrain
+        # Add references to the neo.SpikeTrains in rcg.spiketrains
         # TODO: Units
+        # For each SpikeTrain in rcg.spiketrains:
+        #     Get the referenced source objects
+        #     Run them through _source_unit_to_neo
+        #     Append the resulting Unit object to rcg.units
         # TODO: References to signals
+        # Find DataArrays with type = neo.*signal that reference nix_source
+        # Get their mapped neo.*Signal
+        # Add references to the neo.*Signals in rcg.*signals
 
     def _source_unit_to_neo(self):
         pass
