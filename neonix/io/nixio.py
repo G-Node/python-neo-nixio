@@ -85,7 +85,8 @@ class NixIO(BaseIO):
 
         neo_block.segments = list(map(self._group_to_neo, nix_block.groups))
         neo_block.recordingchannelgroups = list(
-            map(self._source_rcg_to_neo, nix_block.sources)
+            self._source_rcg_to_neo(src, nix_block)
+            for src in nix_block.sources
         )
         return neo_block
 
@@ -118,7 +119,7 @@ class NixIO(BaseIO):
         )
         return neo_group
 
-    def _source_rcg_to_neo(self, nix_source):
+    def _source_rcg_to_neo(self, nix_source, parent_block):
         neo_attrs = NixIO._nix_attr_to_neo(nix_source)
         rec_channels = list(map(NixIO._nix_attr_to_neo, nix_source.sources))
         # TODO: Make sure all RCs have the same name, desc, etc as the RCG
