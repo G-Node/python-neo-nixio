@@ -133,24 +133,31 @@ class NixIO(BaseIO):
         rcg = RecordingChannelGroup(**neo_attrs)
         self.object_map[id(nix_source)] = rcg
         # TODO: References to SpikeTrains
-        # Find MultiTags with type = neo.spiketrain that reference nix_source
         nix_spiketrains = list(mtag for mtag in parent_block.multi_tags
-                               if mtag.type == "neo.spiketrain")
-        # Get their mapped neo.SpikeTrain
-        neo_spiketrains = list(map(self._get_mapped_object, nix_spiketrains))
-        # TODO: Units
-        # For each SpikeTrain in neo_spiketrains:
-        #     Get the referenced source objects
-        #     Run them through _source_unit_to_neo
-        #     Append the SpikeTrain to the new Unit's spiketrains
-        #     Append the resulting Unit object to rcg.units
+                               if mtag.type == "neo.spiketrain" and
+                               mtag.sources[0].name == nix_source.name)
+
+        # construct a unit -> spiketrain map
+        unit_st_map = dict()
+        for nix_st in nix_spiketrains:
+            for src in nix_st.sources:  # should contain only one
+                if src.name in unit_st_map:
+                    unit_st_map[src.name].append(nix_st)
+                else:
+                    unit_st_map[src.name] = [nix_st]
+        # convert units and reference spiketrains
+        for ut_name, st_list in unit_st_map.items():
+            neo_unit = self._source_unit_to_neo(parent_block.sources[ut_name])
+            neo_unit.spiketrains.extend(self._get_mapped_objects(st_list))
+            rcg.units.append(neo_unit)
+
         # TODO: References to signals
         # Find DataArrays with type = neo.*signal that reference nix_source
         # Get their mapped neo.*Signal
         # Add references to the neo.*Signals in rcg.*signals
 
-    def _source_unit_to_neo(self):
-        pass
+    def _source_unit_to_neo(self, nix_unit):
+        return Unit()
 
     def _signal_da_to_neo(self, nix_da_group):
         """
