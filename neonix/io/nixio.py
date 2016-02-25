@@ -174,7 +174,10 @@ class NixIO(BaseIO):
         return ref_list
 
     def _source_unit_to_neo(self, nix_unit):
-        return Unit()
+        neo_attrs = NixIO._nix_attr_to_neo(nix_unit)
+        neo_unit = Unit(**neo_attrs)
+        self.object_map[id(nix_unit)] = neo_unit
+        return neo_unit
 
     def _signal_da_to_neo(self, nix_da_group):
         """
