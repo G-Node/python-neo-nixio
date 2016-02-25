@@ -137,11 +137,12 @@ class NixIO(BaseIO):
         nix_spiketrains = list(mtag for mtag in parent_block.multi_tags
                                if mtag.type == "neo.spiketrain")
         # Get their mapped neo.SpikeTrain
-        # Add references to the neo.SpikeTrains in rcg.spiketrains
+        neo_spiketrains = list(map(self._get_mapped_object, nix_spiketrains))
         # TODO: Units
-        # For each SpikeTrain in rcg.spiketrains:
+        # For each SpikeTrain in neo_spiketrains:
         #     Get the referenced source objects
         #     Run them through _source_unit_to_neo
+        #     Append the SpikeTrain to the new Unit's spiketrains
         #     Append the resulting Unit object to rcg.units
         # TODO: References to signals
         # Find DataArrays with type = neo.*signal that reference nix_source
