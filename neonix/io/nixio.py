@@ -787,8 +787,8 @@ class NixIO(BaseIO):
                                                                   obj.name))
         return obj
 
-    def _get_mapped_objects(self, neo_object_list):
-        return list(map(self._get_mapped_object, neo_object_list))
+    def _get_mapped_objects(self, object_list):
+        return list(map(self._get_mapped_object, object_list))
 
     def _get_mapped_object(self, obj):
         try:
