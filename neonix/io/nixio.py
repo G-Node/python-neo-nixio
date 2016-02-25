@@ -133,14 +133,17 @@ class NixIO(BaseIO):
         rcg = RecordingChannelGroup(**neo_attrs)
         self.object_map[id(nix_source)] = rcg
         # TODO: References to SpikeTrains
-        nix_spiketrains = list(mtag for mtag in parent_block.multi_tags
-                               if mtag.type == "neo.spiketrain" and
-                               mtag.sources[0].name == nix_source.name)
+        all_nix_spiketrains = list(mtag for mtag in parent_block.multi_tags
+                                   if mtag.type == "neo.spiketrain")
+        nix_spiketrains = list()
+        for nix_st in all_nix_spiketrains:
+            if nix_source.name in list(src.name for src in nix_st.sources):
+                nix_spiketrains.append(nix_st)
 
         # construct a unit -> spiketrain map
         unit_st_map = dict()
         for nix_st in nix_spiketrains:
-            for src in nix_st.sources:  # should contain only one
+            for src in nix_st.sources:
                 if src.name in unit_st_map:
                     unit_st_map[src.name].append(nix_st)
                 else:
