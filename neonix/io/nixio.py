@@ -132,13 +132,10 @@ class NixIO(BaseIO):
             neo_attrs["coordinates"] = pq.Quantity(coord_values, coord_units)
         rcg = RecordingChannelGroup(**neo_attrs)
         self.object_map[id(nix_source)] = rcg
-        # TODO: References to SpikeTrains
+
         all_nix_spiketrains = list(mtag for mtag in parent_block.multi_tags
                                    if mtag.type == "neo.spiketrain")
-        nix_spiketrains = list()
-        for nix_st in all_nix_spiketrains:
-            if nix_source.name in list(src.name for src in nix_st.sources):
-                nix_spiketrains.append(nix_st)
+        nix_spiketrains = NixIO._get_referers(nix_source, all_nix_spiketrains)
 
         # construct a unit -> spiketrain map
         unit_st_map = dict()
@@ -154,10 +151,27 @@ class NixIO(BaseIO):
             neo_unit.spiketrains.extend(self._get_mapped_objects(st_list))
             rcg.units.append(neo_unit)
 
-        # TODO: References to signals
-        # Find DataArrays with type = neo.*signal that reference nix_source
-        # Get their mapped neo.*Signal
-        # Add references to the neo.*Signals in rcg.*signals
+        # referenced signals
+        all_nix_asigs = list(da for da in parent_block.data_arrays
+                             if da.type == "neo.analogsignal")
+        nix_asigs = NixIO._get_referers(nix_source, all_nix_asigs)
+        neo_asigs = self._get_mapped_objects(nix_asigs)
+        rcg.analogsignals.extend(neo_asigs)
+
+        all_nix_isigs = list(da for da in parent_block.data_arrays
+                             if da.type == "neo.irregularlysampledsignals")
+        nix_isigs = NixIO._get_referers(nix_source, all_nix_isigs)
+        neo_isigs = self._get_mapped_objects(nix_isigs)
+        rcg.irregularlysampledsignals.extend(neo_isigs)
+        return rcg
+
+    @staticmethod
+    def _get_referers(nix_obj, obj_list):
+        ref_list = list()
+        for ref in obj_list:
+            if nix_obj.name in list(src.name for src in ref.sources):
+                ref_list.append(ref)
+        return ref_list
 
     def _source_unit_to_neo(self, nix_unit):
         return Unit()
