@@ -70,7 +70,7 @@ class NixIO(BaseIO):
                        "Valid modes: 'ro' (ReadOnly)', 'rw' (ReadWrite), "
                        "'ow' (Overwrite).".format(mode))
         self.nix_file = nix.File.open(self.filename, filemode)
-        self.neo_nix_map = {}
+        self.object_map = {}
 
     def __del__(self):
         self.nix_file.close()
@@ -232,7 +232,7 @@ class NixIO(BaseIO):
         nix_block = self.nix_file.create_block(nix_name, nix_type)
         nix_block.definition = nix_definition
         object_path = [("block", nix_name)]
-        self.neo_nix_map[id(neo_block)] = nix_block
+        self.object_map[id(neo_block)] = nix_block
         if neo_block.rec_datetime:
             nix_block.force_created_at(
                     calculate_timestamp(neo_block.rec_datetime)
@@ -284,7 +284,7 @@ class NixIO(BaseIO):
         nix_group = parent_block.create_group(nix_name, nix_type)
         nix_group.definition = nix_definition
         object_path = parent_path + [("group", nix_name)]
-        self.neo_nix_map[id(segment)] = nix_group
+        self.object_map[id(segment)] = nix_group
         if segment.rec_datetime:
             nix_group.force_created_at(calculate_timestamp(segment.rec_datetime))
         if segment.file_datetime:
@@ -331,7 +331,7 @@ class NixIO(BaseIO):
         nix_source = parent_block.create_source(nix_name, nix_type)
         nix_source.definition = nix_definition
         object_path = parent_path + [("source", nix_name)]
-        self.neo_nix_map[id(rcg)] = nix_source
+        self.object_map[id(rcg)] = nix_source
         if rcg.file_origin:
             source_metadata = self._get_or_init_metadata(nix_source,
                                                          object_path)
@@ -441,7 +441,7 @@ class NixIO(BaseIO):
             # point metadata to common section
             nix_data_array.metadata = anasig_group_segment
             nix_data_arrays.append(nix_data_array)
-        self.neo_nix_map[id(anasig)] = nix_data_arrays
+        self.object_map[id(anasig)] = nix_data_arrays
         return nix_data_arrays
 
     def write_irregularlysampledsignal(self, irsig, parent_path):
@@ -500,7 +500,7 @@ class NixIO(BaseIO):
             # point metadata to common section
             nix_data_array.metadata = irsig_group_segment
             nix_data_arrays.append(nix_data_array)
-        self.neo_nix_map[id(irsig)] = nix_data_arrays
+        self.object_map[id(irsig)] = nix_data_arrays
         return nix_data_arrays
 
     def write_epoch(self, ep, parent_path):
@@ -550,7 +550,7 @@ class NixIO(BaseIO):
         parent_group.multi_tags.append(nix_multi_tag)
         nix_multi_tag.definition = nix_definition
         object_path = parent_path + [("multi_tag", nix_name)]
-        self.neo_nix_map[id(ep)] = nix_multi_tag
+        self.object_map[id(ep)] = nix_multi_tag
 
         if ep.file_origin:
             mtag_metadata = self._get_or_init_metadata(nix_multi_tag,
@@ -599,7 +599,7 @@ class NixIO(BaseIO):
         parent_group.multi_tags.append(nix_multi_tag)
         nix_multi_tag.definition = nix_definition
         object_path = parent_path + [("multi_tag", nix_name)]
-        self.neo_nix_map[id(ev)] = nix_multi_tag
+        self.object_map[id(ev)] = nix_multi_tag
 
         if ev.file_origin:
             mtag_metadata = self._get_or_init_metadata(nix_multi_tag,
@@ -646,7 +646,7 @@ class NixIO(BaseIO):
 
         nix_multi_tag.definition = nix_definition
         object_path = parent_path + [("multi_tag", nix_name)]
-        self.neo_nix_map[id(sptr)] = nix_multi_tag
+        self.object_map[id(sptr)] = nix_multi_tag
 
         mtag_metadata = self._get_or_init_metadata(nix_multi_tag,
                                                    object_path)
@@ -714,7 +714,7 @@ class NixIO(BaseIO):
         nix_source.definition = nix_definition
         # Units are children of the Block
         object_path = [parent_path[0]] + [("source", nix_name)]
-        self.neo_nix_map[id(ut)] = nix_source
+        self.object_map[id(ut)] = nix_source
         self._copy_annotations(ut, nix_source, object_path)
 
         if ut.file_origin:
@@ -778,7 +778,7 @@ class NixIO(BaseIO):
 
     def _get_mapped_object(self, neo_object):
         try:
-            return self.neo_nix_map[id(neo_object)]
+            return self.object_map[id(neo_object)]
         except KeyError:
             raise KeyError("Attempting to get reference to NIX equivalent "
                            "object before writing. This can occur if a signal "
