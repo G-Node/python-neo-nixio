@@ -118,13 +118,23 @@ class NixIOTest(unittest.TestCase):
         if os.path.exists(self.filename):
             os.remove(self.filename)
 
-    def test_block(self):
+    def test_block_write(self):
+        """
+        Write Block test
+
+        Simple Block with basic attributes.
+        """
         neo_block = Block(name=rword(), description=rsentence())
         nix_block = self.io.write_block(neo_block)
         self.assertEqual(nix_block.type, "neo.block")
         self.check_equal_attr(neo_block, nix_block)
 
-    def test_block_cascade(self):
+    def test_block_cascade_write(self):
+        """
+        Write Cascade test
+
+        All containers with basic attributes.
+        """
         neo_block = Block(name=rword(), description=rsentence())
         neo_segment = Segment(name=rword(),
                               description=rsentence(100))
@@ -151,7 +161,12 @@ class NixIOTest(unittest.TestCase):
         self.assertEqual(nix_source.type, "neo.recordingchannelgroup")
         self.check_equal_attr(neo_rcg, nix_source)
 
-    def test_container_len_neq(self):
+    def test_container_len_neq_write(self):
+        """
+        Write: Container length test
+
+        Change length after writing and check for failure.
+        """
         neo_block = Block(name=rword(20), description=rsentence(10, 10))
         neo_segment = Segment(name=rsentence(3, 13),
                               description=rsentence(10, 23))
@@ -163,7 +178,12 @@ class NixIOTest(unittest.TestCase):
         neo_block.segments.append(neo_segment_new)
         self.assertNotEqual(len(neo_block.segments), len(nix_block.groups))
 
-    def test_block_metadata(self):
+    def test_block_metadata_write(self):
+        """
+        Write: Block metadata test
+
+        Test if block's metadata is written correctly.
+        """
         neo_block = Block(name=rword(44), description=rsentence(5))
         neo_block.rec_datetime = rdate()
         neo_block.file_datetime = rdate()
@@ -173,8 +193,10 @@ class NixIOTest(unittest.TestCase):
 
         self.check_equal_attr(neo_block, nix_block)
 
-    def test_anonymous_objects(self):
+    def test_anonymous_objects_write(self):
         """
+        Write full data tree: Anonymous objects
+
         Create multiple trees that contain all types of objects, with no name or
         data to test the unique name generation.
 
@@ -225,7 +247,10 @@ class NixIOTest(unittest.TestCase):
 
         self.io.write_all_blocks(blocks)
 
-    def test_annotations(self):
+    def test_annotations_write(self):
+        """
+        Write full data tree: Annotations only
+        """
         blk = create_all_annotated()
 
         nixblk = self.io.write_block(blk)
@@ -265,7 +290,12 @@ class NixIOTest(unittest.TestCase):
                    if src.type == "neo.recordingchannelgroup"]
         self.check_equal_attr(rcg, nixrcgs[0])
 
-    def test_metadata_structure(self):
+    def test_metadata_structure_write(self):
+        """
+        Write metadata structure test
+
+        Metadata hierarchy should mirror object hierarchy.
+        """
         blk = create_all_annotated()
         blk = self.io.write_block(blk)
 
@@ -288,7 +318,10 @@ class NixIOTest(unittest.TestCase):
         for srcunit in blk.sources:  # units
             self.assertIn(srcunit.name, blkmd.sections)
 
-    def test_waveforms(self):
+    def test_waveforms_write(self):
+        """
+        Write waveforms test
+        """
         blk = Block()
         seg = Segment()
 
@@ -316,7 +349,10 @@ class NixIOTest(unittest.TestCase):
                     self.assertAlmostEqual(nix_wf[spk, chan, t],
                                            wf_array[spk, chan, t])
 
-    def test_basic_attr(self):
+    def test_basic_attr_write(self):
+        """
+        Write full data tree: Basic attributes test
+        """
         times = rquant(1, pq.s)
         signal = rquant(1, pq.V)
         blk = Block(name=rword(5), description=rsentence(2))
@@ -392,7 +428,10 @@ class NixIOTest(unittest.TestCase):
                    if src.type == "neo.recordingchannelgroup"]
         self.check_equal_attr(rcg, nixrcgs[0])
 
-    def test_all(self):
+    def test_all_write(self):
+        """
+        Write everything: Integration test with all features
+        """
         # Test writing of all objects based on examples from the neo docs
         # api_reference.html
 
