@@ -7,8 +7,9 @@
 # modification, are permitted under the terms of the BSD License. See
 # LICENSE file in the root of the Project.
 
-from __future__ import absolute_import
+from __future__ import absolute_import, print_function
 
+import sys
 import time
 from datetime import datetime
 from collections import Iterable
@@ -120,9 +121,12 @@ class NixIO(BaseIO):
         return neo_group
 
     def _source_rcg_to_neo(self, nix_source, parent_block):
+        if not NixIO._valid_children_attr(nix_source):
+            print("Recording Channel Group with name {} contains "
+                  "a Recording Channel with a different name."
+                  "".format(nix_source.name), file=sys.stderr)
         neo_attrs = NixIO._nix_attr_to_neo(nix_source)
         rec_channels = list(map(NixIO._nix_attr_to_neo, nix_source.sources))
-        # TODO: Make sure all RCs have the same name, desc, etc as the RCG
         neo_attrs["channel_names"] = np.array(c["name"] for c in rec_channels)
         neo_attrs["channel_indexes"] = np.array(c["index"] for c in rec_channels)
         # TODO: Make sure all RCs have the same coordinate units
@@ -933,3 +937,15 @@ class NixIO(BaseIO):
                 ref_list.append(ref)
         return ref_list
 
+    @staticmethod
+    def _valid_children_attr(nix_rcg):
+        nix_rcs = list(rc for rc in nix_rcg.sources
+                       if rc.type == "neo.recordingchannel")
+        return all((NixIO._check_attrib_equal(nix_rcg, nix_rcs, attr),
+                    for attr in ["name", "description"]))
+
+    @staticmethod
+    def _check_attrib_equal(obj, objlist, attrib):
+        for item in objlist:
+            if getattr(item, attrib) != getattr(obj, attrib):
+                return False
