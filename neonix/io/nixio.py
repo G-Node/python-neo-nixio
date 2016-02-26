@@ -165,14 +165,6 @@ class NixIO(BaseIO):
         rcg.irregularlysampledsignals.extend(neo_isigs)
         return rcg
 
-    @staticmethod
-    def _get_referers(nix_obj, obj_list):
-        ref_list = list()
-        for ref in obj_list:
-            if nix_obj.name in list(src.name for src in ref.sources):
-                ref_list.append(ref)
-        return ref_list
-
     def _source_unit_to_neo(self, nix_unit):
         neo_attrs = NixIO._nix_attr_to_neo(nix_unit)
         neo_unit = Unit(**neo_attrs)
@@ -932,4 +924,12 @@ class NixIO(BaseIO):
             else:
                 signals_dict[mdsection] = [da]
         return list(signals_dict.values())
+
+    @staticmethod
+    def _get_referers(nix_obj, obj_list):
+        ref_list = list()
+        for ref in obj_list:
+            if nix_obj.name in list(src.name for src in ref.sources):
+                ref_list.append(ref)
+        return ref_list
 
