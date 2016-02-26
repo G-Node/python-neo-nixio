@@ -941,7 +941,7 @@ class NixIO(BaseIO):
     def _valid_children_attr(nix_rcg):
         nix_rcs = list(rc for rc in nix_rcg.sources
                        if rc.type == "neo.recordingchannel")
-        return all((NixIO._check_attrib_equal(nix_rcg, nix_rcs, attr),
+        return all((NixIO._check_attrib_equal(nix_rcg, nix_rcs, attr)
                     for attr in ["name", "description"]))
 
     @staticmethod
