@@ -662,7 +662,7 @@ class NixIO(BaseIO):
         time_units = NixIO._get_units(sptr.times)
         times = sptr.times.magnitude
         times_da = parent_block.create_data_array("{}.times".format(nix_name),
-                                                  "neo.epoch.times",
+                                                  "neo.spiketrain.times",
                                                   data=times)
         times_da.unit = time_units
 
