@@ -768,26 +768,23 @@ class NixIOWriteTest(NixIOTest):
         for nix_label, neo_label in zip(nix_epc_labels, neo_epc_labels):
             self.assertEqual(nix_label, neo_label.decode())
 
-    def check_equal_attr(self, neoobj, nixobj):
-        if neoobj.name:
-            if isinstance(neoobj, (AnalogSignal, IrregularlySampledSignal)):
-                nix_name = ".".join(nixobj.name.split(".")[:-1])
-            else:
-                nix_name = nixobj.name
-            self.assertEqual(neoobj.name, nix_name)
-        self.assertEqual(neoobj.description, nixobj.definition)
-        if hasattr(neoobj, "rec_datetime") and neoobj.rec_datetime:
-            self.assertEqual(neoobj.rec_datetime,
-                             datetime.fromtimestamp(nixobj.created_at))
-        if hasattr(neoobj, "file_datetime") and neoobj.file_datetime:
-            self.assertEqual(neoobj.file_datetime,
-                             datetime.fromtimestamp(
-                                 nixobj.metadata["file_datetime"]))
-        if neoobj.file_origin:
-            self.assertEqual(neoobj.file_origin,
-                             nixobj.metadata["file_origin"])
-        if neoobj.annotations:
-            nixmd = nixobj.metadata
-            for k, v, in neoobj.annotations.items():
-                self.assertEqual(nixmd[k], v)
+
+class NixIOReadTest(NixIOTest):
+
+    def setUp(self):
+        self.filename = "nixio_testfile_read.hd5"
+        self.io = NixIO(self.filename, "rw")
+        self.nixfile = self.io.nix_file
+
+    def test_block_read(self):
+        """
+        Read Block test
+
+        Simple Block with basic attributes.
+        """
+        nix_block = self.nixfile.create_block(name=self.rword(),
+                                              desription=self.rsentence())
+        neo_blocks = self.io.read_all_blocks()
+        self.assertEqual(len(self.io.read_all_blocks()), 1)
+        self.check_equal_attr(neo_blocks[0], nix_block)
 
