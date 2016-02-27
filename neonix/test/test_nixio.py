@@ -854,7 +854,7 @@ class NixIOReadTest(NixIOTest):
                                                      da_isig.name+".metadata")
                 da_isig.metadata = da_isig_md
 
-                timedim = da_asig.append_range_dimension(
+                timedim = da_isig.append_range_dimension(
                     self.rquant(200, 1, True)
                 )
                 timedim.unit = "s"
