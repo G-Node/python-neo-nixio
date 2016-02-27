@@ -880,4 +880,10 @@ class NixIOReadTest(NixIOTest):
         mtag_st.metadata = mtag_st_md
         mtag_st_md.create_property("t_stop", nix.Value(max(times_da).item()+1))
 
+        # ===== Read and validate =====
+
         neo_blocks = self.io.read_all_blocks()
+        for neo_block, nix_block in zip(neo_blocks, nix_blocks):
+            self.check_equal_attr(neo_block, nix_block)
+            for neo_seg, nix_grp in zip(neo_block.segments, nix_block.groups):
+                self.check_equal_attr(neo_seg, nix_grp)
