@@ -191,7 +191,10 @@ class NixIO(BaseIO):
         neo_type = nix_da_group[0].type
         # TODO: Make sure all DAs have the same type
         signaldata = pq.Quantity(np.transpose(nix_da_group), unit)
-        timedim = nix_da_group[0].dimensions["time"]
+        timedim = self._get_time_dimension(nix_da_group[0])
+        if timedim is None:
+            # no time dimension - error?
+            pass
         if neo_type == "neo.analogsignal"\
                 or isinstance(timedim, nix.SampledDimension):
             sampling_period = pq.Quantity(timedim.sampling_interval,
@@ -203,7 +206,7 @@ class NixIO(BaseIO):
             )
         elif neo_type == "neo.irregularlysampledsignal"\
                 or isinstance(timedim, nix.RangeDimension):
-            times = pq.Quantity(timedim.times, timedim.unit)
+            times = pq.Quantity(timedim.ticks, timedim.unit)
 
             neo_signal = IrregularlySampledSignal(
                 signal=signaldata, times=times, **neo_attrs
@@ -218,7 +221,7 @@ class NixIO(BaseIO):
     def _mtag_eest_to_neo(self, nix_mtag):
         neo_attrs = NixIO._nix_attr_to_neo(nix_mtag)
         neo_type = nix_mtag.type
-        times = pq.Quantity(nix_mtag.times, nix_mtag.times.unit)
+        times = pq.Quantity(nix_mtag.positions, nix_mtag.positions.unit)
         if neo_type == "neo.epoch":
             durations = pq.Quantity(nix_mtag.extents, nix_mtag.extents.unit)
             labels = nix_mtag.dimensions[0]
@@ -949,3 +952,10 @@ class NixIO(BaseIO):
         for item in objlist:
             if getattr(item, attrib) != getattr(obj, attrib):
                 return False
+
+    @staticmethod
+    def _get_time_dimension(obj):
+        for dim in obj.dimensions:
+            if hasattr(dim, "label") and dim.label == "time":
+                return dim
+        return None
