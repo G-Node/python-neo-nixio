@@ -109,14 +109,40 @@ def create_all_annotated():
 
 class NixIOTest(unittest.TestCase):
 
-    def setUp(self):
-        self.filename = "nixio_testfile.hd5"
-        self.io = NixIO(self.filename, "ow")
-
     def tearDown(self):
         del self.io
         if os.path.exists(self.filename):
             os.remove(self.filename)
+
+    def check_equal_attr(self, neoobj, nixobj):
+        if neoobj.name:
+            if isinstance(neoobj, (AnalogSignal, IrregularlySampledSignal)):
+                nix_name = ".".join(nixobj.name.split(".")[:-1])
+            else:
+                nix_name = nixobj.name
+            self.assertEqual(neoobj.name, nix_name)
+        self.assertEqual(neoobj.description, nixobj.definition)
+        if hasattr(neoobj, "rec_datetime") and neoobj.rec_datetime:
+            self.assertEqual(neoobj.rec_datetime,
+                             datetime.fromtimestamp(nixobj.created_at))
+        if hasattr(neoobj, "file_datetime") and neoobj.file_datetime:
+            self.assertEqual(neoobj.file_datetime,
+                             datetime.fromtimestamp(
+                                 nixobj.metadata["file_datetime"]))
+        if neoobj.file_origin:
+            self.assertEqual(neoobj.file_origin,
+                             nixobj.metadata["file_origin"])
+        if neoobj.annotations:
+            nixmd = nixobj.metadata
+            for k, v, in neoobj.annotations.items():
+                self.assertEqual(nixmd[k], v)
+
+
+class NixIOWriteTest(NixIOTest):
+
+    def setUp(self):
+        self.filename = "nixio_testfile_write.hd5"
+        self.io = NixIO(self.filename, "ow")
 
     def test_block_write(self):
         """
@@ -124,7 +150,8 @@ class NixIOTest(unittest.TestCase):
 
         Simple Block with basic attributes.
         """
-        neo_block = Block(name=rword(), description=rsentence())
+        neo_block = Block(name=self.rword(),
+                          description=self.rsentence())
         nix_block = self.io.write_block(neo_block)
         self.assertEqual(nix_block.type, "neo.block")
         self.check_equal_attr(neo_block, nix_block)
@@ -135,11 +162,12 @@ class NixIOTest(unittest.TestCase):
 
         All containers with basic attributes.
         """
-        neo_block = Block(name=rword(), description=rsentence())
-        neo_segment = Segment(name=rword(),
-                              description=rsentence(100))
-        neo_rcg = RecordingChannelGroup(name=rword(30),
-                                        description=rsentence(4),
+        neo_block = Block(name=self.rword(),
+                          description=self.rsentence())
+        neo_segment = Segment(name=self.rword(),
+                              description=self.rsentence(100))
+        neo_rcg = RecordingChannelGroup(name=self.rword(30),
+                                        description=self.rsentence(4),
                                         channel_indexes=[])
         neo_block.segments.append(neo_segment)
         neo_block.recordingchannelgroups.append(neo_rcg)
@@ -167,14 +195,15 @@ class NixIOTest(unittest.TestCase):
 
         Change length after writing and check for failure.
         """
-        neo_block = Block(name=rword(20), description=rsentence(10, 10))
-        neo_segment = Segment(name=rsentence(3, 13),
-                              description=rsentence(10, 23))
+        neo_block = Block(name=self.rword(20),
+                          description=self.rsentence(10, 10))
+        neo_segment = Segment(name=self.rsentence(3, 13),
+                              description=self.rsentence(10, 23))
         neo_block.segments.append(neo_segment)
         self.io.write_block(neo_block)
         nix_block = self.io.nix_file.blocks[0]
-        neo_segment_new = Segment(name=rword(40),
-                                  description=rsentence(6, 7))
+        neo_segment_new = Segment(name=self.rword(40),
+                                  description=self.rsentence(6, 7))
         neo_block.segments.append(neo_segment_new)
         self.assertNotEqual(len(neo_block.segments), len(nix_block.groups))
 
@@ -184,9 +213,10 @@ class NixIOTest(unittest.TestCase):
 
         Test if block's metadata is written correctly.
         """
-        neo_block = Block(name=rword(44), description=rsentence(5))
-        neo_block.rec_datetime = rdate()
-        neo_block.file_datetime = rdate()
+        neo_block = Block(name=self.rword(44),
+                          description=self.rsentence(5))
+        neo_block.rec_datetime = self.rdate()
+        neo_block.file_datetime = self.rdate()
         neo_block.file_origin = "test_file_origin"
         self.io.write_block(neo_block)
         nix_block = self.io.nix_file.blocks[0]
@@ -213,8 +243,8 @@ class NixIOTest(unittest.TestCase):
         nrcg = 5
         nunits = 30
 
-        times = rquant(1, pq.s)
-        signal = rquant(1, pq.V)
+        times = self.rquant(1, pq.s)
+        signal = self.rquant(1, pq.V)
         blocks = []
         for blkidx in range(nblocks):
             blk = Block()
@@ -251,7 +281,7 @@ class NixIOTest(unittest.TestCase):
         """
         Write full data tree: Annotations only
         """
-        blk = create_all_annotated()
+        blk = self.create_all_annotated()
 
         nixblk = self.io.write_block(blk)
 
@@ -296,7 +326,7 @@ class NixIOTest(unittest.TestCase):
 
         Metadata hierarchy should mirror object hierarchy.
         """
-        blk = create_all_annotated()
+        blk = self.create_all_annotated()
         blk = self.io.write_block(blk)
 
         blkmd = blk.metadata
@@ -326,8 +356,8 @@ class NixIOTest(unittest.TestCase):
         seg = Segment()
 
         # create a spiketrain with some waveforms and attach it to a segment
-        wf_array = rquant((20, 5, 10), pq.mV)
-        times = rquant(20, pq.s, incr=True)+0.5*pq.s
+        wf_array = self.rquant((20, 5, 10), pq.mV)
+        times = self.rquant(20, pq.s, incr=True)+0.5*pq.s
         spkt = SpikeTrain(times, waveforms=wf_array,
                           name="spkt_with_waveform", t_stop=100.0,
                           t_start=0.5, left_sweep=5*pq.ms)
@@ -353,55 +383,58 @@ class NixIOTest(unittest.TestCase):
         """
         Write full data tree: Basic attributes test
         """
-        times = rquant(1, pq.s)
-        signal = rquant(1, pq.V)
-        blk = Block(name=rword(5), description=rsentence(2))
+        times = self.rquant(1, pq.s)
+        signal = self.rquant(1, pq.V)
+        blk = Block(name=self.rword(5), description=self.rsentence(2))
         blk.file_origin = "/home/user/data/blockfile"
-        populate_dates(blk)
+        self.populate_dates(blk)
 
-        seg = Segment(name=rword(4), description=rsentence(5))
-        populate_dates(seg)
+        seg = Segment(name=self.rword(4),
+                      description=self.rsentence(5))
+        self.populate_dates(seg)
         seg.file_origin = "/home/user/data/segfile"
         blk.segments.append(seg)
 
-        asig = AnalogSignal(name=rword(9),
-                            description=rsentence(4),
+        asig = AnalogSignal(name=self.rword(9),
+                            description=self.rsentence(4),
                             signal=signal, sampling_rate=pq.Hz)
         asig.file_origin = "/home/user/data/asigfile"
         seg.analogsignals.append(asig)
 
-        isig = IrregularlySampledSignal(name=rword(30),
-                                        description=rsentence(5, 7),
+        isig = IrregularlySampledSignal(name=self.rword(30),
+                                        description=self.rsentence(5, 7),
                                         times=times, signal=signal,
                                         time_units=pq.s)
         isig.file_origin = "/home/user/data/isigfile"
         seg.irregularlysampledsignals.append(isig)
 
-        epoch = Epoch(name=rword(14), description=rsentence(40, 10),
+        epoch = Epoch(name=self.rword(14), description=self.rsentence(40, 10),
                       times=times, durations=times)
         epoch.file_origin = "/home/user/data/epochfile"
         seg.epochs.append(epoch)
 
-        event = Event(name=rword(), description=rsentence(50, 3),
+        event = Event(name=self.rword(),
+                      description=self.rsentence(50, 3),
                       times=times)
         event.file_origin = "/home/user/data/eventfile"
         seg.events.append(event)
 
-        spiketrain = SpikeTrain(name=rword(20),
-                                description=rsentence(70, 5),
+        spiketrain = SpikeTrain(name=self.rword(20),
+                                description=self.rsentence(70, 5),
                                 times=times, t_stop=pq.s, units=pq.s)
         spiketrain.file_origin = "/home/user/data/spiketrainfile"
         seg.spiketrains.append(spiketrain)
 
         rcg = RecordingChannelGroup(
-            name=rsentence(3, 10),
-            description=rsentence(10, 8),
+            name=self.rsentence(3, 10),
+            description=self.rsentence(10, 8),
             channel_indexes=[1, 2]
         )
         rcg.file_origin = "/home/user/data/rcgfile"
         blk.recordingchannelgroups.append(rcg)
 
-        unit = Unit(name=rword(40), description=rsentence(30))
+        unit = Unit(name=self.rword(40),
+                    description=self.rsentence(30))
         unit.file_origin = "/home/user/data/unitfile"
         rcg.units.append(unit)
 
@@ -435,11 +468,11 @@ class NixIOTest(unittest.TestCase):
         # Test writing of all objects based on examples from the neo docs
         # api_reference.html
 
-        neo_block_a = Block(name=rword(10),
-                            description=rsentence(10))
+        neo_block_a = Block(name=self.rword(10),
+                            description=self.rsentence(10))
 
-        neo_block_b = Block(name=rword(3),
-                            description=rsentence(7, 20))
+        neo_block_b = Block(name=self.rword(3),
+                            description=self.rsentence(7, 20))
         neo_blocks = [neo_block_a, neo_block_b]
 
         for blk in neo_blocks:
@@ -447,21 +480,21 @@ class NixIOTest(unittest.TestCase):
                 seg = Segment(name="segment_{}".format(ind),
                               description="{} segment {}".format(blk.name, ind))
                 blk.segments.append(seg)
-                asig_data = rquant((100, 3), pq.mV)
+                asig_data = self.rquant((100, 3), pq.mV)
                 asignal = AnalogSignal(asig_data,
                                        name="some_sort_of_signal_{}".format(ind),
                                        t_start=0*pq.s,
                                        sampling_rate=10*pq.kHz)
                 seg.analogsignals.append(asignal)
 
-                isig_times = rquant(50, pq.ms, True)
-                isig_data = rquant((50, 10), pq.nA)
+                isig_times = self.rquant(50, pq.ms, True)
+                isig_data = self.rquant((50, 10), pq.nA)
                 isignal = IrregularlySampledSignal(isig_times, isig_data)
                 seg.irregularlysampledsignals.append(isignal)
 
         # create a spiketrain with some waveforms and attach it to a segment
-        wf_array = rquant((40, 10, 35), pq.mV)
-        seg_train_times = rquant(40, pq.s, True)
+        wf_array = self.rquant((40, 10, 35), pq.mV)
+        seg_train_times = self.rquant(40, pq.s, True)
         t_stop = max(seg_train_times)+10.0*pq.s
         seg_train = SpikeTrain(seg_train_times, waveforms=wf_array,
                                name="segment_spiketrain", t_stop=t_stop,
