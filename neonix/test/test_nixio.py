@@ -470,9 +470,10 @@ class NixIOWriteTest(NixIOTest):
     def test_all_write(self):
         """
         Write everything: Integration test with all features
+
+        Test writing of all objects based on examples from the neo docs
+        api_reference.html
         """
-        # Test writing of all objects based on examples from the neo docs
-        # api_reference.html
 
         neo_block_a = Block(name=self.rword(10),
                             description=self.rsentence(10))
@@ -788,9 +789,95 @@ class NixIOReadTest(NixIOTest):
 
         Simple Block with basic attributes.
         """
-        nix_block = self.nixfile.create_block(self.rword(), "neo.Block")
+        nix_block = self.nixfile.create_block(self.rword(), "neo.block")
         nix_block.definition = self.rsentence()
         neo_blocks = self.io.read_all_blocks()
         self.assertEqual(len(self.io.read_all_blocks()), 1)
         self.check_equal_attr(neo_blocks[0], nix_block)
 
+    def test_all_read(self):
+        """
+        Read everything: Integration test with all features
+
+        Write all objects to a using nix directly, read them using the NixIO
+        reader, and check for equality.
+        """
+        # TODO: include metadata and annotations
+        nix_block_a = self.nixfile.create_block(self.rword(10), "neo.block")
+        nix_block_a.definition = self.rsentence(5, 10)
+        nix_block_b = self.nixfile.create_block(self.rword(10), "neo.block")
+        nix_block_b.definition = self.rsentence(3, 3)
+
+        nix_block_a.metadata = self.nixfile.create_section(
+            nix_block_a.name, nix_block_a.name+".metadata"
+        )
+
+        nix_block_b.metadata = self.nixfile.create_section(
+            nix_block_b.name, nix_block_b.name+".metadata"
+        )
+
+        nix_blocks = [nix_block_a, nix_block_b]
+
+        for blk in nix_blocks:
+            for ind in range(5):
+                group = blk.create_group(self.rword(), "neo.segment")
+                group.definition = self.rsentence(10, 15)
+
+                group_md = blk.metadata.create_section(group.name,
+                                                       group.name+".metadata")
+                group.metadata = group_md
+
+                da_asig = blk.create_data_array(self.rword(10),
+                                                "neo.analogsignal",
+                                                data=self.rquant(100, 1))
+                da_asig.definition = self.rsentence(5, 5)
+                da_asig.unit = "mV"
+
+                da_asig_md = group_md.create_section(da_asig.name,
+                                                     da_asig.name+".metadata")
+                da_asig.metadata = da_asig_md
+
+                timedim = da_asig.append_sampled_dimension(0.01)
+                timedim.unit = "ms"
+                timedim.label = "time"
+                timedim.offset = 10
+                chandim = da_asig.append_set_dimension()
+                group.data_arrays.append(da_asig)
+
+                da_isig = blk.create_data_array(self.rword(10),
+                                                "neo.irregularlysampledsignal",
+                                                data=self.rquant(200, 1))
+                da_isig.definition = self.rsentence(10, 30)
+                da_isig.unit = "mV"
+
+                da_isig_md = group_md.create_section(da_isig.name,
+                                                     da_isig.name+".metadata")
+                da_isig.metadata = da_isig_md
+
+                timedim = da_asig.append_range_dimension(
+                    self.rquant(200, 1, True)
+                )
+                timedim.unit = "s"
+                timedim.label = "time"
+                chandim = da_isig.append_set_dimension()
+                group.data_arrays.append(da_isig)
+
+        stname = self.rword(20)
+        times = self.rquant(400, 1, True)
+        times_da = nix_blocks[0].create_data_array(
+            "{}.times".format(stname),
+            "neo.spiketrain.times",
+            data=times
+        )
+        times_da.unit = "ms"
+        mtag_st = nix_blocks[0].create_multi_tag(stname, "neo.spiketrain",
+                                                 times_da)
+        nix_blocks[0].groups[0].multi_tags.append(mtag_st)
+        mtag_st.definition = self.rsentence(20, 30)
+        mtag_st_md = nix_blocks[0].groups[0].metadata.create_section(
+            mtag_st.name, mtag_st.name+".metadata"
+        )
+        mtag_st.metadata = mtag_st_md
+        mtag_st_md.create_property("t_stop", nix.Value(max(times_da).item()+1))
+
+        neo_blocks = self.io.read_all_blocks()
