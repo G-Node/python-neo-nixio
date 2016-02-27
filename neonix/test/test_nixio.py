@@ -22,92 +22,10 @@ from neo.core import (Block, Segment, RecordingChannelGroup, AnalogSignal,
 from neonix.io.nixio import NixIO
 
 
-def rdate():
-    return datetime(year=np.random.randint(1980, 2020),
-                    month=np.random.randint(1, 13),
-                    day=np.random.randint(1, 29))
-
-
-def populate_dates(obj):
-    obj.file_datetime = rdate()
-    obj.rec_datetime = rdate()
-
-
-def rword(n=10):
-    return "".join(np.random.choice(list(string.ascii_letters), n))
-
-
-def rsentence(n=3, maxwl=10):
-    return " ".join(rword(np.random.randint(1, maxwl)) for _ in range(n))
-
-
-def rdict(nitems):
-    rd = dict()
-    for _ in range(nitems):
-        key = rword()
-        value = rword() if np.random.choice((0, 1)) \
-            else np.random.uniform()
-        rd[key] = value
-    return rd
-
-
-def rquant(shape, unit, incr=False):
-    try:
-        dim = len(shape)
-    except TypeError:
-        dim = 1
-    if incr and dim > 1:
-        raise TypeError("Shape of quantity array may only be one-dimensional "
-                        "when incremental values are requested.")
-    arr = np.random.random(shape)
-    if incr:
-        arr = np.array(np.cumsum(arr))
-    return arr*unit
-
-
-def create_all_annotated():
-    times = rquant(1, pq.s)
-    signal = rquant(1, pq.V)
-    blk = Block()
-    blk.annotate(**rdict(3))
-
-    seg = Segment()
-    seg.annotate(**rdict(4))
-    blk.segments.append(seg)
-
-    asig = AnalogSignal(signal=signal, sampling_rate=pq.Hz)
-    asig.annotate(**rdict(2))
-    seg.analogsignals.append(asig)
-
-    isig = IrregularlySampledSignal(times=times, signal=signal,
-                                    time_units=pq.s)
-    isig.annotate(**rdict(2))
-    seg.irregularlysampledsignals.append(isig)
-
-    epoch = Epoch(times=times, durations=times)
-    epoch.annotate(**rdict(4))
-    seg.epochs.append(epoch)
-
-    event = Event(times=times)
-    event.annotate(**rdict(4))
-    seg.events.append(event)
-
-    spiketrain = SpikeTrain(times=times, t_stop=pq.s, units=pq.s)
-    spiketrain.annotate(**rdict(6))
-    seg.spiketrains.append(spiketrain)
-
-    rcg = RecordingChannelGroup(channel_indexes=[1, 2])
-    rcg.annotate(**rdict(5))
-    blk.recordingchannelgroups.append(rcg)
-
-    unit = Unit()
-    unit.annotate(**rdict(2))
-    rcg.units.append(unit)
-
-    return blk
-
-
 class NixIOTest(unittest.TestCase):
+
+    filename = None
+    io = None
 
     def tearDown(self):
         del self.io
@@ -136,6 +54,94 @@ class NixIOTest(unittest.TestCase):
             nixmd = nixobj.metadata
             for k, v, in neoobj.annotations.items():
                 self.assertEqual(nixmd[k], v)
+
+    @staticmethod
+    def rdate():
+        return datetime(year=np.random.randint(1980, 2020),
+                        month=np.random.randint(1, 13),
+                        day=np.random.randint(1, 29))
+
+    @classmethod
+    def populate_dates(cls, obj):
+        obj.file_datetime = cls.rdate()
+        obj.rec_datetime = cls.rdate()
+
+    @staticmethod
+    def rword(n=10):
+        return "".join(np.random.choice(list(string.ascii_letters), n))
+
+
+    @classmethod
+    def rsentence(cls, n=3, maxwl=10):
+        return " ".join(cls.rword(np.random.randint(1, maxwl))
+                        for _ in range(n))
+
+    @classmethod
+    def rdict(cls, nitems):
+        rd = dict()
+        for _ in range(nitems):
+            key = cls.rword()
+            value = cls.rword() if np.random.choice((0, 1)) \
+                else np.random.uniform()
+            rd[key] = value
+        return rd
+
+    @staticmethod
+    def rquant(shape, unit, incr=False):
+        try:
+            dim = len(shape)
+        except TypeError:
+            dim = 1
+        if incr and dim > 1:
+            raise TypeError("Shape of quantity array may only be "
+                            "one-dimensional when incremental values are "
+                            "requested.")
+        arr = np.random.random(shape)
+        if incr:
+            arr = np.array(np.cumsum(arr))
+        return arr*unit
+
+    @classmethod
+    def create_all_annotated(cls):
+        times = cls.rquant(1, pq.s)
+        signal = cls.rquant(1, pq.V)
+        blk = Block()
+        blk.annotate(**cls.rdict(3))
+
+        seg = Segment()
+        seg.annotate(**cls.rdict(4))
+        blk.segments.append(seg)
+
+        asig = AnalogSignal(signal=signal, sampling_rate=pq.Hz)
+        asig.annotate(**cls.rdict(2))
+        seg.analogsignals.append(asig)
+
+        isig = IrregularlySampledSignal(times=times, signal=signal,
+                                        time_units=pq.s)
+        isig.annotate(**cls.rdict(2))
+        seg.irregularlysampledsignals.append(isig)
+
+        epoch = Epoch(times=times, durations=times)
+        epoch.annotate(**cls.rdict(4))
+        seg.epochs.append(epoch)
+
+        event = Event(times=times)
+        event.annotate(**cls.rdict(4))
+        seg.events.append(event)
+
+        spiketrain = SpikeTrain(times=times, t_stop=pq.s, units=pq.s)
+        spiketrain.annotate(**cls.rdict(6))
+        seg.spiketrains.append(spiketrain)
+
+        rcg = RecordingChannelGroup(channel_indexes=[1, 2])
+        rcg.annotate(**cls.rdict(5))
+        blk.recordingchannelgroups.append(rcg)
+
+        unit = Unit()
+        unit.annotate(**cls.rdict(2))
+        rcg.units.append(unit)
+
+        return blk
 
 
 class NixIOWriteTest(NixIOTest):
@@ -782,8 +788,8 @@ class NixIOReadTest(NixIOTest):
 
         Simple Block with basic attributes.
         """
-        nix_block = self.nixfile.create_block(name=self.rword(),
-                                              desription=self.rsentence())
+        nix_block = self.nixfile.create_block(self.rword(), "neo.Block")
+        nix_block.definition = self.rsentence()
         neo_blocks = self.io.read_all_blocks()
         self.assertEqual(len(self.io.read_all_blocks()), 1)
         self.check_equal_attr(neo_blocks[0], nix_block)
