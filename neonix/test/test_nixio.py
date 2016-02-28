@@ -14,6 +14,7 @@ import unittest
 import numpy as np
 import quantities as pq
 import string
+import itertools
 
 import nix
 from neo.core import (Block, Segment, RecordingChannelGroup, AnalogSignal,
@@ -69,7 +70,6 @@ class NixIOTest(unittest.TestCase):
     @staticmethod
     def rword(n=10):
         return "".join(np.random.choice(list(string.ascii_letters), n))
-
 
     @classmethod
     def rsentence(cls, n=3, maxwl=10):
@@ -792,7 +792,7 @@ class NixIOReadTest(NixIOTest):
         nix_block = self.nixfile.create_block(self.rword(), "neo.block")
         nix_block.definition = self.rsentence()
         neo_blocks = self.io.read_all_blocks()
-        self.assertEqual(len(self.io.read_all_blocks()), 1)
+        self.assertEqual(len(neo_blocks), 1)
         self.check_equal_attr(neo_blocks[0], nix_block)
 
     def test_all_read(self):
@@ -827,40 +827,52 @@ class NixIOReadTest(NixIOTest):
                                                        group.name+".metadata")
                 group.metadata = group_md
 
-                da_asig = blk.create_data_array(self.rword(10),
-                                                "neo.analogsignal",
-                                                data=self.rquant(100, 1))
-                da_asig.definition = self.rsentence(5, 5)
-                da_asig.unit = "mV"
+                for n in range(5):
+                    asig_name = "{}_asig{}".format(self.rword(10), n)
+                    asig_definition = self.rsentence(5, 5)
+                    asig_md = group_md.create_section(asig_name,
+                                                      asig_name+".metadata")
+                    for idx in range(3):
+                        da_asig = blk.create_data_array(
+                            "{}.{}".format(asig_name, idx),
+                            "neo.analogsignal",
+                            data=self.rquant(100, 1)
+                        )
+                        da_asig.definition = asig_definition
+                        da_asig.unit = "mV"
 
-                da_asig_md = group_md.create_section(da_asig.name,
-                                                     da_asig.name+".metadata")
-                da_asig.metadata = da_asig_md
+                        da_asig.metadata = asig_md
 
-                timedim = da_asig.append_sampled_dimension(0.01)
-                timedim.unit = "ms"
-                timedim.label = "time"
-                timedim.offset = 10
-                chandim = da_asig.append_set_dimension()
-                group.data_arrays.append(da_asig)
+                        timedim = da_asig.append_sampled_dimension(0.01)
+                        timedim.unit = "ms"
+                        timedim.label = "time"
+                        timedim.offset = 10
+                        chandim = da_asig.append_set_dimension()
+                        group.data_arrays.append(da_asig)
 
-                da_isig = blk.create_data_array(self.rword(10),
-                                                "neo.irregularlysampledsignal",
-                                                data=self.rquant(200, 1))
-                da_isig.definition = self.rsentence(10, 30)
-                da_isig.unit = "mV"
+                for n in range(2):
+                    isig_name = "{}_isig{}".format(self.rword(10), n)
+                    isig_definition = self.rsentence(12, 12)
+                    isig_md = group_md.create_section(isig_name,
+                                                      isig_name+".metadata")
+                    for idx in range(10):
+                        da_isig = blk.create_data_array(
+                            "{}.{}".format(isig_name, idx),
+                            "neo.irregularlysampledsignal",
+                            data=self.rquant(200, 1)
+                        )
+                        da_isig.definition = isig_definition
+                        da_isig.unit = "mV"
 
-                da_isig_md = group_md.create_section(da_isig.name,
-                                                     da_isig.name+".metadata")
-                da_isig.metadata = da_isig_md
+                        da_isig.metadata = isig_md
 
-                timedim = da_isig.append_range_dimension(
-                    self.rquant(200, 1, True)
-                )
-                timedim.unit = "s"
-                timedim.label = "time"
-                chandim = da_isig.append_set_dimension()
-                group.data_arrays.append(da_isig)
+                        timedim = da_isig.append_range_dimension(
+                            self.rquant(200, 1, True)
+                        )
+                        timedim.unit = "s"
+                        timedim.label = "time"
+                        chandim = da_isig.append_set_dimension()
+                        group.data_arrays.append(da_isig)
 
         stname = self.rword(20)
         times = self.rquant(400, 1, True)
@@ -887,3 +899,31 @@ class NixIOReadTest(NixIOTest):
             self.check_equal_attr(neo_block, nix_block)
             for neo_seg, nix_grp in zip(neo_block.segments, nix_block.groups):
                 self.check_equal_attr(neo_seg, nix_grp)
+
+                neo_asigs = neo_seg.analogsignals
+                for neo_asig in neo_asigs:
+                    for idx in itertools.count():
+                        nix_name = "{}.{}".format(neo_asig.name, idx)
+                        if nix_name not in nix_grp.data_arrays:
+                            break
+                        nix_asig = nix_grp.data_arrays[nix_name]
+                        self.check_equal_attr(neo_asig, nix_asig)
+                        neo_data = np.transpose(neo_asig)[idx].magnitude
+                        for nix_value, neo_value in zip(nix_asig, neo_data):
+                            self.assertAlmostEqual(nix_value, neo_value)
+
+                        # TODO: Units and time dimension
+
+                neo_isigs = neo_seg.irregularlysampledsignals
+                for neo_isig in neo_isigs:
+                    for idx in itertools.count():
+                        nix_name = "{}.{}".format(neo_isig.name, idx)
+                        if nix_name not in nix_grp.data_arrays:
+                            break
+                        nix_isig = nix_grp.data_arrays[nix_name]
+                        self.check_equal_attr(neo_isig, nix_isig)
+                        neo_data = np.transpose(neo_isig)[idx].magnitude
+                        for nix_value, neo_value in zip(nix_isig, neo_data):
+                            self.assertAlmostEqual(nix_value, neo_value)
+
+                        # TODO: Units and time dimension
