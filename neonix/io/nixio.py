@@ -908,7 +908,7 @@ class NixIO(BaseIO):
                 else:
                     neo_attrs[prop.name] = list(v.value for v in values)
 
-        if hasattr(nix_obj, "created_at"):
+        if isinstance(nix_obj, (nix.Block, nix.Group)):
             neo_attrs["rec_datetime"] = datetime.fromtimestamp(
                 nix_obj.created_at)
         if "file_datetime" in neo_attrs:
