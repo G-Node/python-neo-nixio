@@ -185,7 +185,10 @@ class NixIO(BaseIO):
         :param nix_da_group: a list of NIX DataArray objects
         :return: a Neo Signal object
         """
+        # TODO: Handle NIX signals which share name with number suffix
+        nix_da_group = sorted(nix_da_group, key=lambda d: d.name)
         neo_attrs = NixIO._nix_attr_to_neo(nix_da_group[0])
+        neo_attrs["name"] = nix_da_group[0].metadata.name
         unit = nix_da_group[0].unit
         # TODO: Make sure all DAs have the same unit
         neo_type = nix_da_group[0].type
