@@ -47,6 +47,11 @@ class NixIOTest(unittest.TestCase):
 
     def compare_signals_das(self, neosignals, data_arrays):
         for asig in neosignals:
+            if not asig.name:
+                from warnings import warn
+                warn("Anonymous signal. Skipping check.")
+                # TODO: Handle anonymous signals
+                continue
             neoname = asig.name
             dalist = list()
             for idx in itertools.count():
@@ -55,9 +60,11 @@ class NixIOTest(unittest.TestCase):
                     dalist.append(data_arrays[nixname])
                 else:
                     break
-            self.compare_signal_dataarrays(asig, dalist)
+            _, nasig = np.shape(asig)
+            self.assertEqual(nasig, len(dalist))
+            self.compare_signal_dalist(asig, dalist)
 
-    def compare_signal_dataarrays(self, neosig, nixdalist):
+    def compare_signal_dalist(self, neosig, nixdalist):
         """
         Check if a Neo Analog or IrregularlySampledSignal matches a list of
         NIX DataArrays.
@@ -93,6 +100,55 @@ class NixIOTest(unittest.TestCase):
                 self.assertEqual(timedim.unit,
                                  str(sig.ticks.dimensionality))
             self.assertIsInstance(chandim, nix.SetDimension)
+
+    def compare_eest_mtag(self, eest, mtag):
+        if isinstance(eest, Epoch):
+            self.compare_epoch_mtag(eest, mtag)
+        elif isinstance(eest, Event):
+            self.compare_event_mtag(eest, mtag)
+        elif isinstance(eest, SpikeTrain):
+            self.compare_spiketrain_mtag(eest, mtag)
+
+    def compare_epoch_mtag(self, epoch, mtag):
+        self.assertEqual(mtag.type, "neo.epoch")
+        self.compare_attr(epoch, mtag)
+        for neot, nixt in zip(epoch.times.magnitude, mtag.positions):
+            self.assertAlmostEqual(neot, nixt)
+        for neod, nixd in zip(epoch.durations.magnitude, mtag.extents):
+            self.assertAlmostEqual(neod, nixd)
+        self.assertEqual(mtag.positions.unit, str(epoch.units.dimensionality))
+        self.assertEqual(mtag.extents.unit, str(epoch.units.dimensionality))
+        for neol, nixl in zip(epoch.labels,
+                              mtag.positions.dimensions[0].labels):
+            self.assertEqual(neol, nixl)
+
+    def compare_event_mtag(self, event, mtag):
+        self.assertEqual(mtag.type, "neo.event")
+        self.compare_attr(event, mtag)
+        for neot, nixt in zip(event.times.magnitude, mtag.positions):
+            self.assertAlmostEqual(neot, nixt)
+        self.assertEqual(mtag.positions.unit, str(event.units.dimensionality))
+        for neol, nixl in zip(event.labels,
+                              mtag.positions.dimensions[0].labels):
+            self.assertEqual(neol, nixl)
+
+    def compare_spiketrain_mtag(self, spiketrain, mtag):
+        self.assertEqual(mtag.type, "neo.spiketrain")
+        self.compare_attr(spiketrain, mtag)
+        for neov, nixv in zip(spiketrain.times.magnitude, mtag.positions):
+            self.assertAlmostEqual(neov, nixv)
+        if len(mtag.features):
+            neowf = spiketrain.waveforms
+            nixwf = mtag.features[0].data
+            self.assertEqual(np.shape(neowf), np.shape(nixwf))
+            self.assertEqual(nixwf.unit, str(neowf.units.dimensionality))
+            for neospk, nixspk in zip(neowf, nixwf):
+                for neochan, nixchan in zip(neospk, nixspk):
+                    for neov, nixv in zip(neochan, nixchan):
+                        self.assertAlmostEqual(neov, nixv)
+            self.assertIsInstance(nixwf.dimensions[0], nix.SetDimension)
+            self.assertIsInstance(nixwf.dimensions[1], nix.SetDimension)
+            self.assertIsInstance(nixwf.dimensions[2], nix.SampledDimension)
 
     def compare_attr(self, neoobj, nixobj):
         if neoobj.name:
@@ -624,7 +680,7 @@ class NixIOWriteTest(NixIOTest):
         nix_blocks = self.io.write_all_blocks(neo_blocks)
 
         # ================== TESTING WRITTEN DATA ==================
-
+        self.compare_blocks(neo_blocks, nix_blocks)
         for nixblk, neoblk in zip(nix_blocks, neo_blocks):
             self.assertEqual(nixblk.type, "neo.block")
             self.compare_attr(neoblk, nixblk)
