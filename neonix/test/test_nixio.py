@@ -33,8 +33,29 @@ class NixIOTest(unittest.TestCase):
         if os.path.exists(self.filename):
             os.remove(self.filename)
 
+    def compare_blocks(self, neoblocks, nixblocks):
+        for neoblock, nixblock in zip(neoblocks, nixblocks):
+            self.check_equal_attr(neoblock, nixblock)
+            for neoseg, nixgroup in zip(neoblock.segments, nixblock.groups):
+                self.check_segment_group(neoseg, nixgroup)
+
     def check_segment_group(self, neoseg, nixgroup):
-        pass
+        self.check_equal_attr(neoseg, nixgroup)
+        self.check_signals_das(neoseg.analogsignals, nixgroup.data_arrays)
+        self.check_signals_das(neoseg.irregularlysampledsignals,
+                               nixgroup.data_arrays)
+
+    def check_signals_das(self, neosignals, data_arrays):
+        for asig in neosignals:
+            neoname = asig.name
+            dalist = list()
+            for idx in itertools.count():
+                nixname = "{}.{}".format(neoname, idx)
+                if nixname in data_arrays:
+                    dalist.append(data_arrays[nixname])
+                else:
+                    break
+            self.check_signal_dataarrays(asig, dalist)
 
     def check_signal_dataarrays(self, neosig, nixdalist):
         """
@@ -45,7 +66,7 @@ class NixIOTest(unittest.TestCase):
         :param nixdalist: List of DataArrays
         """
         nixmd = nixdalist[0].metadata
-        self.assertTrue(all(nixmd is da.metadata for da in nixdalist))
+        self.assertTrue(all(nixmd == da.metadata for da in nixdalist))
         neounit = str(neosig.dimensionality)
         for sig, da in zip(np.transpose(neosig),
                            sorted(nixdalist, key=lambda d: d.name)):
@@ -834,6 +855,7 @@ class NixIOReadTest(NixIOTest):
         neo_blocks = self.io.read_all_blocks()
         self.assertEqual(len(neo_blocks), 1)
         self.check_equal_attr(neo_blocks[0], nix_block)
+        self.compare_blocks(neo_blocks, [nix_block])
 
     def test_all_read(self):
         """
@@ -932,38 +954,5 @@ class NixIOReadTest(NixIOTest):
         mtag_st.metadata = mtag_st_md
         mtag_st_md.create_property("t_stop", nix.Value(max(times_da).item()+1))
 
-        # ===== Read and validate =====
-
         neo_blocks = self.io.read_all_blocks()
-        for neo_block, nix_block in zip(neo_blocks, nix_blocks):
-            self.check_equal_attr(neo_block, nix_block)
-            for neo_seg, nix_grp in zip(neo_block.segments, nix_block.groups):
-                self.check_equal_attr(neo_seg, nix_grp)
-
-                neo_asigs = neo_seg.analogsignals
-                for neo_asig in neo_asigs:
-                    for idx in itertools.count():
-                        nix_name = "{}.{}".format(neo_asig.name, idx)
-                        if nix_name not in nix_grp.data_arrays:
-                            break
-                        nix_asig = nix_grp.data_arrays[nix_name]
-                        self.check_equal_attr(neo_asig, nix_asig)
-                        neo_data = np.transpose(neo_asig)[idx].magnitude
-                        for nix_value, neo_value in zip(nix_asig, neo_data):
-                            self.assertAlmostEqual(nix_value, neo_value)
-
-                        # TODO: Units and time dimension
-
-                neo_isigs = neo_seg.irregularlysampledsignals
-                for neo_isig in neo_isigs:
-                    for idx in itertools.count():
-                        nix_name = "{}.{}".format(neo_isig.name, idx)
-                        if nix_name not in nix_grp.data_arrays:
-                            break
-                        nix_isig = nix_grp.data_arrays[nix_name]
-                        self.check_equal_attr(neo_isig, nix_isig)
-                        neo_data = np.transpose(neo_isig)[idx].magnitude
-                        for nix_value, neo_value in zip(nix_isig, neo_data):
-                            self.assertAlmostEqual(nix_value, neo_value)
-
-                        # TODO: Units and time dimension
+        self.compare_blocks(neo_blocks, nix_blocks)
