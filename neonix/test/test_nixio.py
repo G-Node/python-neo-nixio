@@ -33,29 +33,6 @@ class NixIOTest(unittest.TestCase):
         if os.path.exists(self.filename):
             os.remove(self.filename)
 
-    def check_equal_attr(self, neoobj, nixobj):
-        if neoobj.name:
-            if isinstance(neoobj, (AnalogSignal, IrregularlySampledSignal)):
-                nix_name = ".".join(nixobj.name.split(".")[:-1])
-            else:
-                nix_name = nixobj.name
-            self.assertEqual(neoobj.name, nix_name)
-        self.assertEqual(neoobj.description, nixobj.definition)
-        if hasattr(neoobj, "rec_datetime") and neoobj.rec_datetime:
-            self.assertEqual(neoobj.rec_datetime,
-                             datetime.fromtimestamp(nixobj.created_at))
-        if hasattr(neoobj, "file_datetime") and neoobj.file_datetime:
-            self.assertEqual(neoobj.file_datetime,
-                             datetime.fromtimestamp(
-                                 nixobj.metadata["file_datetime"]))
-        if neoobj.file_origin:
-            self.assertEqual(neoobj.file_origin,
-                             nixobj.metadata["file_origin"])
-        if neoobj.annotations:
-            nixmd = nixobj.metadata
-            for k, v, in neoobj.annotations.items():
-                self.assertEqual(nixmd[k], v)
-
     def check_signal_dataarrays(self, neosig, dalist):
         """
         Check if a Neo Analog or IrregularlySampledSignal matches a list of
@@ -92,6 +69,29 @@ class NixIOTest(unittest.TestCase):
                 self.assertEqual(timedim.unit,
                                  str(sig.ticks.dimensionality))
             self.assertIsInstance(chandim, nix.SetDimension)
+
+    def check_equal_attr(self, neoobj, nixobj):
+        if neoobj.name:
+            if isinstance(neoobj, (AnalogSignal, IrregularlySampledSignal)):
+                nix_name = ".".join(nixobj.name.split(".")[:-1])
+            else:
+                nix_name = nixobj.name
+            self.assertEqual(neoobj.name, nix_name)
+        self.assertEqual(neoobj.description, nixobj.definition)
+        if hasattr(neoobj, "rec_datetime") and neoobj.rec_datetime:
+            self.assertEqual(neoobj.rec_datetime,
+                             datetime.fromtimestamp(nixobj.created_at))
+        if hasattr(neoobj, "file_datetime") and neoobj.file_datetime:
+            self.assertEqual(neoobj.file_datetime,
+                             datetime.fromtimestamp(
+                                 nixobj.metadata["file_datetime"]))
+        if neoobj.file_origin:
+            self.assertEqual(neoobj.file_origin,
+                             nixobj.metadata["file_origin"])
+        if neoobj.annotations:
+            nixmd = nixobj.metadata
+            for k, v, in neoobj.annotations.items():
+                self.assertEqual(nixmd[k], v)
 
     @staticmethod
     def rdate():
