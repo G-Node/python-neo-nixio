@@ -56,6 +56,43 @@ class NixIOTest(unittest.TestCase):
             for k, v, in neoobj.annotations.items():
                 self.assertEqual(nixmd[k], v)
 
+    def check_signal_dataarrays(self, neosig, dalist):
+        """
+        Check if a Neo Analog or IrregularlySampledSignal matches a list of
+        NIX DataArrays.
+
+        :param neosig: Neo Analog or IrregularlySampledSignal
+        :param dalist: List of DataArrays
+        """
+        nixmd = dalist[0].metadata
+        self.assertTrue(all(nixmd is da.metadata for da in dalist))
+        neounit = str(neosig.dimensionality)
+        for sig, da in zip(np.transpose(neosig),
+                           sorted(dalist, key=lambda d: d.name)):
+            self.check_equal_attr(neosig, da)
+            for neov, nixv in zip(sig, da):
+                self.assertAlmostEqual(neov, nixv)
+            self.assertEqual(neounit, da.unit)
+            timedim = da.dimensions[0]
+            chandim = da.dimensions[1]
+            if isinstance(sig, AnalogSignal):
+                self.assertIsInstance(timedim, nix.SampledDimension)
+                self.assertAlmostEqual(timedim.sampling_interval,
+                                       sig.sampling_period.magnitude)
+                self.assertEqual(timedim.unit,
+                                 str(sig.sampling_period.dimensionality))
+                self.assertAlmostEqual(timedim.offset, sig.t_start.magnitude)
+                self.assertAlmostEqual(timedim.unit,
+                                       str(sig.sampling_period.dimensionality))
+            elif isinstance(sig, IrregularlySampledSignal):
+                self.assertIsInstance(timedim, nix.RangeDimension)
+                for neot, nixt in zip(sig.times.magnitude,
+                                      timedim.ticks):
+                    self.assertAlmostEqual(neot, nixt)
+                self.assertEqual(timedim.unit,
+                                 str(sig.ticks.dimensionality))
+            self.assertIsInstance(chandim, nix.SetDimension)
+
     @staticmethod
     def rdate():
         return datetime(year=np.random.randint(1980, 2020),
