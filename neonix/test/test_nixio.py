@@ -33,19 +33,22 @@ class NixIOTest(unittest.TestCase):
         if os.path.exists(self.filename):
             os.remove(self.filename)
 
-    def check_signal_dataarrays(self, neosig, dalist):
+    def check_segment_group(self, neoseg, nixgroup):
+        pass
+
+    def check_signal_dataarrays(self, neosig, nixdalist):
         """
         Check if a Neo Analog or IrregularlySampledSignal matches a list of
         NIX DataArrays.
 
         :param neosig: Neo Analog or IrregularlySampledSignal
-        :param dalist: List of DataArrays
+        :param nixdalist: List of DataArrays
         """
-        nixmd = dalist[0].metadata
-        self.assertTrue(all(nixmd is da.metadata for da in dalist))
+        nixmd = nixdalist[0].metadata
+        self.assertTrue(all(nixmd is da.metadata for da in nixdalist))
         neounit = str(neosig.dimensionality)
         for sig, da in zip(np.transpose(neosig),
-                           sorted(dalist, key=lambda d: d.name)):
+                           sorted(nixdalist, key=lambda d: d.name)):
             self.check_equal_attr(neosig, da)
             for neov, nixv in zip(sig, da):
                 self.assertAlmostEqual(neov, nixv)
