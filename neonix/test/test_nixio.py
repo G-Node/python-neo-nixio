@@ -38,6 +38,9 @@ class NixIOTest(unittest.TestCase):
             self.compare_attr(neoblock, nixblock)
             for neoseg, nixgroup in zip(neoblock.segments, nixblock.groups):
                 self.compare_segment_group(neoseg, nixgroup)
+            for neorcg, nixsrc in zip(neoblock.recordingchannelgroups,
+                                      nixblock.sources):
+                pass
 
     def compare_segment_group(self, neoseg, nixgroup):
         self.compare_attr(neoseg, nixgroup)
