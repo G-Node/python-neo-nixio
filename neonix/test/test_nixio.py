@@ -35,17 +35,17 @@ class NixIOTest(unittest.TestCase):
 
     def compare_blocks(self, neoblocks, nixblocks):
         for neoblock, nixblock in zip(neoblocks, nixblocks):
-            self.check_equal_attr(neoblock, nixblock)
+            self.compare_attr(neoblock, nixblock)
             for neoseg, nixgroup in zip(neoblock.segments, nixblock.groups):
-                self.check_segment_group(neoseg, nixgroup)
+                self.compare_segment_group(neoseg, nixgroup)
 
-    def check_segment_group(self, neoseg, nixgroup):
-        self.check_equal_attr(neoseg, nixgroup)
-        self.check_signals_das(neoseg.analogsignals, nixgroup.data_arrays)
-        self.check_signals_das(neoseg.irregularlysampledsignals,
-                               nixgroup.data_arrays)
+    def compare_segment_group(self, neoseg, nixgroup):
+        self.compare_attr(neoseg, nixgroup)
+        self.compare_signals_das(neoseg.analogsignals, nixgroup.data_arrays)
+        self.compare_signals_das(neoseg.irregularlysampledsignals,
+                                 nixgroup.data_arrays)
 
-    def check_signals_das(self, neosignals, data_arrays):
+    def compare_signals_das(self, neosignals, data_arrays):
         for asig in neosignals:
             neoname = asig.name
             dalist = list()
@@ -55,9 +55,9 @@ class NixIOTest(unittest.TestCase):
                     dalist.append(data_arrays[nixname])
                 else:
                     break
-            self.check_signal_dataarrays(asig, dalist)
+            self.compare_signal_dataarrays(asig, dalist)
 
-    def check_signal_dataarrays(self, neosig, nixdalist):
+    def compare_signal_dataarrays(self, neosig, nixdalist):
         """
         Check if a Neo Analog or IrregularlySampledSignal matches a list of
         NIX DataArrays.
@@ -70,7 +70,7 @@ class NixIOTest(unittest.TestCase):
         neounit = str(neosig.dimensionality)
         for sig, da in zip(np.transpose(neosig),
                            sorted(nixdalist, key=lambda d: d.name)):
-            self.check_equal_attr(neosig, da)
+            self.compare_attr(neosig, da)
             for neov, nixv in zip(sig, da):
                 self.assertAlmostEqual(neov, nixv)
             self.assertEqual(neounit, da.unit)
@@ -94,7 +94,7 @@ class NixIOTest(unittest.TestCase):
                                  str(sig.ticks.dimensionality))
             self.assertIsInstance(chandim, nix.SetDimension)
 
-    def check_equal_attr(self, neoobj, nixobj):
+    def compare_attr(self, neoobj, nixobj):
         if neoobj.name:
             if isinstance(neoobj, (AnalogSignal, IrregularlySampledSignal)):
                 nix_name = ".".join(nixobj.name.split(".")[:-1])
@@ -221,7 +221,7 @@ class NixIOWriteTest(NixIOTest):
                           description=self.rsentence())
         nix_block = self.io.write_block(neo_block)
         self.assertEqual(nix_block.type, "neo.block")
-        self.check_equal_attr(neo_block, nix_block)
+        self.compare_attr(neo_block, nix_block)
 
     def test_block_cascade_write(self):
         """
@@ -246,15 +246,15 @@ class NixIOWriteTest(NixIOTest):
 
         # block -> block base attr
         self.assertEqual(nix_block.type, "neo.block")
-        self.check_equal_attr(neo_block, nix_block)
+        self.compare_attr(neo_block, nix_block)
 
         # segment -> group base attr
         self.assertEqual(nix_group.type, "neo.segment")
-        self.check_equal_attr(neo_segment, nix_group)
+        self.compare_attr(neo_segment, nix_group)
 
         # rcg -> source base attr
         self.assertEqual(nix_source.type, "neo.recordingchannelgroup")
-        self.check_equal_attr(neo_rcg, nix_source)
+        self.compare_attr(neo_rcg, nix_source)
 
     def test_container_len_neq_write(self):
         """
@@ -288,7 +288,7 @@ class NixIOWriteTest(NixIOTest):
         self.io.write_block(neo_block)
         nix_block = self.io.nix_file.blocks[0]
 
-        self.check_equal_attr(neo_block, nix_block)
+        self.compare_attr(neo_block, nix_block)
 
     def test_anonymous_objects_write(self):
         """
@@ -352,40 +352,40 @@ class NixIOWriteTest(NixIOTest):
 
         nixblk = self.io.write_block(blk)
 
-        self.check_equal_attr(blk, nixblk)
+        self.compare_attr(blk, nixblk)
 
         seg = blk.segments[0]
-        self.check_equal_attr(seg, nixblk.groups[0])
+        self.compare_attr(seg, nixblk.groups[0])
 
         asig = seg.analogsignals[0]
         for signal in [da for da in nixblk.data_arrays
                        if da.type == "neo.analogsignal"]:
-            self.check_equal_attr(asig, signal)
+            self.compare_attr(asig, signal)
 
         isig = seg.irregularlysampledsignals[0]
         for signal in [da for da in nixblk.data_arrays
                        if da.type == "neo.irregularlysampledsignal"]:
-            self.check_equal_attr(isig, signal)
+            self.compare_attr(isig, signal)
 
         epoch = seg.epochs[0]
         nixepochs = [mtag for mtag in nixblk.groups[0].multi_tags
                      if mtag.type == "neo.epoch"]
-        self.check_equal_attr(epoch, nixepochs[0])
+        self.compare_attr(epoch, nixepochs[0])
 
         event = seg.events[0]
         nixevents = [mtag for mtag in nixblk.groups[0].multi_tags
                      if mtag.type == "neo.event"]
-        self.check_equal_attr(event, nixevents[0])
+        self.compare_attr(event, nixevents[0])
 
         spiketrain = seg.spiketrains[0]
         nixspiketrains = [mtag for mtag in nixblk.groups[0].multi_tags
                           if mtag.type == "neo.spiketrain"]
-        self.check_equal_attr(spiketrain, nixspiketrains[0])
+        self.compare_attr(spiketrain, nixspiketrains[0])
 
         rcg = blk.recordingchannelgroups[0]
         nixrcgs = [src for src in nixblk.sources
                    if src.type == "neo.recordingchannelgroup"]
-        self.check_equal_attr(rcg, nixrcgs[0])
+        self.compare_attr(rcg, nixrcgs[0])
 
     def test_metadata_structure_write(self):
         """
@@ -507,26 +507,26 @@ class NixIOWriteTest(NixIOTest):
 
         nixblk = self.io.write_block(blk)
 
-        self.check_equal_attr(blk, nixblk)
-        self.check_equal_attr(seg, nixblk.groups[0])
+        self.compare_attr(blk, nixblk)
+        self.compare_attr(seg, nixblk.groups[0])
         for signal in [da for da in nixblk.data_arrays
                        if da.type == "neo.analogsignal"]:
-            self.check_equal_attr(asig, signal)
+            self.compare_attr(asig, signal)
         for signal in [da for da in nixblk.data_arrays
                        if da.type == "neo.irregularlysampledsignal"]:
-            self.check_equal_attr(isig, signal)
+            self.compare_attr(isig, signal)
         nixepochs = [mtag for mtag in nixblk.groups[0].multi_tags
                      if mtag.type == "neo.epoch"]
-        self.check_equal_attr(epoch, nixepochs[0])
+        self.compare_attr(epoch, nixepochs[0])
         nixevents = [mtag for mtag in nixblk.groups[0].multi_tags
                      if mtag.type == "neo.event"]
-        self.check_equal_attr(event, nixevents[0])
+        self.compare_attr(event, nixevents[0])
         nixspiketrains = [mtag for mtag in nixblk.groups[0].multi_tags
                           if mtag.type == "neo.spiketrain"]
-        self.check_equal_attr(spiketrain, nixspiketrains[0])
+        self.compare_attr(spiketrain, nixspiketrains[0])
         nixrcgs = [src for src in nixblk.sources
                    if src.type == "neo.recordingchannelgroup"]
-        self.check_equal_attr(rcg, nixrcgs[0])
+        self.compare_attr(rcg, nixrcgs[0])
 
     def test_all_write(self):
         """
@@ -627,10 +627,10 @@ class NixIOWriteTest(NixIOTest):
 
         for nixblk, neoblk in zip(nix_blocks, neo_blocks):
             self.assertEqual(nixblk.type, "neo.block")
-            self.check_equal_attr(neoblk, nixblk)
+            self.compare_attr(neoblk, nixblk)
 
             for nixgrp, neoseg in zip(nixblk.groups, neoblk.segments):
-                self.check_equal_attr(neoseg, nixgrp)
+                self.compare_attr(neoseg, nixgrp)
                 nix_analog_signals = [da for da in nixgrp.data_arrays
                                       if da.type == "neo.analogsignal"]
                 nix_analog_signals = sorted(nix_analog_signals,
@@ -652,8 +652,8 @@ class NixIOWriteTest(NixIOTest):
 
                 for nixasig, neoasig in zip(nix_analog_signals,
                                             neo_analog_signals):
-                    self.check_equal_attr(neoseg.analogsignals[0],
-                                          nixasig)
+                    self.compare_attr(neoseg.analogsignals[0],
+                                      nixasig)
                     self.assertEqual(nixasig.unit, "mV")
                     self.assertIs(nixasig.dimensions[0].dimension_type,
                                   nix.DimensionType.Sample)
@@ -671,8 +671,8 @@ class NixIOWriteTest(NixIOTest):
 
                 for nixisig, neoisig in zip(nix_irreg_signals,
                                             neo_irreg_signals):
-                    self.check_equal_attr(neoseg.irregularlysampledsignals[0],
-                                          nixisig)
+                    self.compare_attr(neoseg.irregularlysampledsignals[0],
+                                      nixisig)
                     self.assertEqual(nixisig.unit, "nA")
                     self.assertIs(nixisig.dimensions[0].dimension_type,
                                   nix.DimensionType.Range)
@@ -693,7 +693,7 @@ class NixIOWriteTest(NixIOTest):
         # spiketrains and waveforms
         neo_spiketrain = neo_blocks[0].segments[0].spiketrains[0]
         nix_spiketrain = nix_blocks[0].groups[0].multi_tags[neo_spiketrain.name]
-        self.check_equal_attr(neo_spiketrain, nix_spiketrain)
+        self.compare_attr(neo_spiketrain, nix_spiketrain)
 
         self.assertEqual(len(nix_spiketrain.positions),
                          len(neo_spiketrain))
@@ -735,7 +735,7 @@ class NixIOWriteTest(NixIOTest):
         # RCGs
         # - Octotrode
         nix_octotrode = nix_blocks[1].sources["octotrode A"]
-        self.check_equal_attr(octotrode_rcg, nix_octotrode)
+        self.compare_attr(octotrode_rcg, nix_octotrode)
         nix_channels = nix_octotrode.sources
         self.assertEqual(len(nix_channels),
                          len(octotrode_rcg.channel_indexes))
@@ -759,7 +759,7 @@ class NixIOWriteTest(NixIOTest):
 
         # - Spiketrain Container
         nix_pyram_rcg = nix_blocks[1].sources["PyramRCG"]
-        self.check_equal_attr(spiketrain_container_rcg, nix_pyram_rcg)
+        self.compare_attr(spiketrain_container_rcg, nix_pyram_rcg)
         nix_channels = nix_pyram_rcg.sources
         self.assertEqual(len(nix_channels),
                          len(spiketrain_container_rcg.channel_indexes))
@@ -770,7 +770,7 @@ class NixIOWriteTest(NixIOTest):
 
         # - Pyramidal neuron Unit
         nix_pyram_nrn = nix_blocks[1].sources["Pyramidal neuron"]
-        self.check_equal_attr(pyram_unit, nix_pyram_nrn)
+        self.compare_attr(pyram_unit, nix_pyram_nrn)
 
         # - PyramRCG and Pyram neuron must be referenced by the same spiketrains
         pyram_spiketrains = [mtag for mtag in nix_blocks[1].multi_tags
@@ -805,7 +805,7 @@ class NixIOWriteTest(NixIOTest):
         nix_event = nix_blocks[0].multi_tags["Trigger events"]
         self.assertIn(nix_event, nix_blocks[0].groups[0].multi_tags)
         # - times, units, labels
-        self.check_equal_attr(evt, nix_event)
+        self.compare_attr(evt, nix_event)
         neo_evt_times = evt.times.magnitude
         nix_evt_times = nix_event.positions
         for nix_value, neo_value in zip(nix_evt_times, neo_evt_times):
@@ -820,7 +820,7 @@ class NixIOWriteTest(NixIOTest):
         nix_epoch = nix_blocks[0].multi_tags["Button events"]
         self.assertIn(nix_epoch, nix_blocks[0].groups[1].multi_tags)
         # - times, units, labels
-        self.check_equal_attr(epc, nix_epoch)
+        self.compare_attr(epc, nix_epoch)
         neo_epc_times = epc.times.magnitude
         nix_epc_times = nix_epoch.positions
         for nix_value, neo_value in zip(nix_epc_times, neo_epc_times):
@@ -854,7 +854,7 @@ class NixIOReadTest(NixIOTest):
         nix_block.definition = self.rsentence()
         neo_blocks = self.io.read_all_blocks()
         self.assertEqual(len(neo_blocks), 1)
-        self.check_equal_attr(neo_blocks[0], nix_block)
+        self.compare_attr(neo_blocks[0], nix_block)
         self.compare_blocks(neo_blocks, [nix_block])
 
     def test_all_read(self):
