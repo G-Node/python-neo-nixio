@@ -123,7 +123,7 @@ class NixIO(BaseIO):
     def _source_rcg_to_neo(self, nix_source, parent_block):
         if not NixIO._valid_children_attr(nix_source):
             print("Recording Channel Group with name {} contains "
-                  "a Recording Channel with a different name."
+                  "a Recording Channel with different attribute values."
                   "".format(nix_source.name), file=sys.stderr)
         neo_attrs = NixIO._nix_attr_to_neo(nix_source)
         rec_channels = list(map(NixIO._nix_attr_to_neo, nix_source.sources))
