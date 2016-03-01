@@ -74,6 +74,9 @@ Maps to nix.Source with `type = neo.recordingchannelgroup`.
       - The name of each channel is taken from the parent `channel_names` list.
       - Each channel holds a metadata section with coordinates, which is a tuple of size 3 `(x, y, z)`.
       - Each channel has a metadata section with a property that specifies its channel index, from `channel_indexes`.
+    - `RecordingChannelGroup.units`
+    Maps to `nix.Source` with `type = neo.unit`.
+    See the [neo.Unit](#neounit) section for details.
     - For signals referenced by the `RecordingChannelGroup`, the corresponding `nix.DataArray` objects reference the main `nix.Source` object.
 
 
