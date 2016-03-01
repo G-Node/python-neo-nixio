@@ -210,7 +210,7 @@ Maps to a `nix.Source` with `type = neo.unit`.
     | Unit.file_origin(string)         | Source.metadata(**Section**) [[1]](#notes) |
 
   - The `nix.MultiTag` objects which represent the SpikeTrains referenced by the `neo.Unit`, reference the respective `nix.Source` object (the reference direction is reversed).
-  - `nix.Source` objects that represent `neo.Unit`s are created on the corresponding `nix.Block`.
+  - `nix.Source` objects that represent `neo.Unit`s are created on the corresponding `nix.Source` which represents the original `neo.RecordingChannelGroup`.
 
 -------
 
