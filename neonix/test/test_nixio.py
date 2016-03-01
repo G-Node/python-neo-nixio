@@ -45,7 +45,7 @@ class NixIOTest(unittest.TestCase):
                 # TODO: Anon
                 nixsrc = nixblock.sources[neorcg.name]
                 self.compare_rcg_source(neorcg, nixsrc)
-            self.compare_refs(neoblock, nixblock)
+            self.check_refs(neoblock, nixblock)
 
     def compare_rcg_source(self, neorcg, nixsrc):
         self.compare_attr(neorcg, nixsrc)
@@ -64,7 +64,7 @@ class NixIOTest(unittest.TestCase):
         for neounit, nixunit in zip(neorcg.units, nix_units):
             self.compare_attr(neounit, nixunit)
 
-    def compare_refs(self, neoblock, nixblock):
+    def check_refs(self, neoblock, nixblock):
         """
         Checks whether the references between objects that are not nested are
         mapped correctly (e.g., SpikeTrains referenced by a Unit).
@@ -81,6 +81,44 @@ class NixIOTest(unittest.TestCase):
                     nixst = nixblock.multi_tags[neost.name]
                     self.assertIn(neounit.name, nixst.sources)
                     self.assertIn(neorcg.name, nixst.sources)
+            for neoasig in neorcg.analogsignals:
+                if not neoasig.name:
+                    # TODO: Handle anonymous
+                    continue
+                nixsiggroup = [da for da in nixblock.data_arrays
+                               if da.type == "neo.analogsignal" and
+                               da.metadata.name == neoasig.name]
+                for nixasig in nixsiggroup:
+                    self.assertIn(neorcg.name, nixasig.sources)
+            for neoisig in neorcg.irregularlysampledsignals:
+                if not neoisig.name:
+                    # TODO: Handle anonymous
+                    continue
+                nixsiggroup = [da for da in nixblock.data_arrays
+                               if da.type == "neo.irregularlysampledsignal" and
+                               da.metadata.name == neoisig.name]
+                for nixisig in nixsiggroup:
+                    self.assertIn(neorcg.name, nixisig.sources)
+
+        for neoseg, nixgroup in zip(neoblock.segments, nixblock.groups):
+            nixevep = list(mt for mt in nixgroup.multi_tags
+                           if mt.type in ["neo.event", "neo.epoch"])
+            for asig in neoseg.analogsignals:
+                # TODO: Handle anonymous
+                if asig.name:
+                    _, nsig = np.shape(asig)
+                    for idx in range(nsig):
+                        signame = "{}.{}".format(asig.name, idx)
+                        for nee in nixevep:
+                            self.assertIn(signame, nee.references)
+            for isig in neoseg.irregularlysampledsignals:
+                # TODO: Handle anonymous
+                if isig.name:
+                    _, nsig = np.shape(isig)
+                    for idx in range(nsig):
+                        signame = "{}.{}".format(isig.name, idx)
+                        for nee in nixevep:
+                            self.assertIn(signame, nee.references)
 
     def compare_segment_group(self, neoseg, nixgroup):
         self.compare_attr(neoseg, nixgroup)
