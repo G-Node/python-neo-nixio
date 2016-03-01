@@ -33,14 +33,23 @@ class NixIOTest(unittest.TestCase):
         if os.path.exists(self.filename):
             os.remove(self.filename)
 
+    # TODO: (Anon) Handle matching of anonymous Neo objects to NIX objects
     def compare_blocks(self, neoblocks, nixblocks):
         for neoblock, nixblock in zip(neoblocks, nixblocks):
             self.compare_attr(neoblock, nixblock)
-            for neoseg, nixgroup in zip(neoblock.segments, nixblock.groups):
-                self.compare_segment_group(neoseg, nixgroup)
-            for neorcg, nixsrc in zip(neoblock.recordingchannelgroups,
-                                      nixblock.sources):
-                pass
+            for neoseg in neoblock.segments:
+                # TODO: Anon
+                self.compare_segment_group(neoseg,
+                                           nixblock.groups[neoblock.name])
+            for neorcg in neoblock.recordingchannelgroups:
+                # TODO: Anon
+                self.compare_rcg_source(neorcg, nixblock.sources[neorcg.name])
+
+    def compare_rcg_source(self, neorcg, nixsrc):
+        self.compare_attr(neorcg, nixsrc)
+        # TODO: The line below should change
+        #   https://github.com/G-Node/python-neo-nixio/issues/34
+        self.assertEqual(len(neorcg.channel_indexes), len(nixsrc.sources))
 
     def compare_segment_group(self, neoseg, nixgroup):
         self.compare_attr(neoseg, nixgroup)
