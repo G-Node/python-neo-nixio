@@ -24,7 +24,7 @@ from neo.core import (Block, Segment, RecordingChannelGroup, AnalogSignal,
                       IrregularlySampledSignal, Epoch, Event, SpikeTrain, Unit)
 
 try:
-    import nix
+    import nixio
 except ImportError:  # pragma: no cover
     raise ImportError("Failed to import NIX (NIXPY not found). "
                       "The NixIO requires the Python bindings for NIX.")
@@ -61,16 +61,16 @@ class NixIO(BaseIO):
         BaseIO.__init__(self, filename)
         self.filename = filename
         if mode == "ro":
-            filemode = nix.FileMode.ReadOnly
+            filemode = nixio.FileMode.ReadOnly
         elif mode == "rw":
-            filemode = nix.FileMode.ReadWrite
+            filemode = nixio.FileMode.ReadWrite
         elif mode == "ow":
-            filemode = nix.FileMode.Overwrite
+            filemode = nixio.FileMode.Overwrite
         else:
             ValueError("Invalid mode specified '{}'. "
                        "Valid modes: 'ro' (ReadOnly)', 'rw' (ReadWrite), "
                        "'ow' (Overwrite).".format(mode))
-        self.nix_file = nix.File.open(self.filename, filemode)
+        self.nix_file = nixio.File.open(self.filename, filemode)
         self.object_map = {}
 
     def __del__(self):
@@ -199,7 +199,7 @@ class NixIO(BaseIO):
             # no time dimension - error?
             pass
         if neo_type == "neo.analogsignal"\
-                or isinstance(timedim, nix.SampledDimension):
+                or isinstance(timedim, nixio.SampledDimension):
             sampling_period = pq.Quantity(timedim.sampling_interval,
                                           timedim.unit)
             t_start = pq.Quantity(timedim.offset, timedim.unit)
@@ -208,7 +208,7 @@ class NixIO(BaseIO):
                 t_start=t_start, **neo_attrs
             )
         elif neo_type == "neo.irregularlysampledsignal"\
-                or isinstance(timedim, nix.RangeDimension):
+                or isinstance(timedim, nixio.RangeDimension):
             times = pq.Quantity(timedim.ticks, timedim.unit)
 
             neo_signal = IrregularlySampledSignal(
@@ -274,12 +274,12 @@ class NixIO(BaseIO):
             block_metadata = self._get_or_init_metadata(nix_block)
             block_metadata.create_property(
                     "file_datetime",
-                    nix.Value(calculate_timestamp(neo_block.file_datetime))
+                    nixio.Value(calculate_timestamp(neo_block.file_datetime))
             )
         if neo_block.file_origin:
             block_metadata = self._get_or_init_metadata(nix_block)
             block_metadata.create_property("file_origin",
-                                           nix.Value(neo_block.file_origin))
+                                           nixio.Value(neo_block.file_origin))
         self._copy_annotations(neo_block, nix_block, object_path)
         for segment in neo_block.segments:
             self.write_segment(segment, object_path)
@@ -324,12 +324,12 @@ class NixIO(BaseIO):
             group_metadata = self._get_or_init_metadata(nix_group, object_path)
             group_metadata .create_property(
                     "file_datetime",
-                    nix.Value(calculate_timestamp(segment.file_datetime))
+                    nixio.Value(calculate_timestamp(segment.file_datetime))
             )
         if segment.file_origin:
             group_metadata = self._get_or_init_metadata(nix_group, object_path)
             group_metadata.create_property("file_origin",
-                                           nix.Value(segment.file_origin))
+                                           nixio.Value(segment.file_origin))
         self._copy_annotations(segment, nix_group, object_path)
         for anasig in segment.analogsignals:
             self.write_analogsignal(anasig, object_path)
@@ -369,7 +369,7 @@ class NixIO(BaseIO):
             source_metadata = self._get_or_init_metadata(nix_source,
                                                          object_path)
             source_metadata.create_property("file_origin",
-                                            nix.Value(rcg.file_origin))
+                                            nixio.Value(rcg.file_origin))
         self._copy_annotations(rcg, nix_source, object_path)
         for idx, channel in enumerate(rcg.channel_indexes):
             # create a child source object to represent the individual channel
@@ -385,17 +385,17 @@ class NixIO(BaseIO):
             chan_obj_path = object_path + [("source", nix_chan_name)]
             chan_metadata = self._get_or_init_metadata(nix_chan,
                                                        chan_obj_path)
-            chan_metadata.create_property("index", nix.Value(int(channel)))
+            chan_metadata.create_property("index", nixio.Value(int(channel)))
             if rcg.file_origin:
                 chan_metadata.create_property("file_origin",
-                                              nix.Value(rcg.file_origin))
+                                              nixio.Value(rcg.file_origin))
 
             if hasattr(rcg, "coordinates"):
                 chan_coords = rcg.coordinates[idx]
                 coord_unit = str(chan_coords[0].dimensionality)
-                nix_coord_unit = nix.Value(coord_unit)
+                nix_coord_unit = nixio.Value(coord_unit)
                 nix_coord_values = tuple(
-                    nix.Value(c.rescale(coord_unit).magnitude.item())
+                    nixio.Value(c.rescale(coord_unit).magnitude.item())
                     for c in chan_coords
                 )
                 chan_metadata.create_property("coordinates",
@@ -443,7 +443,7 @@ class NixIO(BaseIO):
 
         if anasig.file_origin:
             anasig_group_segment.create_property("file_origin",
-                                                 nix.Value(anasig.file_origin))
+                                                 nixio.Value(anasig.file_origin))
         if anasig.annotations:
             NixIO._add_annotations(anasig.annotations, anasig_group_segment)
 
@@ -505,7 +505,7 @@ class NixIO(BaseIO):
 
         if irsig.file_origin:
             irsig_group_segment.create_property("file_origin",
-                                                nix.Value(irsig.file_origin))
+                                                nixio.Value(irsig.file_origin))
 
         if irsig.annotations:
             NixIO._add_annotations(irsig.annotations, irsig_group_segment)
@@ -589,7 +589,7 @@ class NixIO(BaseIO):
             mtag_metadata = self._get_or_init_metadata(nix_multi_tag,
                                                        object_path)
             mtag_metadata.create_property("file_origin",
-                                          nix.Value(ep.file_origin))
+                                          nixio.Value(ep.file_origin))
         self._copy_annotations(ep, nix_multi_tag, object_path)
 
         nix_multi_tag.references.extend(
@@ -638,7 +638,7 @@ class NixIO(BaseIO):
             mtag_metadata = self._get_or_init_metadata(nix_multi_tag,
                                                        object_path)
             mtag_metadata.create_property("file_origin",
-                                          nix.Value(ev.file_origin))
+                                          nixio.Value(ev.file_origin))
         self._copy_annotations(ev, nix_multi_tag, object_path)
 
         nix_multi_tag.references.extend(
@@ -688,14 +688,14 @@ class NixIO(BaseIO):
         # other attributes
         if sptr.file_origin:
             mtag_metadata.create_property("file_origin",
-                                          nix.Value(sptr.file_origin))
+                                          nixio.Value(sptr.file_origin))
         if sptr.t_start:
             t_start = sptr.t_start.rescale(time_units).magnitude.item()
             mtag_metadata.create_property("t_start",
-                                          nix.Value(t_start))
+                                          nixio.Value(t_start))
         # t_stop is not optional
         t_stop = sptr.t_stop.rescale(time_units).magnitude.item()
-        mtag_metadata.create_property("t_stop", nix.Value(t_stop))
+        mtag_metadata.create_property("t_stop", nixio.Value(t_stop))
 
         # waveforms
         if sptr.waveforms is not None:
@@ -707,7 +707,7 @@ class NixIO(BaseIO):
                                                           data=wf_data)
             wf_unit = NixIO._get_units(sptr.waveforms)
             waveforms_da.unit = wf_unit
-            nix_multi_tag.create_feature(waveforms_da, nix.LinkType.Indexed)
+            nix_multi_tag.create_feature(waveforms_da, nixio.LinkType.Indexed)
             time_units = NixIO._get_units(sptr.sampling_period, True)
             sampling_interval = sptr.sampling_period.rescale(time_units).item()
             wf_spikedim = waveforms_da.append_set_dimension()
@@ -722,7 +722,7 @@ class NixIO(BaseIO):
                 left_sweep = sptr.left_sweep.rescale(time_units).\
                     magnitude.item()
                 waveforms_da.metadata.create_property("left_sweep",
-                                                      nix.Value(left_sweep))
+                                                      nixio.Value(left_sweep))
 
         return nix_multi_tag
 
@@ -754,7 +754,7 @@ class NixIO(BaseIO):
             mtag_metadata = self._get_or_init_metadata(nix_source,
                                                        object_path)
             mtag_metadata.create_property("file_origin",
-                                          nix.Value(ut.file_origin))
+                                          nixio.Value(ut.file_origin))
 
         # Make contained spike trains refer to parent rcg and new unit
         for nix_st in self._get_mapped_objects(ut.spiketrains):
@@ -831,22 +831,22 @@ class NixIO(BaseIO):
     def _to_value(v):
         """
         Helper function for converting arbitrary variables to types compatible
-        with nix.Value().
+        with nixio.Value().
 
         :param v: The value to be converted
-        :return: a nix.Value() object
+        :return: a nixio.Value() object
         """
         if isinstance(v, pq.Quantity):
-            # v = nix.Value((v.magnitude.item(), str(v.dimensionality)))
+            # v = nixio.Value((v.magnitude.item(), str(v.dimensionality)))
             warnings.warn("Quantities in annotations are not currently "
                           "supported when writing to NIX.")
             return None
         elif isinstance(v, datetime):
-            v = nix.Value(calculate_timestamp(v))
+            v = nixio.Value(calculate_timestamp(v))
         elif isinstance(v, string_types):
-            v = nix.Value(v)
+            v = nixio.Value(v)
         elif isinstance(v, bytes):
-            v = nix.Value(v.decode())
+            v = nixio.Value(v.decode())
         elif isinstance(v, Iterable):
             vv = list()
             for item in v:
@@ -856,17 +856,17 @@ class NixIO(BaseIO):
                                   "when writing to NIX.")
                     return None
                 if type(item).__module__ == "numpy":
-                    item = nix.Value(item.item())
+                    item = nixio.Value(item.item())
                 else:
-                    item = nix.Value(item)
+                    item = nixio.Value(item)
                 vv.append(item)
             if not len(vv):
                 vv = None
             v = vv
         elif type(v).__module__ == "numpy":
-            v = nix.Value(v.item())
+            v = nixio.Value(v.item())
         else:
-            v = nix.Value(v)
+            v = nixio.Value(v)
         return v
 
     @staticmethod
@@ -908,7 +908,7 @@ class NixIO(BaseIO):
                 else:
                     neo_attrs[prop.name] = list(v.value for v in values)
 
-        if isinstance(nix_obj, (nix.Block, nix.Group)):
+        if isinstance(nix_obj, (nixio.Block, nixio.Group)):
             neo_attrs["rec_datetime"] = datetime.fromtimestamp(
                 nix_obj.created_at)
         if "file_datetime" in neo_attrs:
