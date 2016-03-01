@@ -48,9 +48,9 @@ class NixIOTest(unittest.TestCase):
 
     def compare_rcg_source(self, neorcg, nixsrc):
         self.compare_attr(neorcg, nixsrc)
-        # TODO: The line below should change
-        #   https://github.com/G-Node/python-neo-nixio/issues/34
-        self.assertEqual(len(neorcg.channel_indexes), len(nixsrc.sources))
+        nix_channels = list(src for src in nixsrc.sources
+                            if src.type == "neo.recordingchannel")
+        self.assertEqual(len(neorcg.channel_indexes), len(nix_channels))
 
     def compare_segment_group(self, neoseg, nixgroup):
         self.compare_attr(neoseg, nixgroup)
@@ -805,7 +805,8 @@ class NixIOWriteTest(NixIOTest):
         # - Octotrode
         nix_octotrode = nix_blocks[1].sources["octotrode A"]
         self.compare_attr(octotrode_rcg, nix_octotrode)
-        nix_channels = nix_octotrode.sources
+        nix_channels = list(src for src in nix_octotrode.sources
+                            if src.type == "neo.recordingchannel")
         self.assertEqual(len(nix_channels),
                          len(octotrode_rcg.channel_indexes))
         nix_channel_indexes = [c.metadata["index"] for c in nix_channels]
@@ -829,7 +830,8 @@ class NixIOWriteTest(NixIOTest):
         # - Spiketrain Container
         nix_pyram_rcg = nix_blocks[1].sources["PyramRCG"]
         self.compare_attr(spiketrain_container_rcg, nix_pyram_rcg)
-        nix_channels = nix_pyram_rcg.sources
+        nix_channels = list(src for src in nix_pyram_rcg.sources
+                            if src.type == "neo.recordingchannel")
         self.assertEqual(len(nix_channels),
                          len(spiketrain_container_rcg.channel_indexes))
         nix_channel_indexes = [c.metadata["index"] for c in nix_channels]
@@ -838,7 +840,7 @@ class NixIOWriteTest(NixIOTest):
             self.assertEqual(nixci, neoci)
 
         # - Pyramidal neuron Unit
-        nix_pyram_nrn = nix_blocks[1].sources["Pyramidal neuron"]
+        nix_pyram_nrn = nix_pyram_rcg.sources["Pyramidal neuron"]
         self.compare_attr(pyram_unit, nix_pyram_nrn)
 
         # - PyramRCG and Pyram neuron must be referenced by the same spiketrains
