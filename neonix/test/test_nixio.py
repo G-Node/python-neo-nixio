@@ -45,12 +45,42 @@ class NixIOTest(unittest.TestCase):
                 # TODO: Anon
                 nixsrc = nixblock.sources[neorcg.name]
                 self.compare_rcg_source(neorcg, nixsrc)
+            self.compare_refs(neoblock, nixblock)
 
     def compare_rcg_source(self, neorcg, nixsrc):
         self.compare_attr(neorcg, nixsrc)
         nix_channels = list(src for src in nixsrc.sources
                             if src.type == "neo.recordingchannel")
         self.assertEqual(len(neorcg.channel_indexes), len(nix_channels))
+        for idx in range(len(nix_channels)):
+            self.assertEqual(neorcg.channel_indexes[idx],
+                             nix_channels[idx].metadata["index"])
+            if len(neorcg.channel_names):
+                self.assertEqual(neorcg.channel_names[idx],
+                                 nix_channels[idx].name)
+        nix_units = list(src for src in nixsrc.sources
+                         if src.type == "neo.unit")
+        self.assertEqual(len(neorcg.units), len(nix_units))
+        for neounit, nixunit in zip(neorcg.units, nix_units):
+            self.compare_attr(neounit, nixunit)
+
+    def compare_refs(self, neoblock, nixblock):
+        """
+        Checks whether the references between objects that are not nested are
+        mapped correctly (e.g., SpikeTrains referenced by a Unit).
+
+        :param neoblock: The corresponding Neo block
+        :param nixblock: A NIX block
+        """
+        for neorcg in neoblock.recordingchannelgroups:
+            for neounit in neorcg.units:
+                for neost in neounit.spiketrains:
+                    if not neost.name:
+                        # TODO: Handle anonymous
+                        continue
+                    nixst = nixblock.multi_tags[neost.name]
+                    self.assertIn(neounit.name, nixst.sources)
+                    self.assertIn(neorcg.name, nixst.sources)
 
     def compare_segment_group(self, neoseg, nixgroup):
         self.compare_attr(neoseg, nixgroup)
@@ -693,7 +723,7 @@ class NixIOWriteTest(NixIOTest):
         nix_blocks = self.io.write_all_blocks(neo_blocks)
 
         # ================== TESTING WRITTEN DATA ==================
-        # self.compare_blocks(neo_blocks, nix_blocks)
+        self.compare_blocks(neo_blocks, nix_blocks)
         for nixblk, neoblk in zip(nix_blocks, neo_blocks):
             self.assertEqual(nixblk.type, "neo.block")
             self.compare_attr(neoblk, nixblk)
