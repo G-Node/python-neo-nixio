@@ -164,22 +164,23 @@ class NixIOTest(unittest.TestCase):
             self.assertEqual(neounit, da.unit)
             timedim = da.dimensions[0]
             chandim = da.dimensions[1]
-            if isinstance(sig, AnalogSignal):
+            if isinstance(neosig, AnalogSignal):
                 self.assertIsInstance(timedim, nixio.SampledDimension)
-                self.assertAlmostEqual(timedim.sampling_interval,
-                                       sig.sampling_period.magnitude)
-                self.assertEqual(timedim.unit,
-                                 str(sig.sampling_period.dimensionality))
-                self.assertAlmostEqual(timedim.offset, sig.t_start.magnitude)
-                self.assertAlmostEqual(timedim.unit,
-                                       str(sig.sampling_period.dimensionality))
-            elif isinstance(sig, IrregularlySampledSignal):
+                self.assertEqual(
+                    pq.Quantity(timedim.sampling_interval, timedim.unit),
+                    neosig.sampling_period
+                )
+                self.assertEqual(
+                    pq.Quantity(timedim.offset, timedim.unit),
+                    neosig.t_start
+                )
+            elif isinstance(neosig, IrregularlySampledSignal):
                 self.assertIsInstance(timedim, nixio.RangeDimension)
-                for neot, nixt in zip(sig.times.magnitude,
+                for neot, nixt in zip(neosig.times.magnitude,
                                       timedim.ticks):
                     self.assertAlmostEqual(neot, nixt)
                 self.assertEqual(timedim.unit,
-                                 str(sig.ticks.dimensionality))
+                                 str(neosig.times.dimensionality))
             self.assertIsInstance(chandim, nixio.SetDimension)
 
     def compare_eest_mtag(self, eest, mtag):
@@ -1057,6 +1058,7 @@ class NixIOReadTest(NixIOTest):
                     isig_definition = self.rsentence(12, 12)
                     isig_md = group_md.create_section(isig_name,
                                                       isig_name+".metadata")
+                    isig_times = self.rquant(200, 1, True)
                     for idx in range(10):
                         da_isig = blk.create_data_array(
                             "{}.{}".format(isig_name, idx),
@@ -1068,9 +1070,7 @@ class NixIOReadTest(NixIOTest):
 
                         da_isig.metadata = isig_md
 
-                        timedim = da_isig.append_range_dimension(
-                            self.rquant(200, 1, True)
-                        )
+                        timedim = da_isig.append_range_dimension(isig_times)
                         timedim.unit = "s"
                         timedim.label = "time"
                         chandim = da_isig.append_set_dimension()
@@ -1133,7 +1133,8 @@ class NixIOReadTest(NixIOTest):
                 nixrc.metadata.create_property("index", nixio.Value(idx))
                 dims = tuple(map(nixio.Value, self.rquant(3, 1)))
                 nixrc.metadata.create_property("coordinates", dims)
-                nixrc.metadata.create_property("coordinates.units", nixio.Value("um"))
+                nixrc.metadata.create_property("coordinates.units",
+                                               nixio.Value("um"))
 
             allsts = list(mtag for mtag in blk.multi_tags
                           if mtag.type == "neo.spiketrain")
