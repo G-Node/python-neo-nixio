@@ -127,8 +127,9 @@ class NixIO(BaseIO):
                   "".format(nix_source.name), file=sys.stderr)
         neo_attrs = NixIO._nix_attr_to_neo(nix_source)
         rec_channels = list(map(NixIO._nix_attr_to_neo, nix_source.sources))
-        neo_attrs["channel_names"] = np.array(c["name"] for c in rec_channels)
-        neo_attrs["channel_indexes"] = np.array(c["index"] for c in rec_channels)
+        neo_attrs["channel_names"] = np.array([c["name"] for c in rec_channels])
+        neo_attrs["channel_indexes"] = np.array([c["index"]
+                                                 for c in rec_channels])
         # TODO: Make sure all RCs have the same coordinate units
         if "coordinates" in rec_channels[0]:
             coord_units = rec_channels[0]["coordinates.units"]
