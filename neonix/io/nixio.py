@@ -82,7 +82,7 @@ class NixIO(BaseIO):
     def _block_to_neo(self, nix_block):
         neo_attrs = self._nix_attr_to_neo(nix_block)
         neo_block = Block(**neo_attrs)
-        self.object_map[id(nix_block)] = neo_block
+        self.object_map[nix_block.id] = neo_block
 
         neo_block.segments = list(map(self._group_to_neo, nix_block.groups))
         neo_block.recordingchannelgroups = list(
@@ -94,7 +94,7 @@ class NixIO(BaseIO):
     def _group_to_neo(self, nix_group):
         neo_attrs = self._nix_attr_to_neo(nix_group)
         neo_group = Block(**neo_attrs)
-        self.object_map[id(nix_group)] = neo_group
+        self.object_map[nix_group.id] = neo_group
         nix_grouped_signals = self._group_signals(nix_group.data_arrays)
         signals = list(
             map(self._signal_da_to_neo, nix_grouped_signals)
@@ -138,7 +138,7 @@ class NixIO(BaseIO):
             coord_values = list(c["coordinates"] for c in rec_channels)
             neo_attrs["coordinates"] = pq.Quantity(coord_values, coord_units)
         rcg = RecordingChannelGroup(**neo_attrs)
-        self.object_map[id(nix_source)] = rcg
+        self.object_map[nix_source.id] = rcg
 
         nix_units = list(src for src in nix_source.sources
                          if src.type == "neo.unit")
@@ -163,7 +163,7 @@ class NixIO(BaseIO):
     def _source_unit_to_neo(self, nix_unit, parent_block):
         neo_attrs = self._nix_attr_to_neo(nix_unit)
         neo_unit = Unit(**neo_attrs)
-        self.object_map[id(nix_unit)] = neo_unit
+        self.object_map[nix_unit.id] = neo_unit
 
         # referenced spiketrains
         all_nix_sts = list(mtag for mtag in parent_block.multi_tags
@@ -216,7 +216,7 @@ class NixIO(BaseIO):
             # TODO: Multiple Signal objects (Generalised reader)
             return None
         for da in nix_da_group:
-            self.object_map[id(da)] = neo_signal
+            self.object_map[da.id] = neo_signal
         return neo_signal
 
     def _mtag_eest_to_neo(self, nix_mtag):
@@ -244,7 +244,7 @@ class NixIO(BaseIO):
         else:
             # TODO: Infer type from attributes (Generalised reader)
             return None
-        self.object_map[id(nix_mtag)] = eest
+        self.object_map[nix_mtag.id] = eest
         return eest
 
     def write_block(self, neo_block):
@@ -808,7 +808,10 @@ class NixIO(BaseIO):
 
     def _get_mapped_object(self, obj):
         try:
-            return self.object_map[id(obj)]
+            if hasattr(obj, "id"):
+                return self.object_map[obj.id]
+            else:
+                return self.object_map[id(obj)]
         except KeyError:
             raise KeyError("Failed to find mapped object for {}. "
                            "Object not yet converted.".format(obj))
