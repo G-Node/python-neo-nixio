@@ -126,7 +126,9 @@ class NixIO(BaseIO):
                   "a Recording Channel with different attribute values."
                   "".format(nix_source.name), file=sys.stderr)
         neo_attrs = NixIO._nix_attr_to_neo(nix_source)
-        rec_channels = list(map(NixIO._nix_attr_to_neo, nix_source.sources))
+        rec_channels = list(NixIO._nix_attr_to_neo(c)
+                            for c in nix_source.sources
+                            if c.type == "neo.recordingchannel")
         neo_attrs["channel_names"] = np.array([c["name"] for c in rec_channels])
         neo_attrs["channel_indexes"] = np.array([c["index"]
                                                  for c in rec_channels])
@@ -138,42 +140,37 @@ class NixIO(BaseIO):
         rcg = RecordingChannelGroup(**neo_attrs)
         self.object_map[id(nix_source)] = rcg
 
-        all_nix_spiketrains = list(mtag for mtag in parent_block.multi_tags
-                                   if mtag.type == "neo.spiketrain")
-        nix_spiketrains = NixIO._get_referers(nix_source, all_nix_spiketrains)
-
-        # construct a unit -> spiketrain map
-        unit_st_map = dict()
-        for nix_st in nix_spiketrains:
-            for src in nix_st.sources:
-                if src.name in unit_st_map:
-                    unit_st_map[src.name].append(nix_st)
-                else:
-                    unit_st_map[src.name] = [nix_st]
-        # convert units and reference spiketrains
-        for ut_name, st_list in unit_st_map.items():
-            neo_unit = self._source_unit_to_neo(parent_block.sources[ut_name])
-            neo_unit.spiketrains.extend(self._get_mapped_objects(st_list))
-            rcg.units.append(neo_unit)
+        nix_units = list(src for src in nix_source.sources
+                         if src.type == "neo.unit")
+        neo_units = list(self._source_unit_to_neo(nixut, parent_block)
+                         for nixut in nix_units)
+        rcg.units.extend(neo_units)
 
         # referenced signals
         all_nix_asigs = list(da for da in parent_block.data_arrays
                              if da.type == "neo.analogsignal")
-        nix_asigs = NixIO._get_referers(nix_source, all_nix_asigs)
+        nix_asigs = self._get_referers(nix_source, all_nix_asigs)
         neo_asigs = self._get_mapped_objects(nix_asigs)
         rcg.analogsignals.extend(neo_asigs)
 
         all_nix_isigs = list(da for da in parent_block.data_arrays
                              if da.type == "neo.irregularlysampledsignals")
-        nix_isigs = NixIO._get_referers(nix_source, all_nix_isigs)
+        nix_isigs = self._get_referers(nix_source, all_nix_isigs)
         neo_isigs = self._get_mapped_objects(nix_isigs)
         rcg.irregularlysampledsignals.extend(neo_isigs)
         return rcg
 
-    def _source_unit_to_neo(self, nix_unit):
+    def _source_unit_to_neo(self, nix_unit, parent_block):
         neo_attrs = NixIO._nix_attr_to_neo(nix_unit)
         neo_unit = Unit(**neo_attrs)
         self.object_map[id(nix_unit)] = neo_unit
+
+        # referenced spiketrains
+        all_nix_sts = list(mtag for mtag in parent_block.multi_tags
+                           if mtag.type == "neo.spiketrain")
+        nix_sts = self._get_referers(nix_unit, all_nix_sts)
+        neo_sts = self._get_mapped_objects(nix_sts)
+        neo_unit.spiketrains.extend(neo_sts)
         return neo_unit
 
     def _signal_da_to_neo(self, nix_da_group):
