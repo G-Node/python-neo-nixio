@@ -1147,13 +1147,23 @@ class NixIOReadTest(NixIOTest):
                     st.sources.append(nixrcg)
                     st.sources.append(nixunit)
 
-            # pick a few signals to point to this rcg
+            # pick a few signal groups to point to this rcg
             allsigs = list(da for da in blk.data_arrays
                            if da.type in ["neo.analogsignal",
                                           "neo.irregularlysampledsignal"])
-            randsigs = np.random.choice(allsigs, 5, False)
-            for sig in randsigs:
-                sig.sources.append(nixrcg)
+            # group signals that have the same md section
+            grouped_sigs = {}
+            for sig in allsigs:
+                groupname = sig.metadata.name
+                if groupname in grouped_sigs:
+                    grouped_sigs[groupname].append(sig)
+                else:
+                    grouped_sigs[groupname] = [sig]
+            grouped_sigs = list(grouped_sigs.values())
+            randsiggroups = np.random.choice(grouped_sigs, 5, False)
+            for siggroup in randsiggroups:
+                for sig in siggroup:
+                    sig.sources.append(nixrcg)
 
             neo_blocks = self.io.read_all_blocks()
             self.compare_blocks(neo_blocks, nix_blocks)
