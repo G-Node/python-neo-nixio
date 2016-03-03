@@ -238,7 +238,7 @@ class NixIO(BaseIO):
             if len(nix_mtag.features):
                 wfda = nix_mtag.features[0].data
                 eest.waveforms = pq.Quantity(wfda, wfda.unit)
-                wftime = wfda.dimensions["time"]
+                wftime = self._get_time_dimension(wfda)
                 eest.sampling_period = pq.Quantity(
                     wftime.sampling_interval, wftime.unit
                 )
@@ -900,7 +900,8 @@ class NixIO(BaseIO):
 
         neo_attrs["description"] = nix_obj.definition
         if nix_obj.metadata:
-            for prop in nix_obj.metadata:
+            for prop in nix_obj.metadata.props:
+                print(type(prop))
                 values = prop.values
                 if len(values) == 1:
                     neo_attrs[prop.name] = values[0].value
