@@ -1093,5 +1093,22 @@ class NixIOReadTest(NixIOTest):
         mtag_st.metadata = mtag_st_md
         mtag_st_md.create_property("t_stop", nixio.Value(max(times_da).item()+1))
 
+        waveforms = self.rquant((40, 10, 35), 1)
+        wfname = "{}.waveforms".format(mtag_st.name)
+        wfda = nix_blocks[0].create_data_array(wfname, "neo.waveforms",
+                                               data=waveforms)
+        wfda.unit = "mV"
+        mtag_st.create_feature(wfda, nixio.LinkType.Indexed)
+        wfda.append_set_dimension()  # spike dimension
+        wfda.append_set_dimension()  # channel dimension
+        wftimedim = wfda.append_sampled_dimension(0.1)
+        wftimedim.unit = "ms"
+        wftimedim.label = "time"
+        wfda.metadata = mtag_st_md.create_section(wfname,
+                                                  "neo.waveforms.metadata")
+        wfda.metadata.create_property("left_sweep", nixio.Value(20))
+
+
+
         neo_blocks = self.io.read_all_blocks()
         self.compare_blocks(neo_blocks, nix_blocks)
