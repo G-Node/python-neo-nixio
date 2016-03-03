@@ -80,7 +80,7 @@ class NixIO(BaseIO):
         return list(map(self._block_to_neo, self.nix_file.blocks))
 
     def _block_to_neo(self, nix_block):
-        neo_attrs = NixIO._nix_attr_to_neo(nix_block)
+        neo_attrs = self._nix_attr_to_neo(nix_block)
         neo_block = Block(**neo_attrs)
         self.object_map[id(nix_block)] = neo_block
 
@@ -92,10 +92,10 @@ class NixIO(BaseIO):
         return neo_block
 
     def _group_to_neo(self, nix_group):
-        neo_attrs = NixIO._nix_attr_to_neo(nix_group)
+        neo_attrs = self._nix_attr_to_neo(nix_group)
         neo_group = Block(**neo_attrs)
         self.object_map[id(nix_group)] = neo_group
-        nix_grouped_signals = NixIO._group_signals(nix_group.data_arrays)
+        nix_grouped_signals = self._group_signals(nix_group.data_arrays)
         signals = list(
             map(self._signal_da_to_neo, nix_grouped_signals)
         )
@@ -121,12 +121,12 @@ class NixIO(BaseIO):
         return neo_group
 
     def _source_rcg_to_neo(self, nix_source, parent_block):
-        if not NixIO._valid_children_attr(nix_source):
+        if not self._valid_children_attr(nix_source):
             print("Recording Channel Group with name {} contains "
                   "a Recording Channel with different attribute values."
                   "".format(nix_source.name), file=sys.stderr)
-        neo_attrs = NixIO._nix_attr_to_neo(nix_source)
-        rec_channels = list(NixIO._nix_attr_to_neo(c)
+        neo_attrs = self._nix_attr_to_neo(nix_source)
+        rec_channels = list(self._nix_attr_to_neo(c)
                             for c in nix_source.sources
                             if c.type == "neo.recordingchannel")
         neo_attrs["channel_names"] = np.array([c["name"] for c in rec_channels])
@@ -161,7 +161,7 @@ class NixIO(BaseIO):
         return rcg
 
     def _source_unit_to_neo(self, nix_unit, parent_block):
-        neo_attrs = NixIO._nix_attr_to_neo(nix_unit)
+        neo_attrs = self._nix_attr_to_neo(nix_unit)
         neo_unit = Unit(**neo_attrs)
         self.object_map[id(nix_unit)] = neo_unit
 
@@ -185,7 +185,7 @@ class NixIO(BaseIO):
         """
         # TODO: Handle NIX signals which share name with number suffix
         nix_da_group = sorted(nix_da_group, key=lambda d: d.name)
-        neo_attrs = NixIO._nix_attr_to_neo(nix_da_group[0])
+        neo_attrs = self._nix_attr_to_neo(nix_da_group[0])
         neo_attrs["name"] = nix_da_group[0].metadata.name
         unit = nix_da_group[0].unit
         # TODO: Make sure all DAs have the same unit
@@ -220,7 +220,7 @@ class NixIO(BaseIO):
         return neo_signal
 
     def _mtag_eest_to_neo(self, nix_mtag):
-        neo_attrs = NixIO._nix_attr_to_neo(nix_mtag)
+        neo_attrs = self._nix_attr_to_neo(nix_mtag)
         neo_type = nix_mtag.type
         times = pq.Quantity(nix_mtag.positions, nix_mtag.positions.unit)
         if neo_type == "neo.epoch":
@@ -443,12 +443,12 @@ class NixIO(BaseIO):
             anasig_group_segment.create_property("file_origin",
                                                  nixio.Value(anasig.file_origin))
         if anasig.annotations:
-            NixIO._add_annotations(anasig.annotations, anasig_group_segment)
+            self._add_annotations(anasig.annotations, anasig_group_segment)
 
         # common properties
-        data_units = NixIO._get_units(anasig)
+        data_units = self._get_units(anasig)
         # often sampling period is in 1/Hz or 1/kHz - simplifying to s
-        time_units = NixIO._get_units(anasig.sampling_period, True)
+        time_units = self._get_units(anasig.sampling_period, True)
         # rescale after simplification
         offset = anasig.t_start.rescale(time_units).item()
         sampling_interval = anasig.sampling_period.rescale(time_units).item()
@@ -506,11 +506,11 @@ class NixIO(BaseIO):
                                                 nixio.Value(irsig.file_origin))
 
         if irsig.annotations:
-            NixIO._add_annotations(irsig.annotations, irsig_group_segment)
+            self._add_annotations(irsig.annotations, irsig_group_segment)
 
         # common properties
-        data_units = NixIO._get_units(irsig)
-        time_units = NixIO._get_units(irsig.times)
+        data_units = self._get_units(irsig)
+        time_units = self._get_units(irsig.times)
         times = irsig.times.magnitude.tolist()
 
         nix_data_arrays = list()
@@ -554,7 +554,7 @@ class NixIO(BaseIO):
 
         # times -> positions
         times = ep.times.magnitude
-        time_units = NixIO._get_units(ep.times)
+        time_units = self._get_units(ep.times)
 
         times_da = parent_block.create_data_array("{}.times".format(nix_name),
                                                   "neo.epoch.times",
@@ -563,7 +563,7 @@ class NixIO(BaseIO):
 
         # durations -> extents
         durations = ep.durations.magnitude
-        duration_units = NixIO._get_units(ep.durations)
+        duration_units = self._get_units(ep.durations)
 
         durations_da = parent_block.create_data_array(
             "{}.durations".format(nix_name),
@@ -591,7 +591,7 @@ class NixIO(BaseIO):
         self._copy_annotations(ep, nix_multi_tag, object_path)
 
         nix_multi_tag.references.extend(
-            NixIO._get_contained_signals(parent_group)
+            self._get_contained_signals(parent_group)
         )
         return nix_multi_tag
 
@@ -615,7 +615,7 @@ class NixIO(BaseIO):
 
         # times -> positions
         times = ev.times.magnitude
-        time_units = NixIO._get_units(ev.times)
+        time_units = self._get_units(ev.times)
 
         times_da = parent_block.create_data_array("{}.times".format(nix_name),
                                                   "neo.event.times",
@@ -640,7 +640,7 @@ class NixIO(BaseIO):
         self._copy_annotations(ev, nix_multi_tag, object_path)
 
         nix_multi_tag.references.extend(
-            NixIO._get_contained_signals(parent_group)
+            self._get_contained_signals(parent_group)
         )
         return nix_multi_tag
 
@@ -663,7 +663,7 @@ class NixIO(BaseIO):
         nix_definition = sptr.description
 
         # spike times
-        time_units = NixIO._get_units(sptr.times)
+        time_units = self._get_units(sptr.times)
         times = sptr.times.magnitude
         times_da = parent_block.create_data_array("{}.times".format(nix_name),
                                                   "neo.spiketrain.times",
@@ -703,10 +703,10 @@ class NixIO(BaseIO):
             waveforms_da = parent_block.create_data_array(wf_name,
                                                           "neo.waveforms",
                                                           data=wf_data)
-            wf_unit = NixIO._get_units(sptr.waveforms)
+            wf_unit = self._get_units(sptr.waveforms)
             waveforms_da.unit = wf_unit
             nix_multi_tag.create_feature(waveforms_da, nixio.LinkType.Indexed)
-            time_units = NixIO._get_units(sptr.sampling_period, True)
+            time_units = self._get_units(sptr.sampling_period, True)
             sampling_interval = sptr.sampling_period.rescale(time_units).item()
             wf_spikedim = waveforms_da.append_set_dimension()
             wf_chandim = waveforms_da.append_set_dimension()
@@ -816,12 +816,12 @@ class NixIO(BaseIO):
     def _copy_annotations(self, neo_object, nix_object, object_path):
         if neo_object.annotations:
             metadata = self._get_or_init_metadata(nix_object, object_path)
-            NixIO._add_annotations(neo_object.annotations, metadata)
+            self._add_annotations(neo_object.annotations, metadata)
 
-    @staticmethod
-    def _add_annotations(annotations, metadata):
+    @classmethod
+    def _add_annotations(cls, annotations, metadata):
         for k, v in annotations.items():
-            v = NixIO._to_value(v)
+            v = cls._to_value(v)
             metadata.create_property(k, v)
 
     @staticmethod
@@ -940,11 +940,11 @@ class NixIO(BaseIO):
                 ref_list.append(ref)
         return ref_list
 
-    @staticmethod
-    def _valid_children_attr(nix_rcg):
+    @classmethod
+    def _valid_children_attr(cls, nix_rcg):
         nix_rcs = list(rc for rc in nix_rcg.sources
                        if rc.type == "neo.recordingchannel")
-        return all((NixIO._check_attrib_equal(nix_rcg, nix_rcs, attr)
+        return all((cls._check_attrib_equal(nix_rcg, nix_rcs, attr)
                     for attr in ["name", "description"]))
 
     @staticmethod
