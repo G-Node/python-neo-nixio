@@ -48,7 +48,6 @@ class NixIOTest(unittest.TestCase):
             self.check_refs(neoblock, nixblock)
 
     def compare_rcg_source(self, neorcg, nixsrc):
-        print(neorcg.channel_indexes)
         self.compare_attr(neorcg, nixsrc)
         nix_channels = list(src for src in nixsrc.sources
                             if src.type == "neo.recordingchannel")
@@ -1077,59 +1076,84 @@ class NixIOReadTest(NixIOTest):
                         chandim = da_isig.append_set_dimension()
                         group.data_arrays.append(da_isig)
 
-        # SpikeTrain with Waveforms
-        stname = self.rword(20)
-        times = self.rquant(400, 1, True)
-        times_da = nix_blocks[0].create_data_array(
-            "{}.times".format(stname),
-            "neo.spiketrain.times",
-            data=times
-        )
-        times_da.unit = "ms"
-        mtag_st = nix_blocks[0].create_multi_tag(stname, "neo.spiketrain",
-                                                 times_da)
-        nix_blocks[0].groups[0].multi_tags.append(mtag_st)
-        mtag_st.definition = self.rsentence(20, 30)
-        mtag_st_md = nix_blocks[0].groups[0].metadata.create_section(
-            mtag_st.name, mtag_st.name+".metadata"
-        )
-        mtag_st.metadata = mtag_st_md
-        mtag_st_md.create_property("t_stop", nixio.Value(max(times_da).item()+1))
+                # SpikeTrains with Waveforms
+                for n in range(4):
+                    stname = "{}-st{}".format(self.rword(20), n)
+                    times = self.rquant(400, 1, True)
+                    times_da = blk.create_data_array(
+                        "{}.times".format(stname),
+                        "neo.spiketrain.times",
+                        data=times
+                    )
+                    times_da.unit = "ms"
+                    mtag_st = blk.create_multi_tag(stname,
+                                                   "neo.spiketrain",
+                                                   times_da)
+                    group.multi_tags.append(mtag_st)
+                    mtag_st.definition = self.rsentence(20, 30)
+                    mtag_st_md = group.metadata.create_section(
+                        mtag_st.name, mtag_st.name+".metadata"
+                    )
+                    mtag_st.metadata = mtag_st_md
+                    mtag_st_md.create_property(
+                        "t_stop", nixio.Value(max(times_da).item()+1)
+                    )
 
-        waveforms = self.rquant((40, 10, 35), 1)
-        wfname = "{}.waveforms".format(mtag_st.name)
-        wfda = nix_blocks[0].create_data_array(wfname, "neo.waveforms",
-                                               data=waveforms)
-        wfda.unit = "mV"
-        mtag_st.create_feature(wfda, nixio.LinkType.Indexed)
-        wfda.append_set_dimension()  # spike dimension
-        wfda.append_set_dimension()  # channel dimension
-        wftimedim = wfda.append_sampled_dimension(0.1)
-        wftimedim.unit = "ms"
-        wftimedim.label = "time"
-        wfda.metadata = mtag_st_md.create_section(wfname,
-                                                  "neo.waveforms.metadata")
-        wfda.metadata.create_property("left_sweep", nixio.Value(20))
+                    waveforms = self.rquant((40, 10, 35), 1)
+                    wfname = "{}.waveforms".format(mtag_st.name)
+                    wfda = blk.create_data_array(wfname, "neo.waveforms",
+                                                 data=waveforms)
+                    wfda.unit = "mV"
+                    mtag_st.create_feature(wfda, nixio.LinkType.Indexed)
+                    wfda.append_set_dimension()  # spike dimension
+                    wfda.append_set_dimension()  # channel dimension
+                    wftimedim = wfda.append_sampled_dimension(0.1)
+                    wftimedim.unit = "ms"
+                    wftimedim.label = "time"
+                    wfda.metadata = mtag_st_md.create_section(
+                        wfname, "neo.waveforms.metadata"
+                    )
+                    wfda.metadata.create_property("left_sweep", nixio.Value(20))
 
-        # RCG
-        nixrcg = nix_blocks[0].create_source(self.rword(10),
-                                             "neo.recordingchannelgroup")
-        nixrcg.metadata = nix_blocks[0].metadata.create_section(
-            nixrcg.name, "neo.recordingchannelgroup.metadata"
-        )
-        chantype = "neo.recordingchannel"
-        # 4 channels
-        for idx in [2, 5, 9]:
-            channame = self.rword(20)
-            nixrc = nixrcg.create_source(channame, chantype)
-            nixrc.definition = self.rsentence(13)
-            nixrc.metadata = nixrcg.metadata.create_section(
-                nixrc.name, "neo.recordingchannel.metadata"
+            # RCG
+            nixrcg = blk.create_source(self.rword(10),
+                                                 "neo.recordingchannelgroup")
+            nixrcg.metadata = nix_blocks[0].metadata.create_section(
+                nixrcg.name, "neo.recordingchannelgroup.metadata"
             )
-            nixrc.metadata.create_property("index", nixio.Value(idx))
-            dims = tuple(map(nixio.Value, self.rquant(3, 1)))
-            nixrc.metadata.create_property("coordinates", dims)
-            nixrc.metadata.create_property("coordinates.units", nixio.Value("um"))
+            chantype = "neo.recordingchannel"
+            # 4 channels
+            for idx in [2, 5, 9]:
+                channame = self.rword(20)
+                nixrc = nixrcg.create_source(channame, chantype)
+                nixrc.definition = self.rsentence(13)
+                nixrc.metadata = nixrcg.metadata.create_section(
+                    nixrc.name, "neo.recordingchannel.metadata"
+                )
+                nixrc.metadata.create_property("index", nixio.Value(idx))
+                dims = tuple(map(nixio.Value, self.rquant(3, 1)))
+                nixrc.metadata.create_property("coordinates", dims)
+                nixrc.metadata.create_property("coordinates.units", nixio.Value("um"))
 
-        neo_blocks = self.io.read_all_blocks()
-        self.compare_blocks(neo_blocks, nix_blocks)
+            allsts = list(mtag for mtag in blk.multi_tags
+                          if mtag.type == "neo.spiketrain")
+            nunits = 2
+            stsperunit = np.array_split(allsts, nunits)
+            for idx in range(nunits):
+                unitname = "{}-unit{}".format(self.rword(5), idx)
+                nixunit = nixrcg.create_source(unitname, "neo.unit")
+                nixunit.definition = self.rsentence(4, 10)
+                for st in stsperunit[idx]:
+                    st.sources.append(nixrcg)
+                    st.sources.append(nixunit)
+
+            # pick a few signals to point to this rcg
+            allsigs = list(da for da in blk.data_arrays
+                           if da.type in ["neo.analogsignal",
+                                          "neo.irregularlysampledsignal"])
+            randsigs = np.random.choice(allsigs, 5, False)
+            for sig in randsigs:
+                sig.sources.append(nixrcg)
+
+            neo_blocks = self.io.read_all_blocks()
+            self.compare_blocks(neo_blocks, nix_blocks)
