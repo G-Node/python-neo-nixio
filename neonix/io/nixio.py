@@ -121,10 +121,6 @@ class NixIO(BaseIO):
         return neo_group
 
     def _source_rcg_to_neo(self, nix_source, parent_block):
-        if not self._valid_children_attr(nix_source):
-            print("Recording Channel Group with name {} contains "
-                  "a Recording Channel with different attribute values."
-                  "".format(nix_source.name), file=sys.stderr)
         neo_attrs = self._nix_attr_to_neo(nix_source)
         rec_channels = list(self._nix_attr_to_neo(c)
                             for c in nix_source.sources
@@ -942,13 +938,6 @@ class NixIO(BaseIO):
             if nix_obj.name in list(src.name for src in ref.sources):
                 ref_list.append(ref)
         return ref_list
-
-    @classmethod
-    def _valid_children_attr(cls, nix_rcg):
-        nix_rcs = list(rc for rc in nix_rcg.sources
-                       if rc.type == "neo.recordingchannel")
-        return all((cls._check_attrib_equal(nix_rcg, nix_rcs, attr)
-                    for attr in ["name", "description"]))
 
     @staticmethod
     def _check_attrib_equal(obj, objlist, attrib):
