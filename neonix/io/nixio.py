@@ -901,7 +901,6 @@ class NixIO(BaseIO):
         neo_attrs["description"] = nix_obj.definition
         if nix_obj.metadata:
             for prop in nix_obj.metadata.props:
-                print(type(prop))
                 values = prop.values
                 if len(values) == 1:
                     neo_attrs[prop.name] = values[0].value
