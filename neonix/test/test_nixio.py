@@ -1030,7 +1030,9 @@ class NixIOReadTest(NixIOTest):
                                                        group.name+".metadata")
                 group.metadata = group_md
 
+                allsignalgroups = list()
                 for n in range(5):
+                    siggroup = list()
                     asig_name = "{}_asig{}".format(self.rword(10), n)
                     asig_definition = self.rsentence(5, 5)
                     asig_md = group_md.create_section(asig_name,
@@ -1052,8 +1054,11 @@ class NixIOReadTest(NixIOTest):
                         timedim.offset = 10
                         chandim = da_asig.append_set_dimension()
                         group.data_arrays.append(da_asig)
+                        siggroup.append(da_asig)
+                    allsignalgroups.append(siggroup)
 
                 for n in range(2):
+                    siggroup = list()
                     isig_name = "{}_isig{}".format(self.rword(10), n)
                     isig_definition = self.rsentence(12, 12)
                     isig_md = group_md.create_section(isig_name,
@@ -1075,6 +1080,8 @@ class NixIOReadTest(NixIOTest):
                         timedim.label = "time"
                         chandim = da_isig.append_set_dimension()
                         group.data_arrays.append(da_isig)
+                        siggroup.append(da_isig)
+                    allsignalgroups.append(siggroup)
 
                 # SpikeTrains with Waveforms
                 for n in range(4):
@@ -1115,6 +1122,60 @@ class NixIOReadTest(NixIOTest):
                     )
                     wfda.metadata.create_property("left_sweep", nixio.Value(20))
 
+                # Epochs
+                for n in range(5):
+                    epname = "{}-ep{}".format(self.rword(5), n)
+                    times = self.rquant(5, 1, True)
+                    times_da = blk.create_data_array(
+                        "{}.times".format(epname),
+                        "neo.epoch.times",
+                        data=times
+                    )
+                    times_da.unit = "s"
+
+                    extents = self.rquant(5, 1)
+                    extents_da = blk.create_data_array(
+                        "{}.durations".format(epname),
+                        "neo.epoch.durations",
+                        data=extents
+                    )
+                    extents_da.unit = "s"
+
+                    mtag_ep = blk.create_multi_tag(
+                        epname, "neo.epoch", times_da
+                    )
+                    group.multi_tags.append(mtag_ep)
+                    mtag_ep.definition = self.rsentence(2)
+                    mtag_ep.extents = extents_da
+                    label_dim = mtag_ep.positions.append_set_dimension()
+                    label_dim.labels = self.rsentence(5).split(" ")
+                    # reference all signals in the group
+                    for siggroup in allsignalgroups:
+                        mtag_ep.references.extend(siggroup)
+
+                # Events
+                for n in range(2):
+                    evname = "{}-ev{}".format(self.rword(5), n)
+                    times = self.rquant(5, 1, True)
+                    times_da = blk.create_data_array(
+                        "{}.times".format(evname),
+                        "neo.event.times",
+                        data=times
+                    )
+                    times_da.unit = "s"
+
+                    mtag_ev = blk.create_multi_tag(
+                        evname, "neo.event", times_da
+                    )
+                    group.multi_tags.append(mtag_ev)
+                    mtag_ev.definition = self.rsentence(2)
+                    label_dim = mtag_ev.positions.append_set_dimension()
+                    label_dim.labels = self.rsentence(5).split(" ")
+                    # reference all signals in the group
+                    for siggroup in allsignalgroups:
+                        mtag_ev.references.extend(siggroup)
+
+
             # RCG
             nixrcg = blk.create_source(self.rword(10),
                                                  "neo.recordingchannelgroup")
@@ -1148,20 +1209,7 @@ class NixIOReadTest(NixIOTest):
                     st.sources.append(nixrcg)
                     st.sources.append(nixunit)
 
-            # pick a few signal groups to point to this rcg
-            allsigs = list(da for da in blk.data_arrays
-                           if da.type in ["neo.analogsignal",
-                                          "neo.irregularlysampledsignal"])
-            # group signals that have the same md section
-            grouped_sigs = {}
-            for sig in allsigs:
-                groupname = sig.metadata.name
-                if groupname in grouped_sigs:
-                    grouped_sigs[groupname].append(sig)
-                else:
-                    grouped_sigs[groupname] = [sig]
-            grouped_sigs = list(grouped_sigs.values())
-            randsiggroups = np.random.choice(grouped_sigs, 5, False)
+            randsiggroups = np.random.choice(allsignalgroups, 5, False)
             for siggroup in randsiggroups:
                 for sig in siggroup:
                     sig.sources.append(nixrcg)
