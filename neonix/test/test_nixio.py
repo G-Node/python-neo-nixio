@@ -72,6 +72,7 @@ class NixIOTest(unittest.TestCase):
         :param neoblock: The corresponding Neo block
         :param nixblock: A NIX block
         """
+        # TODO: Check reverse as well - NIX refs that lack Neo counterpart
         for neorcg in neoblock.recordingchannelgroups:
             for neounit in neorcg.units:
                 for neost in neounit.spiketrains:
@@ -1035,6 +1036,8 @@ class NixIOReadTest(NixIOTest):
 
         # 2 Blocks, 5 groups each, with signals
         for blk in nix_blocks:
+            allspiketrains = list()
+            allsignalgroups = list()
             for ind in range(5):
                 group = blk.create_group(self.rword(), "neo.segment")
                 group.definition = self.rsentence(10, 15)
@@ -1043,7 +1046,6 @@ class NixIOReadTest(NixIOTest):
                                                        group.name+".metadata")
                 group.metadata = group_md
 
-                allsignalgroups = list()
                 for n in range(5):
                     siggroup = list()
                     asig_name = "{}_asig{}".format(self.rword(10), n)
@@ -1134,6 +1136,7 @@ class NixIOReadTest(NixIOTest):
                         wfname, "neo.waveforms.metadata"
                     )
                     wfda.metadata.create_property("left_sweep", nixio.Value(20))
+                    allspiketrains.append(mtag_st)
 
                 # Epochs
                 for n in range(5):
@@ -1196,7 +1199,7 @@ class NixIOReadTest(NixIOTest):
                 nixrcg.name, "neo.recordingchannelgroup.metadata"
             )
             chantype = "neo.recordingchannel"
-            # 4 channels
+            # 3 channels
             for idx in [2, 5, 9]:
                 channame = self.rword(20)
                 nixrc = nixrcg.create_source(channame, chantype)
@@ -1210,10 +1213,8 @@ class NixIOReadTest(NixIOTest):
                 nixrc.metadata.create_property("coordinates.units",
                                                nixio.Value("um"))
 
-            allsts = list(mtag for mtag in blk.multi_tags
-                          if mtag.type == "neo.spiketrain")
             nunits = 2
-            stsperunit = np.array_split(allsts, nunits)
+            stsperunit = np.array_split(allspiketrains, nunits)
             for idx in range(nunits):
                 unitname = "{}-unit{}".format(self.rword(5), idx)
                 nixunit = nixrcg.create_source(unitname, "neo.unit")
@@ -1222,10 +1223,11 @@ class NixIOReadTest(NixIOTest):
                     st.sources.append(nixrcg)
                     st.sources.append(nixunit)
 
+            # pick a few signal groups to reference this RCG
             randsiggroups = np.random.choice(allsignalgroups, 5, False)
             for siggroup in randsiggroups:
                 for sig in siggroup:
                     sig.sources.append(nixrcg)
 
-            neo_blocks = self.io.read_all_blocks()
-            self.compare_blocks(neo_blocks, nix_blocks)
+        neo_blocks = self.io.read_all_blocks()
+        self.compare_blocks(neo_blocks, nix_blocks)
