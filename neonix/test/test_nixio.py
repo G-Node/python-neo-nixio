@@ -122,18 +122,19 @@ class NixIOTest(unittest.TestCase):
 
     def compare_segment_group(self, neoseg, nixgroup):
         self.compare_attr(neoseg, nixgroup)
-        self.compare_signals_das(neoseg.analogsignals, nixgroup.data_arrays)
-        self.compare_signals_das(neoseg.irregularlysampledsignals,
-                                 nixgroup.data_arrays)
+        neo_signals = neoseg.analogsignals + neoseg.irregularlysampledsignals
+        self.compare_signals_das(neo_signals, nixgroup.data_arrays)
+        neo_eests = neoseg.epochs + neoseg.events + neoseg.spiketrains
+        self.compare_eests_mtags(neo_eests, nixgroup.multi_tags)
 
     def compare_signals_das(self, neosignals, data_arrays):
-        for asig in neosignals:
-            if not asig.name:
+        for sig in neosignals:
+            if not sig.name:
                 from warnings import warn
                 warn("Anonymous signal. Skipping check.")
                 # TODO: Handle anonymous signals
                 continue
-            neoname = asig.name
+            neoname = sig.name
             dalist = list()
             for idx in itertools.count():
                 nixname = "{}.{}".format(neoname, idx)
@@ -141,9 +142,9 @@ class NixIOTest(unittest.TestCase):
                     dalist.append(data_arrays[nixname])
                 else:
                     break
-            _, nasig = np.shape(asig)
+            _, nasig = np.shape(sig)
             self.assertEqual(nasig, len(dalist))
-            self.compare_signal_dalist(asig, dalist)
+            self.compare_signal_dalist(sig, dalist)
 
     def compare_signal_dalist(self, neosig, nixdalist):
         """
@@ -183,13 +184,20 @@ class NixIOTest(unittest.TestCase):
                                  str(neosig.times.dimensionality))
             self.assertIsInstance(chandim, nixio.SetDimension)
 
-    def compare_eest_mtag(self, eest, mtag):
-        if isinstance(eest, Epoch):
-            self.compare_epoch_mtag(eest, mtag)
-        elif isinstance(eest, Event):
-            self.compare_event_mtag(eest, mtag)
-        elif isinstance(eest, SpikeTrain):
-            self.compare_spiketrain_mtag(eest, mtag)
+    def compare_eests_mtags(self, eestlist, mtaglist):
+        self.assertEqual(len(eestlist), len(mtaglist))
+        for eest in eestlist:
+            if eest.name:
+                mtag = mtaglist[eest.name]
+            else:
+                # TODO: Handle anonymous objects
+                continue
+            if isinstance(eest, Epoch):
+                self.compare_epoch_mtag(eest, mtag)
+            elif isinstance(eest, Event):
+                self.compare_event_mtag(eest, mtag)
+            elif isinstance(eest, SpikeTrain):
+                self.compare_spiketrain_mtag(eest, mtag)
 
     def compare_epoch_mtag(self, epoch, mtag):
         self.assertEqual(mtag.type, "neo.epoch")
@@ -198,8 +206,10 @@ class NixIOTest(unittest.TestCase):
             self.assertAlmostEqual(neot, nixt)
         for neod, nixd in zip(epoch.durations.magnitude, mtag.extents):
             self.assertAlmostEqual(neod, nixd)
-        self.assertEqual(mtag.positions.unit, str(epoch.units.dimensionality))
-        self.assertEqual(mtag.extents.unit, str(epoch.units.dimensionality))
+        self.assertEqual(mtag.positions.unit,
+                         str(epoch.times.units.dimensionality))
+        self.assertEqual(mtag.extents.unit,
+                         str(epoch.durations.units.dimensionality))
         for neol, nixl in zip(epoch.labels,
                               mtag.positions.dimensions[0].labels):
             self.assertEqual(neol, nixl)
