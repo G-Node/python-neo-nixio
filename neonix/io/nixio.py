@@ -150,7 +150,7 @@ class NixIO(BaseIO):
         rcg.analogsignals.extend(neo_asigs)
 
         all_nix_isigs = list(da for da in parent_block.data_arrays
-                             if da.type == "neo.irregularlysampledsignals")
+                             if da.type == "neo.irregularlysampledsignal")
         nix_isigs = self._get_referers(nix_source, all_nix_isigs)
         neo_isigs = self._get_mapped_objects(nix_isigs)
         rcg.irregularlysampledsignals.extend(neo_isigs)
