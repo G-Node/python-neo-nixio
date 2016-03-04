@@ -69,8 +69,8 @@ class NixIOTest(unittest.TestCase):
         Checks whether the references between objects that are not nested are
         mapped correctly (e.g., SpikeTrains referenced by a Unit).
 
-        :param neoblock: The corresponding Neo block
-        :param nixblock: A NIX block
+        :param neoblock: A Neo block
+        :param nixblock: The corresponding NIX block
         """
         # TODO: Check reverse as well - NIX refs that lack Neo counterpart
         for neorcg in neoblock.recordingchannelgroups:
