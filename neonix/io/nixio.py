@@ -221,11 +221,11 @@ class NixIO(BaseIO):
         times = pq.Quantity(nix_mtag.positions, nix_mtag.positions.unit)
         if neo_type == "neo.epoch":
             durations = pq.Quantity(nix_mtag.extents, nix_mtag.extents.unit)
-            labels = nix_mtag.dimensions[0]
+            labels = nix_mtag.positions.dimensions[0]
             eest = Epoch(times=times, durations=durations, labels=labels,
                          **neo_attrs)
         elif neo_type == "neo.event":
-            labels = nix_mtag.dimensions[0]
+            labels = nix_mtag.positions.dimensions[0]
             eest = Event(times=times, labels=labels, **neo_attrs)
         elif neo_type == "neo.spiketrain":
             eest = SpikeTrain(times=times, **neo_attrs)
