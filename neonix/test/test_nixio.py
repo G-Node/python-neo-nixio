@@ -223,7 +223,7 @@ class NixIOTest(unittest.TestCase):
         self.assertEqual(mtag.positions.unit, str(event.units.dimensionality))
         for neol, nixl in zip(event.labels,
                               mtag.positions.dimensions[0].labels):
-            self.assertEqual(neol, nixl)
+            self.assertEqual(str(neol), str(nixl))
 
     def compare_spiketrain_mtag(self, spiketrain, mtag):
         self.assertEqual(mtag.type, "neo.spiketrain")
