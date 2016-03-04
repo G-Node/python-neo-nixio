@@ -716,7 +716,7 @@ class NixIOWriteTest(NixIOTest):
         rcg_a.analogsignals.append(neo_block_a.segments[0].analogsignals[0])
         neo_block_a.recordingchannelgroups.append(rcg_a)
 
-        # RCG with units
+        # RCG with units and an ISS reference
         octotrode_rcg = RecordingChannelGroup(name="octotrode A",
                                               channel_indexes=range(3))
 
@@ -728,6 +728,9 @@ class NixIOWriteTest(NixIOTest):
             octo_unit = Unit(name="unit_{}".format(ind),
                              description="after a long and hard spike sorting")
             octotrode_rcg.units.append(octo_unit)
+        octotrode_rcg.irregularlysampledsignals.append(
+            neo_blocks[1].segments[2].irregularlysampledsignals[0]
+        )
 
         # RCG and Unit as a spiketrain container
         spiketrain_container_rcg = RecordingChannelGroup(name="PyramRCG",
