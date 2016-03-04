@@ -223,7 +223,12 @@ class NixIOTest(unittest.TestCase):
         self.assertEqual(mtag.positions.unit, str(event.units.dimensionality))
         for neol, nixl in zip(event.labels,
                               mtag.positions.dimensions[0].labels):
-            self.assertEqual(str(neol), str(nixl))
+            # Dirty. Should find the root cause instead
+            if isinstance(neol, bytes):
+                neol = neol.decode()
+            if isinstance(nixl, bytes):
+                nixl = nixl.decode()
+            self.assertEqual(neol, nixl)
 
     def compare_spiketrain_mtag(self, spiketrain, mtag):
         self.assertEqual(mtag.type, "neo.spiketrain")
