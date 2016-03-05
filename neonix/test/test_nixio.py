@@ -74,7 +74,25 @@ class NixIOTest(unittest.TestCase):
         :param neoblock: A Neo block
         :param nixblock: The corresponding NIX block
         """
-        # TODO: Check reverse as well - NIX refs that lack Neo counterpart
+        neorcgs = neoblock.recordingchannelgroups
+        nixrcgs = list(src for src in nixblock.sources
+                       if src.type == "neo.recordingchannelgroup")
+        self.assertEqual(len(neorcgs), len(nixrcgs))
+        for neorcg in neorcgs:
+            if neorcg.name:
+                self.assertIn(neorcg.name, nixblock.sources)
+            else:
+                self.anon_warn()
+
+        neounits = dict((un.name, un) for rcg in neorcgs for un in rcg.units)
+        nixunits = dict((un.name, un) for rcg in nixrcgs for un in rcg.sources
+                        if un.type == "neo.unit")
+        self.assertEqual(len(neounits), len(nixunits))
+        for neout in neounits:
+            if neout:
+                self.compare_attr(neounits[neout], nixunits[neout])
+            else:
+                self.anon_warn()
         for neorcg in neoblock.recordingchannelgroups:
             for neounit in neorcg.units:
                 for neost in neounit.spiketrains:
