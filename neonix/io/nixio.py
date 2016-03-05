@@ -940,12 +940,6 @@ class NixIO(BaseIO):
         return ref_list
 
     @staticmethod
-    def _check_attrib_equal(obj, objlist, attrib):
-        for item in objlist:
-            if getattr(item, attrib) != getattr(obj, attrib):
-                return False
-
-    @staticmethod
     def _get_time_dimension(obj):
         for dim in obj.dimensions:
             if hasattr(dim, "label") and dim.label == "time":
