@@ -213,6 +213,11 @@ class NixIOTest(unittest.TestCase):
                          str(epoch.durations.units.dimensionality))
         for neol, nixl in zip(epoch.labels,
                               mtag.positions.dimensions[0].labels):
+            # Dirty. Should find the root cause instead
+            if isinstance(neol, bytes):
+                neol = neol.decode()
+            if isinstance(nixl, bytes):
+                nixl = nixl.decode()
             self.assertEqual(neol, nixl)
 
     def compare_event_mtag(self, event, mtag):
