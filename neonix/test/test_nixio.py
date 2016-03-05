@@ -33,16 +33,18 @@ class NixIOTest(unittest.TestCase):
         if os.path.exists(self.filename):
             os.remove(self.filename)
 
-    # TODO: (Anon) Handle matching of anonymous Neo objects to NIX objects
+    def anon_warn(self):
+        # TODO: Handle anonymous signals
+        from warnings import warn
+        warn("Anonymous Neo object. Skipping check.")
+
     def compare_blocks(self, neoblocks, nixblocks):
         for neoblock, nixblock in zip(neoblocks, nixblocks):
             self.compare_attr(neoblock, nixblock)
             for neoseg in neoblock.segments:
-                # TODO: Anon
                 nixgrp = nixblock.groups[neoseg.name]
                 self.compare_segment_group(neoseg, nixgrp)
             for neorcg in neoblock.recordingchannelgroups:
-                # TODO: Anon
                 nixsrc = nixblock.sources[neorcg.name]
                 self.compare_rcg_source(neorcg, nixsrc)
             self.check_refs(neoblock, nixblock)
@@ -76,50 +78,52 @@ class NixIOTest(unittest.TestCase):
         for neorcg in neoblock.recordingchannelgroups:
             for neounit in neorcg.units:
                 for neost in neounit.spiketrains:
-                    if not neost.name:
-                        # TODO: Handle anonymous
-                        continue
-                    nixst = nixblock.multi_tags[neost.name]
-                    self.assertIn(neounit.name, nixst.sources)
-                    self.assertIn(neorcg.name, nixst.sources)
+                    if neost.name:
+                        nixst = nixblock.multi_tags[neost.name]
+                        self.assertIn(neounit.name, nixst.sources)
+                        self.assertIn(neorcg.name, nixst.sources)
+                    else:
+                        self.anon_warn()
             for neoasig in neorcg.analogsignals:
-                if not neoasig.name:
-                    # TODO: Handle anonymous
-                    continue
-                nixsiggroup = [da for da in nixblock.data_arrays
-                               if da.type == "neo.analogsignal" and
-                               da.metadata.name == neoasig.name]
-                for nixasig in nixsiggroup:
-                    self.assertIn(neorcg.name, nixasig.sources)
+                if neoasig.name:
+                    nixsiggroup = [da for da in nixblock.data_arrays
+                                   if da.type == "neo.analogsignal" and
+                                   da.metadata.name == neoasig.name]
+                    for nixasig in nixsiggroup:
+                        self.assertIn(neorcg.name, nixasig.sources)
+                else:
+                    self.anon_warn()
             for neoisig in neorcg.irregularlysampledsignals:
-                if not neoisig.name:
-                    # TODO: Handle anonymous
-                    continue
-                nixsiggroup = [da for da in nixblock.data_arrays
-                               if da.type == "neo.irregularlysampledsignal" and
-                               da.metadata.name == neoisig.name]
-                for nixisig in nixsiggroup:
-                    self.assertIn(neorcg.name, nixisig.sources)
+                if neoisig.name:
+                    nixsiggroup = [da for da in nixblock.data_arrays
+                                   if da.type == "neo.irregularlysampledsignal"
+                                   and da.metadata.name == neoisig.name]
+                    for nixisig in nixsiggroup:
+                        self.assertIn(neorcg.name, nixisig.sources)
+                else:
+                    self.anon_warn()
 
         for neoseg, nixgroup in zip(neoblock.segments, nixblock.groups):
             nixevep = list(mt for mt in nixgroup.multi_tags
                            if mt.type in ["neo.event", "neo.epoch"])
             for asig in neoseg.analogsignals:
-                # TODO: Handle anonymous
                 if asig.name:
                     _, nsig = np.shape(asig)
                     for idx in range(nsig):
                         signame = "{}.{}".format(asig.name, idx)
                         for nee in nixevep:
                             self.assertIn(signame, nee.references)
+                else:
+                    self.anon_warn()
             for isig in neoseg.irregularlysampledsignals:
-                # TODO: Handle anonymous
                 if isig.name:
                     _, nsig = np.shape(isig)
                     for idx in range(nsig):
                         signame = "{}.{}".format(isig.name, idx)
                         for nee in nixevep:
                             self.assertIn(signame, nee.references)
+                else:
+                    self.anon_warn()
 
     def compare_segment_group(self, neoseg, nixgroup):
         self.compare_attr(neoseg, nixgroup)
@@ -130,22 +134,20 @@ class NixIOTest(unittest.TestCase):
 
     def compare_signals_das(self, neosignals, data_arrays):
         for sig in neosignals:
-            if not sig.name:
-                from warnings import warn
-                warn("Anonymous signal. Skipping check.")
-                # TODO: Handle anonymous signals
-                continue
-            neoname = sig.name
-            dalist = list()
-            for idx in itertools.count():
-                nixname = "{}.{}".format(neoname, idx)
-                if nixname in data_arrays:
-                    dalist.append(data_arrays[nixname])
-                else:
-                    break
-            _, nasig = np.shape(sig)
-            self.assertEqual(nasig, len(dalist))
-            self.compare_signal_dalist(sig, dalist)
+            if sig.name:
+                neoname = sig.name
+                dalist = list()
+                for idx in itertools.count():
+                    nixname = "{}.{}".format(neoname, idx)
+                    if nixname in data_arrays:
+                        dalist.append(data_arrays[nixname])
+                    else:
+                        break
+                _, nasig = np.shape(sig)
+                self.assertEqual(nasig, len(dalist))
+                self.compare_signal_dalist(sig, dalist)
+            else:
+                self.anon_warn()
 
     def compare_signal_dalist(self, neosig, nixdalist):
         """
@@ -188,15 +190,14 @@ class NixIOTest(unittest.TestCase):
         for eest in eestlist:
             if eest.name:
                 mtag = mtaglist[eest.name]
+                if isinstance(eest, Epoch):
+                    self.compare_epoch_mtag(eest, mtag)
+                elif isinstance(eest, Event):
+                    self.compare_event_mtag(eest, mtag)
+                elif isinstance(eest, SpikeTrain):
+                    self.compare_spiketrain_mtag(eest, mtag)
             else:
-                # TODO: Handle anonymous objects
-                continue
-            if isinstance(eest, Epoch):
-                self.compare_epoch_mtag(eest, mtag)
-            elif isinstance(eest, Event):
-                self.compare_event_mtag(eest, mtag)
-            elif isinstance(eest, SpikeTrain):
-                self.compare_spiketrain_mtag(eest, mtag)
+                self.anon_warn()
 
     def compare_epoch_mtag(self, epoch, mtag):
         self.assertEqual(mtag.type, "neo.epoch")
