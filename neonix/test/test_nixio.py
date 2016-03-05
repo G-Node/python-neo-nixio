@@ -161,8 +161,7 @@ class NixIOTest(unittest.TestCase):
         for sig, da in zip(np.transpose(neosig),
                            sorted(nixdalist, key=lambda d: d.name)):
             self.compare_attr(neosig, da)
-            for neov, nixv in zip(sig, da):
-                self.assertAlmostEqual(neov, nixv)
+            np.testing.assert_almost_equal(sig.magnitude, da)
             self.assertEqual(neounit, da.unit)
             timedim = da.dimensions[0]
             chandim = da.dimensions[1]
@@ -178,9 +177,8 @@ class NixIOTest(unittest.TestCase):
                 )
             elif isinstance(neosig, IrregularlySampledSignal):
                 self.assertIsInstance(timedim, nixio.RangeDimension)
-                for neot, nixt in zip(neosig.times.magnitude,
-                                      timedim.ticks):
-                    self.assertAlmostEqual(neot, nixt)
+                np.testing.assert_almost_equal(neosig.times.magnitude,
+                                               timedim.ticks)
                 self.assertEqual(timedim.unit,
                                  str(neosig.times.dimensionality))
             self.assertIsInstance(chandim, nixio.SetDimension)
@@ -203,10 +201,9 @@ class NixIOTest(unittest.TestCase):
     def compare_epoch_mtag(self, epoch, mtag):
         self.assertEqual(mtag.type, "neo.epoch")
         self.compare_attr(epoch, mtag)
-        for neot, nixt in zip(epoch.times.magnitude, mtag.positions):
-            self.assertAlmostEqual(neot, nixt)
-        for neod, nixd in zip(epoch.durations.magnitude, mtag.extents):
-            self.assertAlmostEqual(neod, nixd)
+        np.testing.assert_almost_equal(epoch.times.magnitude, mtag.positions)
+
+        np.testing.assert_almost_equal(epoch.durations.magnitude, mtag.extents)
         self.assertEqual(mtag.positions.unit,
                          str(epoch.times.units.dimensionality))
         self.assertEqual(mtag.extents.unit,
@@ -223,8 +220,7 @@ class NixIOTest(unittest.TestCase):
     def compare_event_mtag(self, event, mtag):
         self.assertEqual(mtag.type, "neo.event")
         self.compare_attr(event, mtag)
-        for neot, nixt in zip(event.times.magnitude, mtag.positions):
-            self.assertAlmostEqual(neot, nixt)
+        np.testing.assert_almost_equal(event.times.magnitude, mtag.positions)
         self.assertEqual(mtag.positions.unit, str(event.units.dimensionality))
         for neol, nixl in zip(event.labels,
                               mtag.positions.dimensions[0].labels):
@@ -238,17 +234,14 @@ class NixIOTest(unittest.TestCase):
     def compare_spiketrain_mtag(self, spiketrain, mtag):
         self.assertEqual(mtag.type, "neo.spiketrain")
         self.compare_attr(spiketrain, mtag)
-        for neov, nixv in zip(spiketrain.times.magnitude, mtag.positions):
-            self.assertAlmostEqual(neov, nixv)
+        np.testing.assert_almost_equal(spiketrain.times.magnitude,
+                                       mtag.positions)
         if len(mtag.features):
             neowf = spiketrain.waveforms
             nixwf = mtag.features[0].data
             self.assertEqual(np.shape(neowf), np.shape(nixwf))
             self.assertEqual(nixwf.unit, str(neowf.units.dimensionality))
-            for neospk, nixspk in zip(neowf, nixwf):
-                for neochan, nixchan in zip(neospk, nixspk):
-                    for neov, nixv in zip(neochan, nixchan):
-                        self.assertAlmostEqual(neov, nixv)
+            np.testing.assert_almost_equal(neowf.magnitude, nixwf)
             self.assertIsInstance(nixwf.dimensions[0], nixio.SetDimension)
             self.assertIsInstance(nixwf.dimensions[1], nixio.SetDimension)
             self.assertIsInstance(nixwf.dimensions[2], nixio.SampledDimension)
@@ -598,12 +591,7 @@ class NixIOWriteTest(NixIOTest):
 
         nix_wf = nix_spkt.features[0].data
         self.assertAlmostEqual(nix_wf.metadata["left_sweep"], 0.005)
-        nspk, nchan, ntime = np.shape(nix_wf)
-        for spk in range(nspk):
-            for chan in range(nchan):
-                for t in range(ntime):
-                    self.assertAlmostEqual(nix_wf[spk, chan, t],
-                                           wf_array[spk, chan, t])
+        np.testing.assert_almost_equal(nix_wf, wf_array.magnitude)
 
     def test_basic_attr_write(self):
         """
@@ -1044,11 +1032,10 @@ class NixIOReadTest(NixIOTest):
 
         nix_blocks = [nix_block_a, nix_block_b]
 
-        # 2 Blocks, 5 groups each, with signals
         for blk in nix_blocks:
             allspiketrains = list()
             allsignalgroups = list()
-            for ind in range(5):
+            for ind in range(2):
                 group = blk.create_group(self.rword(), "neo.segment")
                 group.definition = self.rsentence(10, 15)
 
@@ -1056,7 +1043,7 @@ class NixIOReadTest(NixIOTest):
                                                        group.name+".metadata")
                 group.metadata = group_md
 
-                for n in range(5):
+                for n in range(3):
                     siggroup = list()
                     asig_name = "{}_asig{}".format(self.rword(10), n)
                     asig_definition = self.rsentence(5, 5)
