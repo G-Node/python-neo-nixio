@@ -102,35 +102,18 @@ class NixIOTest(unittest.TestCase):
                     self.anon_warn()
 
             # SpikeTrains referencing RCG and Units
-
-
-
             for neounit in neorcg.units:
-                for neost in neounit.spiketrains:
-                    if neost.name:
-                        nixst = nixblock.multi_tags[neost.name]
-                        self.assertIn(neounit.name, nixst.sources)
-                        self.assertIn(neorcg.name, nixst.sources)
+                nixunit = nixrcg.sources[neounit.name]
+                neosts = list(st.name for st in neounit.spiketrains)
+                nixsts = list(mt.name for mt in nixblock.multi_tags
+                              if mt.type == "neo.spiketrain" and
+                              nixunit.name in mt.sources)
+                self.assertEqual(len(neosts), len(nixsts))
+                for neoname in neosts:
+                    if neoname:
+                        self.assertIn(neoname, nixsts)
                     else:
                         self.anon_warn()
-            for neoasig in neorcg.analogsignals:
-                if neoasig.name:
-                    nixsiggroup = [da for da in nixblock.data_arrays
-                                   if da.type == "neo.analogsignal" and
-                                   da.metadata.name == neoasig.name]
-                    for nixasig in nixsiggroup:
-                        self.assertIn(neorcg.name, nixasig.sources)
-                else:
-                    self.anon_warn()
-            for neoisig in neorcg.irregularlysampledsignals:
-                if neoisig.name:
-                    nixsiggroup = [da for da in nixblock.data_arrays
-                                   if da.type == "neo.irregularlysampledsignal"
-                                   and da.metadata.name == neoisig.name]
-                    for nixisig in nixsiggroup:
-                        self.assertIn(neorcg.name, nixisig.sources)
-                else:
-                    self.anon_warn()
 
         for neoseg, nixgroup in zip(neoblock.segments, nixblock.groups):
             nixevep = list(mt for mt in nixgroup.multi_tags
