@@ -128,7 +128,6 @@ class NixIO(BaseIO):
         neo_attrs["channel_names"] = np.array([c["name"] for c in rec_channels])
         neo_attrs["channel_indexes"] = np.array([c["index"]
                                                  for c in rec_channels])
-        # TODO: Make sure all RCs have the same coordinate units
         if "coordinates" in rec_channels[0]:
             coord_units = rec_channels[0]["coordinates.units"]
             coord_values = list(c["coordinates"] for c in rec_channels)
@@ -182,14 +181,11 @@ class NixIO(BaseIO):
         :param nix_da_group: a list of NIX DataArray objects
         :return: a Neo Signal object
         """
-        # TODO: Handle NIX signals which share name with number suffix
         nix_da_group = sorted(nix_da_group, key=lambda d: d.name)
         neo_attrs = self._nix_attr_to_neo(nix_da_group[0])
         neo_attrs["name"] = nix_da_group[0].metadata.name
         unit = nix_da_group[0].unit
-        # TODO: Make sure all DAs have the same unit
         neo_type = nix_da_group[0].type
-        # TODO: Make sure all DAs have the same type
         signaldata = pq.Quantity(np.transpose(nix_da_group), unit)
         timedim = self._get_time_dimension(nix_da_group[0])
         if timedim is None:
@@ -212,7 +208,6 @@ class NixIO(BaseIO):
                 signal=signaldata, times=times, **neo_attrs
             )
         else:
-            # TODO: Multiple Signal objects (Generalised reader)
             return None
         for da in nix_da_group:
             self.object_map[da.id] = neo_signal
@@ -241,7 +236,6 @@ class NixIO(BaseIO):
                 )
                 eest.left_sweep = wfda.metadata["left_sweep"]
         else:
-            # TODO: Infer type from attributes (Generalised reader)
             return None
         self.object_map[nix_mtag.id] = eest
         return eest
