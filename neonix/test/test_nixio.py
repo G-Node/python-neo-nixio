@@ -105,9 +105,13 @@ class NixIOTest(unittest.TestCase):
             for neounit in neorcg.units:
                 nixunit = nixrcg.sources[neounit.name]
                 neosts = list(st.name for st in neounit.spiketrains)
-                nixsts = list(mt.name for mt in nixblock.multi_tags
+                nixsts = list(mt for mt in nixblock.multi_tags
                               if mt.type == "neo.spiketrain" and
                               nixunit.name in mt.sources)
+                # SpikeTrains must also reference RCG
+                for nixst in nixsts:
+                    self.assertIn(nixrcg.name, nixst.sources)
+                nixsts = list(st.name for st in nixsts)
                 self.assertEqual(len(neosts), len(nixsts))
                 for neoname in neosts:
                     if neoname:
