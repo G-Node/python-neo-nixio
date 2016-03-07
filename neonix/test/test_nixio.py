@@ -578,7 +578,9 @@ class NixIOWriteTest(NixIOTest):
                     unit = Unit()
                     rcg.units.append(unit)
         nixblocks = self.io.write_all_blocks(blocks)
-        self.compare_blocks(blocks, nixblocks)
+        # Purpose of test is name generation
+        #  Comparing everything takes too long
+        # self.compare_blocks(blocks, nixblocks)
 
     def test_annotations_write(self):
         """
