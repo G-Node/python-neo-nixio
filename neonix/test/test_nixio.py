@@ -75,6 +75,36 @@ class NixIOTest(unittest.TestCase):
         :param nixblock: The corresponding NIX block
         """
         for neorcg in neoblock.recordingchannelgroups:
+            nixrcg = nixblock.sources[neorcg.name]
+            # AnalogSignals referencing RCG
+            neoasigs = list(sig.name for sig in neorcg.analogsignals)
+            nixasigs = list(set(da.metadata.name for da in nixblock.data_arrays
+                                if da.type == "neo.analogsignal" and
+                                nixrcg in da.sources))
+
+            self.assertEqual(len(neoasigs), len(nixasigs))
+            for neoname in neoasigs:
+                if neoname:
+                    self.assertIn(neoname, nixasigs)
+                else:
+                    self.anon_warn()
+
+            # IrregularlySampledSignals referencing RCG
+            neoisigs = list(sig.name for sig in neorcg.irregularlysampledsignals)
+            nixisigs = list(set(da.metadata.name for da in nixblock.data_arrays
+                                if da.type == "neo.irregularlysampledsignal" and
+                                nixrcg in da.sources))
+            self.assertEqual(len(neoisigs), len(nixisigs))
+            for neoname in neoisigs:
+                if neoname:
+                    self.assertIn(neoname, nixisigs)
+                else:
+                    self.anon_warn()
+
+            # SpikeTrains referencing RCG and Units
+
+
+
             for neounit in neorcg.units:
                 for neost in neounit.spiketrains:
                     if neost.name:
