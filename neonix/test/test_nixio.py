@@ -580,7 +580,7 @@ class NixIOWriteTest(NixIOTest):
         nixblocks = self.io.write_all_blocks(blocks)
         # Purpose of test is name generation
         #  Comparing everything takes too long
-        # self.compare_blocks(blocks, nixblocks)
+        self.compare_blocks(blocks, nixblocks)
 
     def test_annotations_write(self):
         """
@@ -1093,7 +1093,7 @@ class NixIOReadTest(NixIOTest):
         neo_blocks = self.io.read_all_blocks()
         self.assertEqual(len(neo_blocks), 1)
         self.compare_attr(neo_blocks[0], nix_block)
-        # self.compare_blocks(neo_blocks, [nix_block])
+        self.compare_blocks(neo_blocks, [nix_block])
 
     def test_all_read(self):
         """
