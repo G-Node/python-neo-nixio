@@ -119,27 +119,16 @@ class NixIOTest(unittest.TestCase):
                     else:
                         self.anon_warn()
 
-        for neoseg, nixgroup in zip(neoblock.segments, nixblock.groups):
+        # Events and Epochs must reference all Signals in the Group (NIX only)
+        for nixgroup in nixblock.groups:
             nixevep = list(mt for mt in nixgroup.multi_tags
                            if mt.type in ["neo.event", "neo.epoch"])
-            for asig in neoseg.analogsignals:
-                if asig.name:
-                    _, nsig = np.shape(asig)
-                    for idx in range(nsig):
-                        signame = "{}.{}".format(asig.name, idx)
-                        for nee in nixevep:
-                            self.assertIn(signame, nee.references)
-                else:
-                    self.anon_warn()
-            for isig in neoseg.irregularlysampledsignals:
-                if isig.name:
-                    _, nsig = np.shape(isig)
-                    for idx in range(nsig):
-                        signame = "{}.{}".format(isig.name, idx)
-                        for nee in nixevep:
-                            self.assertIn(signame, nee.references)
-                else:
-                    self.anon_warn()
+            nixsigs = list(da.name for da in nixgroup.data_arrays
+                           if da.type in ["neo.analogsignal",
+                                          "neo.irregularlysampledsignal"])
+            for nee in nixevep:
+                for ns in nixsigs:
+                    self.assertIn(ns, nee.references)
 
     def compare_segment_group(self, neoseg, nixgroup):
         self.compare_attr(neoseg, nixgroup)
