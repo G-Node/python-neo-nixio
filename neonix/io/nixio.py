@@ -147,12 +147,15 @@ class NixIO(BaseIO):
                              if da.type == "neo.analogsignal")
         nix_asigs = self._get_referers(nix_source, all_nix_asigs)
         neo_asigs = self._get_mapped_objects(nix_asigs)
+        # deduplicate by name
+        neo_asigs = list(dict((s.name, s) for s in neo_asigs).values())
         rcg.analogsignals.extend(neo_asigs)
 
         all_nix_isigs = list(da for da in parent_block.data_arrays
                              if da.type == "neo.irregularlysampledsignal")
         nix_isigs = self._get_referers(nix_source, all_nix_isigs)
         neo_isigs = self._get_mapped_objects(nix_isigs)
+        neo_isigs = list(dict((s.name, s) for s in neo_isigs).values())
         rcg.irregularlysampledsignals.extend(neo_isigs)
         return rcg
 
