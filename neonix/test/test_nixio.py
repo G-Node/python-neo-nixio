@@ -33,19 +33,20 @@ class NixIOTest(unittest.TestCase):
         if os.path.exists(self.filename):
             os.remove(self.filename)
 
-    def anon_warn(self):
-        # TODO: Handle anonymous signals
-        from warnings import warn
-        warn("Anonymous Neo object. Skipping check.")
-
     def compare_blocks(self, neoblocks, nixblocks):
         for neoblock, nixblock in zip(neoblocks, nixblocks):
             self.compare_attr(neoblock, nixblock)
-            for neoseg in neoblock.segments:
-                nixgrp = nixblock.groups[neoseg.name]
+            for idx, neoseg in enumerate(neoblock.segments):
+                if neoseg.name:
+                    nixgrp = nixblock.groups[neoseg.name]
+                else:
+                    nixgrp = nixblock.groups[idx]
                 self.compare_segment_group(neoseg, nixgrp)
-            for neorcg in neoblock.recordingchannelgroups:
-                nixsrc = nixblock.sources[neorcg.name]
+            for idx, neorcg in enumerate(neoblock.recordingchannelgroups):
+                if neorcg.name:
+                    nixsrc = nixblock.sources[neorcg.name]
+                else:
+                    nixsrc = nixblock.sources[idx]
                 self.compare_rcg_source(neorcg, nixsrc)
             self.check_refs(neoblock, nixblock)
 
@@ -54,12 +55,16 @@ class NixIOTest(unittest.TestCase):
         nix_channels = list(src for src in nixsrc.sources
                             if src.type == "neo.recordingchannel")
         self.assertEqual(len(neorcg.channel_indexes), len(nix_channels))
-        for idx in range(len(nix_channels)):
-            self.assertEqual(neorcg.channel_indexes[idx],
-                             nix_channels[idx].metadata["index"])
+        for nixchan in nix_channels:
+            nixchanidx = nixchan.metadata["index"]
+            try:
+                neochanpos = list(neorcg.channel_indexes).index(nixchanidx)
+            except ValueError:
+                self.fail("Channel indexes do not match.")
             if len(neorcg.channel_names):
-                self.assertEqual(neorcg.channel_names[idx],
-                                 nix_channels[idx].name)
+                neochanname = neorcg.channel_names[neochanpos]
+                nixchanname = nixchan.name
+                self.assertEqual(neochanname, nixchanname)
         nix_units = list(src for src in nixsrc.sources
                          if src.type == "neo.unit")
         self.assertEqual(len(neorcg.units), len(nix_units))
@@ -74,8 +79,11 @@ class NixIOTest(unittest.TestCase):
         :param neoblock: A Neo block
         :param nixblock: The corresponding NIX block
         """
-        for neorcg in neoblock.recordingchannelgroups:
-            nixrcg = nixblock.sources[neorcg.name]
+        for idx, neorcg in enumerate(neoblock.recordingchannelgroups):
+            if neorcg.name:
+                nixrcg = nixblock.sources[neorcg.name]
+            else:
+                nixrcg = nixblock.sources[idx]
             # AnalogSignals referencing RCG
             neoasigs = list(sig.name for sig in neorcg.analogsignals)
             nixasigs = list(set(da.metadata.name for da in nixblock.data_arrays
@@ -83,11 +91,15 @@ class NixIOTest(unittest.TestCase):
                                 nixrcg in da.sources))
 
             self.assertEqual(len(neoasigs), len(nixasigs))
+            nneoanon = 0
             for neoname in neoasigs:
                 if neoname:
                     self.assertIn(neoname, nixasigs)
                 else:
-                    self.anon_warn()
+                    nneoanon += 1
+            autoname = "{}.AnalogSignal".format(nixblock.name)
+            nixanon = sum(1 for n in nixasigs if autoname in n)
+            self.assertEqual(nneoanon, nixanon)
 
             # IrregularlySampledSignals referencing RCG
             neoisigs = list(sig.name for sig in neorcg.irregularlysampledsignals)
@@ -95,15 +107,22 @@ class NixIOTest(unittest.TestCase):
                                 if da.type == "neo.irregularlysampledsignal" and
                                 nixrcg in da.sources))
             self.assertEqual(len(neoisigs), len(nixisigs))
+            nneoanon = 0
             for neoname in neoisigs:
                 if neoname:
                     self.assertIn(neoname, nixisigs)
                 else:
-                    self.anon_warn()
+                    nneoanon += 1
+            autoname = "{}.IrregularlySampledSignal".format(nixblock.name)
+            nixanon = sum(1 for n in nixisigs if autoname in n)
+            self.assertEqual(nneoanon, nixanon)
 
             # SpikeTrains referencing RCG and Units
-            for neounit in neorcg.units:
-                nixunit = nixrcg.sources[neounit.name]
+            for sidx, neounit in enumerate(neorcg.units):
+                if neounit.name:
+                    nixunit = nixrcg.sources[neounit.name]
+                else:
+                    nixunit = nixrcg.sources[sidx]
                 neosts = list(st.name for st in neounit.spiketrains)
                 nixsts = list(mt for mt in nixblock.multi_tags
                               if mt.type == "neo.spiketrain" and
@@ -116,8 +135,10 @@ class NixIOTest(unittest.TestCase):
                 for neoname in neosts:
                     if neoname:
                         self.assertIn(neoname, nixsts)
-                    else:
-                        self.anon_warn()
+                neoanon = sum(1 for n in neosts if not n)
+                autoname = "{}.SpikeTrain".format(nixblock.name)
+                nixanon = sum(1 for n in nixsts if autoname in n)
+                self.assertEqual(neoanon, nixanon)
 
         # Events and Epochs must reference all Signals in the Group (NIX only)
         for nixgroup in nixblock.groups:
@@ -140,19 +161,45 @@ class NixIOTest(unittest.TestCase):
     def compare_signals_das(self, neosignals, data_arrays):
         for sig in neosignals:
             if sig.name:
-                neoname = sig.name
-                dalist = list()
-                for idx in itertools.count():
-                    nixname = "{}.{}".format(neoname, idx)
-                    if nixname in data_arrays:
-                        dalist.append(data_arrays[nixname])
-                    else:
-                        break
-                _, nasig = np.shape(sig)
-                self.assertEqual(nasig, len(dalist))
-                self.compare_signal_dalist(sig, dalist)
+                signame = sig.name
             else:
-                self.anon_warn()
+                signame = self.find_nix_name_signal(sig, data_arrays)
+            dalist = list()
+            for idx in itertools.count():
+                nixname = "{}.{}".format(signame, idx)
+                if nixname in data_arrays:
+                    dalist.append(data_arrays[nixname])
+                else:
+                    break
+            _, nasig = np.shape(sig)
+            self.assertEqual(nasig, len(dalist))
+            self.compare_signal_dalist(sig, dalist)
+
+    def find_nix_name_signal(self, neosig, nixsigs):
+        """
+        Finds the name of the NIX DataArray signal based on the values of the
+        Neo signal.
+
+        :param neosig: An anonymous Neo Signal object
+        :param nixsigs: List of NIX DataArrays representing signals
+        :return: The autogenerated base name of the NIX DataArrays which
+        correspond to neosig
+        """
+        # this method can be optimised by checking only NIX DAs with
+        # autogenerated names
+        if isinstance(neosig, AnalogSignal):
+            nixtype = "neo.analogsignal"
+        elif isinstance(neosig, IrregularlySampledSignal):
+            nixtype = "neo.irregularlysampledsignal"
+        else:
+            self.fail("{} is not a Neo Signal object".format(neosig))
+        neovalues = np.transpose(neosig)[0].magnitude  # first sig
+        for sig in nixsigs:
+            if (sig.type == nixtype and len(sig) == len(neovalues) and
+                    np.allclose(sig, neovalues)):
+                return sig.metadata.name
+        else:
+            self.fail("Failed to find NIX signal matching anonymous Neo object.")
 
     def compare_signal_dalist(self, neosig, nixdalist):
         """
@@ -194,15 +241,46 @@ class NixIOTest(unittest.TestCase):
         self.assertEqual(len(eestlist), len(mtaglist))
         for eest in eestlist:
             if eest.name:
-                mtag = mtaglist[eest.name]
-                if isinstance(eest, Epoch):
-                    self.compare_epoch_mtag(eest, mtag)
-                elif isinstance(eest, Event):
-                    self.compare_event_mtag(eest, mtag)
-                elif isinstance(eest, SpikeTrain):
-                    self.compare_spiketrain_mtag(eest, mtag)
+                eestname = eest.name
             else:
-                self.anon_warn()
+                eestname = self.find_nix_name_eest(eest, mtaglist)
+            mtag = mtaglist[eestname]
+            if isinstance(eest, Epoch):
+                self.compare_epoch_mtag(eest, mtag)
+            elif isinstance(eest, Event):
+                self.compare_event_mtag(eest, mtag)
+            elif isinstance(eest, SpikeTrain):
+                self.compare_spiketrain_mtag(eest, mtag)
+
+    def find_nix_name_eest(self, neoeest, nixeests):
+        """
+        Finds the name of the NIX MultiTag based on the time values of the Neo
+        Event, Epoch, or SpikeTrain.
+
+        :param neoeest: An anonymous Neo Event, Epoch, or SpikeTrain object
+        :param nixeests: List of NIX MultiTags
+        :return: The autogenerated name of the NIX MultiTag which corresponds
+        to neosig
+        """
+        if isinstance(neoeest, Event):
+            nixtype = "neo.event"
+        elif isinstance(neoeest, Epoch):
+            nixtype = "neo.epoch"
+        elif isinstance(neoeest, SpikeTrain):
+            nixtype = "neo.spiketrain"
+        else:
+            self.fail("{} is not a Neo Event, Epoch, or SpikeTrain".format(
+                neoeest
+            ))
+        neovalues = neoeest.times.magnitude
+        for eest in nixeests:
+            nixvalues = eest.positions
+            if (eest.type == nixtype and len(nixvalues) == len(neovalues) and
+                    np.allclose(nixvalues, neovalues)):
+                return eest.name
+        else:
+            self.fail("Failed to find NIX Event, Epoch, or SpikeTrain matching "
+                      "anonymous Neo object.")
 
     def compare_epoch_mtag(self, epoch, mtag):
         self.assertEqual(mtag.type, "neo.epoch")
@@ -455,7 +533,7 @@ class NixIOWriteTest(NixIOTest):
         Create multiple trees that contain all types of objects, with no name or
         data to test the unique name generation.
 
-        Results are not checked. The purpose of this test it to check that the
+        Results are not checked. The purpose of this test is to check that the
         data can be written without causing conflicts in NIX.
         """
         nblocks = 3
@@ -499,8 +577,8 @@ class NixIOWriteTest(NixIOTest):
                 for unidx in range(nunits):
                     unit = Unit()
                     rcg.units.append(unit)
-
-        self.io.write_all_blocks(blocks)
+        nixblocks = self.io.write_all_blocks(blocks)
+        self.compare_blocks(blocks, nixblocks)
 
     def test_annotations_write(self):
         """
@@ -575,7 +653,7 @@ class NixIOWriteTest(NixIOTest):
 
     def test_waveforms_write(self):
         """
-        Write waveforms test
+        Waveforms write test
         """
         blk = Block()
         seg = Segment()
@@ -1022,7 +1100,6 @@ class NixIOReadTest(NixIOTest):
         Write all objects to a using nix directly, read them using the NixIO
         reader, and check for equality.
         """
-        # TODO: include metadata and annotations
         nix_block_a = self.nixfile.create_block(self.rword(10), "neo.block")
         nix_block_a.definition = self.rsentence(5, 10)
         nix_block_b = self.nixfile.create_block(self.rword(10), "neo.block")
