@@ -1,23 +1,28 @@
 from __future__ import print_function
 import os
+import sys
 import neo
 from neonix.io.nixio import NixIO
 
 
 def main():
+    if "-v" in sys.argv:
+        verbose = True
+    else:
+        verbose = False
     for datafilename in [f for f in os.listdir(".") if os.path.isfile(f)]:
         print("Processing {}".format(datafilename))
         try:
             reader = neo.io.get_io(datafilename)
-            print("Filetype: {}".format(reader.name))
+            print("File type: {}".format(reader.name))
             data = reader.read()
         except OSError:
-            print("\tNOTICE: file does not have an extension known to Neo.".
-                  format(datafilename))
+            printerr("\tNOTICE: file {} does not have an extension "
+                     "known to Neo.".format(datafilename))
             continue
         except Exception as exc:
-            print("\tERROR: Could not read data.".format(datafilename))
-            print("\t     - {}".format(exc))
+            printerr("\tERROR reading file {}.".format(datafilename))
+            printerr("\t     - {}".format(exc))
             continue
         blocks = []
         try:
