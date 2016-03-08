@@ -22,7 +22,7 @@ from neo.core import (Block, Segment, RecordingChannelGroup, AnalogSignal,
                       IrregularlySampledSignal, Epoch, Event, SpikeTrain, Unit)
 
 try:
-    import nix
+    import nixio as nix
 except ImportError:  # pragma: no cover
     raise ImportError("Failed to import NIX (NIXPY not found). "
                       "The NixIO requires the Python bindings for NIX.")
