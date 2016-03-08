@@ -15,7 +15,7 @@ import numpy as np
 import quantities as pq
 import string
 
-import nix
+import nixio as nix
 from neo.core import (Block, Segment, RecordingChannelGroup, AnalogSignal,
                       IrregularlySampledSignal, Unit, SpikeTrain, Event, Epoch)
 
