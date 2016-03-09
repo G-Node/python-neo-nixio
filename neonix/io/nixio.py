@@ -52,6 +52,17 @@ class NixIO(BaseIO):
     extensions = ["h5"]
     mode = "file"
 
+    containermap = {"Block": "blocks",
+                    "Segment": "groups",
+                    "RecordingChannelGroup": "sources",
+                    "AnalogSignal": "data_arrays",
+                    "IrregularlySampledSignal": "data_arrays",
+                    "Epoch": "multi_tags",
+                    "Event": "multi_tags",
+                    "SpikeTrain": "multi_tags",
+                    "Unit": "sources"
+                    }
+
     def __init__(self, filename, mode="ro"):
         """
         Initialise IO instance and NIX file.
@@ -814,6 +825,25 @@ class NixIO(BaseIO):
             metadata = self._get_or_init_metadata(nix_object, object_path)
             self._add_annotations(neo_object.annotations, metadata)
 
+    def _create_name(self, neo_obj, parent_obj):
+        neo_type = type(neo_obj).__name__
+        if neo_obj.name:
+            nix_basename = neo_obj.name
+        else:
+            if neo_type == "Block":
+                parent_name = "neo"
+            else:
+                parent_name = parent_obj.name
+            nix_basename = "{}.{}".format(parent_name, neo_type)
+        containername = self.containermap[neo_type]
+        container = getattr(parent_obj, containername)
+        idx = 0
+        nix_name = "{}-{}".format(nix_basename, idx)
+        while nix_name in container:
+            idx += 1
+            nix_name = "{}-{}".format(nix_basename, idx)
+        return nix_name
+
     @classmethod
     def _add_annotations(cls, annotations, metadata):
         for k, v in annotations.items():
@@ -942,3 +972,4 @@ class NixIO(BaseIO):
             if hasattr(dim, "label") and dim.label == "time":
                 return dim
         return None
+
