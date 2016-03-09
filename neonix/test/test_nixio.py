@@ -612,7 +612,7 @@ class NixIOWriteTest(NixIOTest):
             seg.events.append(Event(name=name, times=times))
             seg.spiketrains.append(SpikeTrain(times=times, t_stop=pq.s,
                                               units=pq.s))
-            nixblock = self.io.write_block(block)
+        nixblock = self.io.write_block(block)
 
     def test_annotations_write(self):
         """
