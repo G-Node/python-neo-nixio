@@ -72,7 +72,6 @@ class NixIO(BaseIO):
                        "'ow' (Overwrite).".format(mode))
         self.nix_file = nixio.File.open(self.filename, filemode)
         self.object_map = {}
-        self.name_conflicts = []
 
     def __del__(self):
         self.nix_file.close()
