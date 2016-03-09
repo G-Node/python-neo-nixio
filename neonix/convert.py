@@ -39,14 +39,16 @@ def main():
             nixfilename = os.path.splitext(datafilename)[0]+"_nix.h5"
             try:
                 print("Writing data to {}".format(nixfilename))
-                nixfile = NixIO(nixfilename)
-                nixfile.write_all_blocks(blocks)
+                nixio = NixIO(nixfilename, mode="ow")
+                nixio.write_all_blocks(blocks)
                 print("\tDONE: file converted and saved to {}".
                       format(datafilename, nixfilename))
             except Exception as exc:
                 printerr("\tERROR: The following error occurred during "
                          "conversion of file {}.".format(datafilename))
                 printerr("\t      - {}".format(exc))
+        else:
+            print("File does not contain Blocks. Skipping.")
 
 
 def print_neo(blocks):
