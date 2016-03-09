@@ -582,6 +582,44 @@ class NixIOWriteTest(NixIOTest):
         #  Comparing everything takes too long
         self.compare_blocks(blocks, nixblocks)
 
+    def test_name_conflict(self):
+        """
+        Test resolution of naming conflicts from Neo files.
+
+        The following scenario exists in several sample files:
+            > Block
+                > Segment
+                    > AnalogSignal (name: 'foo')
+                > Segment
+                    > AnalogSignal (name: 'foo')
+
+        The writer should resolve the naming conflict between the signals.
+        """
+        block = Block()
+        nsegs = 10
+        name = "name_conflict"
+
+        times = self.rquant(1, pq.s)
+        signal = self.rquant(1, pq.V)
+
+        for n in range(nsegs):
+            seg = Segment()
+            block.segments.append(seg)
+            seg.analogsignals.append(AnalogSignal(name=name,
+                                                  signal=signal,
+                                                  sampling_rate=pq.Hz))
+            seg.irregularlysampledsignals.append(
+                IrregularlySampledSignal(name=name,
+                                         times=times,
+                                         signal=signal,
+                                         time_units=pq.s)
+            )
+            seg.epochs.append(Epoch(name=name, times=times, durations=times))
+            seg.events.append(Event(name=name, times=times))
+            seg.spiketrains.append(SpikeTrain(times=times, t_stop=pq.s,
+                                              units=pq.s))
+            nixblock = self.io.write_block(block)
+
     def test_annotations_write(self):
         """
         Write full data tree: Annotations only
