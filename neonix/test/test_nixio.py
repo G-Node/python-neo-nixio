@@ -586,14 +586,8 @@ class NixIOWriteTest(NixIOTest):
         """
         Test resolution of naming conflicts from Neo files.
 
-        The following scenario exists in several sample files:
-            > Block
-                > Segment
-                    > AnalogSignal (name: 'foo')
-                > Segment
-                    > AnalogSignal (name: 'foo')
-
-        The writer should resolve the naming conflict between the signals.
+        Object names in Neo may not be unique. The writer should resolve
+        naming conflicts.
         """
         block = Block()
         nsegs = 10
