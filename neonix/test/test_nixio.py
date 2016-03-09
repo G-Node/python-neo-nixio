@@ -309,6 +309,7 @@ class NixIOTest(unittest.TestCase):
         for neol, nixl in zip(event.labels,
                               mtag.positions.dimensions[0].labels):
             # Dirty. Should find the root cause instead
+            # Only happens in 3.2
             if isinstance(neol, bytes):
                 neol = neol.decode()
             if isinstance(nixl, bytes):
