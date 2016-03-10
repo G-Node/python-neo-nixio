@@ -97,7 +97,7 @@ class NixIOTest(unittest.TestCase):
                     self.assertIn(neoname, nixasigs)
                 else:
                     nneoanon += 1
-            autoname = "{}.AnalogSignal".format(nixblock.name)
+            autoname = "neo.AnalogSignal"
             nixanon = sum(1 for n in nixasigs if autoname in n)
             self.assertEqual(nneoanon, nixanon)
 
@@ -113,7 +113,7 @@ class NixIOTest(unittest.TestCase):
                     self.assertIn(neoname, nixisigs)
                 else:
                     nneoanon += 1
-            autoname = "{}.IrregularlySampledSignal".format(nixblock.name)
+            autoname = "neo.IrregularlySampledSignal"
             nixanon = sum(1 for n in nixisigs if autoname in n)
             self.assertEqual(nneoanon, nixanon)
 
@@ -136,7 +136,7 @@ class NixIOTest(unittest.TestCase):
                     if neoname:
                         self.assertIn(neoname, nixsts)
                 neoanon = sum(1 for n in neosts if not n)
-                autoname = "{}.SpikeTrain".format(nixblock.name)
+                autoname = "neo.SpikeTrain"
                 nixanon = sum(1 for n in nixsts if autoname in n)
                 self.assertEqual(neoanon, nixanon)
 
