@@ -36,7 +36,7 @@ def main():
         if blocks:
             if verbose:
                 print_neo(blocks)
-            nixfilename = os.path.splitext(datafilename)[0]+"_nix.h5"
+            nixfilename = datafilename.replace(".", "_")+"_nix.h5"
             try:
                 print("Writing data to {}".format(nixfilename))
                 nixio = NixIO(nixfilename, mode="ow")
