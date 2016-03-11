@@ -9,8 +9,11 @@ errorfile = "nixio_error.log"
 
 
 def main():
-    printerr("Starting conversion task at {}".
-             format(datetime.now().isoformat()))
+    startmsg = "Starting conversion task at {}".format(
+        datetime.now().isoformat())
+    printerr("-"*len(startmsg))
+    printerr(startmsg)
+    printerr("-"*len(startmsg))
     if "-v" in sys.argv:
         verbose = True
     else:
@@ -25,9 +28,13 @@ def main():
             printerr("NOTICE: file {} does not have an extension "
                      "known to Neo.".format(datafilename))
             continue
+        except ImportError as ie:
+            printerr("ERROR importing reader for file {}.".format(datafilename))
+            printerr("      {}".format(ie))
+            continue
         except Exception as exc:
             printerr("ERROR reading file {}.".format(datafilename))
-            printerr("     - {}".format(exc))
+            printerr("      {}".format(exc))
             continue
         blocks = []
         try:
@@ -42,18 +49,26 @@ def main():
             if verbose:
                 print_neo(blocks)
             nixfilename = datafilename.replace(".", "_")+"_nix.h5"
+            nixio = None
             try:
                 print("Writing data to {}".format(nixfilename))
                 nixio = NixIO(nixfilename, mode="ow")
                 nixio.write_all_blocks(blocks)
-                print("\tDONE: file converted and saved to {}".
+                print("DONE: file {} converted and saved to {}".
                       format(datafilename, nixfilename))
+            except RuntimeError as re:
+                printerr("ERROR creating file {}".format(nixfilename))
+                printerr("      {}".format(re))
             except Exception as exc:
-                printerr("ERROR: The following error occurred during "
-                         "conversion of file {}.".format(datafilename))
-                printerr("      - {}".format(exc))
+                printerr("ERROR: The following unexpected error occurred during"
+                         " conversion of file {}.".format(datafilename))
+                printerr("       {}".format(exc))
+            finally:
+                if nixio:
+                    del nixio
         else:
             print("File does not contain Blocks. Skipping.")
+        print()
 
 
 def print_neo(blocks):
@@ -86,6 +101,7 @@ def print_neo(blocks):
 def printerr(message):
     with open(errorfile, "a") as logfile:
         print(message, file=logfile)
+    print(message, file=sys.stderr)
 
 
 if __name__ == "__main__":
