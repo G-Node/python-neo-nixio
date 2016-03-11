@@ -2,10 +2,15 @@ from __future__ import print_function
 import os
 import sys
 import neo
+from datetime import datetime
 from neonix.io.nixio import NixIO
+
+errorfile = "nixio_error.log"
 
 
 def main():
+    printerr("Starting conversion task at {}".
+             format(datetime.now().isoformat()))
     if "-v" in sys.argv:
         verbose = True
     else:
@@ -17,12 +22,12 @@ def main():
             print("File type: {}".format(reader.name))
             data = reader.read()
         except OSError:
-            printerr("\tNOTICE: file {} does not have an extension "
+            printerr("NOTICE: file {} does not have an extension "
                      "known to Neo.".format(datafilename))
             continue
         except Exception as exc:
-            printerr("\tERROR reading file {}.".format(datafilename))
-            printerr("\t     - {}".format(exc))
+            printerr("ERROR reading file {}.".format(datafilename))
+            printerr("     - {}".format(exc))
             continue
         blocks = []
         try:
@@ -44,9 +49,9 @@ def main():
                 print("\tDONE: file converted and saved to {}".
                       format(datafilename, nixfilename))
             except Exception as exc:
-                printerr("\tERROR: The following error occurred during "
+                printerr("ERROR: The following error occurred during "
                          "conversion of file {}.".format(datafilename))
-                printerr("\t      - {}".format(exc))
+                printerr("      - {}".format(exc))
         else:
             print("File does not contain Blocks. Skipping.")
 
@@ -79,7 +84,8 @@ def print_neo(blocks):
 
 
 def printerr(message):
-    print(message, file=sys.stderr)
+    with open(errorfile, "a") as logfile:
+        print(message, file=logfile)
 
 
 if __name__ == "__main__":
