@@ -329,17 +329,18 @@ class NixIO(BaseIO):
             chan_obj_path = object_path + [("source", nix_chan_name)]
             chan_metadata = self._get_or_init_metadata(nix_chan,
                                                        chan_obj_path)
-            chan_metadata.create_property("index", nixio.Value(int(channel)))
+            chan_metadata.create_property("index", self._to_value(int(channel)))
             if "file_origin" in attr:
-                chan_metadata.create_property("file_origin",
-                                              nixio.Value(attr["file_origin"]))
+                chan_metadata.create_property(
+                    "file_origin", self._to_value(attr["file_origin"])
+                )
 
             if hasattr(rcg, "coordinates"):
                 chan_coords = rcg.coordinates[idx]
                 coord_unit = str(chan_coords[0].dimensionality)
-                nix_coord_unit = nixio.Value(coord_unit)
+                nix_coord_unit = self._to_value(coord_unit)
                 nix_coord_values = tuple(
-                    nixio.Value(c.rescale(coord_unit).magnitude.item())
+                    self._to_value(c.rescale(coord_unit).magnitude.item())
                     for c in chan_coords
                 )
                 chan_metadata.create_property("coordinates",
@@ -382,7 +383,7 @@ class NixIO(BaseIO):
 
         if "file_origin" in attr:
             anasig_group_segment.create_property(
-                "file_origin", nixio.Value(attr["file_origin"])
+                "file_origin", self._to_value(attr["file_origin"])
             )
         if anasig.annotations:
             self._add_annotations(anasig.annotations, anasig_group_segment)
@@ -439,7 +440,7 @@ class NixIO(BaseIO):
 
         if "file_origin" in attr:
             irsig_group_segment.create_property(
-                "file_origin", nixio.Value(attr["file_origin"])
+                "file_origin", self._to_value(attr["file_origin"])
             )
 
         if irsig.annotations:
@@ -596,10 +597,10 @@ class NixIO(BaseIO):
         if sptr.t_start:
             t_start = sptr.t_start.rescale(time_units).magnitude.item()
             mtag_metadata.create_property("t_start",
-                                          nixio.Value(t_start))
+                                          self._to_value(t_start))
         # t_stop is not optional
         t_stop = sptr.t_stop.rescale(time_units).magnitude.item()
-        mtag_metadata.create_property("t_stop", nixio.Value(t_stop))
+        mtag_metadata.create_property("t_stop", self._to_value(t_stop))
 
         # waveforms
         if sptr.waveforms is not None:
@@ -624,8 +625,9 @@ class NixIO(BaseIO):
             if sptr.left_sweep:
                 left_sweep = sptr.left_sweep.rescale(time_units).\
                     magnitude.item()
-                waveforms_da.metadata.create_property("left_sweep",
-                                                      nixio.Value(left_sweep))
+                waveforms_da.metadata.create_property(
+                    "left_sweep", self._to_value(left_sweep)
+                )
 
         return nix_multi_tag
 
@@ -711,15 +713,17 @@ class NixIO(BaseIO):
 
     def _write_attr_annotations(self, nix_object, attr, object_path):
         if "created_at" in attr:
-            nix_object.force_created_at(attr["created_at"])
+            nix_object.force_created_at(calculate_timestamp(attr["created_at"]))
         if "file_datetime" in attr:
             block_metadata = self._get_or_init_metadata(nix_object)
-            block_metadata.create_property("file_datetime",
-                                           nixio.Value(attr["file_datetime"]))
+            block_metadata.create_property(
+                "file_datetime", self._to_value(attr["file_datetime"])
+            )
         if "file_origin" in attr:
             block_metadata = self._get_or_init_metadata(nix_object)
-            block_metadata.create_property("file_origin",
-                                           nixio.Value(attr["file_origin"]))
+            block_metadata.create_property(
+                "file_origin", self._to_value(attr["file_origin"])
+            )
 
         if "annotations" in attr:
             metadata = self._get_or_init_metadata(nix_object, object_path)
@@ -750,13 +754,9 @@ class NixIO(BaseIO):
         nix_attrs["definition"] = neo_obj.description
         if isinstance(neo_obj, (Block, Segment)):
             if neo_obj.rec_datetime:
-                nix_attrs["created_at"] = calculate_timestamp(
-                    neo_obj.rec_datetime
-                )
+                nix_attrs["created_at"] = neo_obj.rec_datetime
             if neo_obj.file_datetime:
-                nix_attrs["file_datetime"] = calculate_timestamp(
-                    neo_obj.file_datetime
-                )
+                nix_attrs["file_datetime"] = neo_obj.file_datetime
         if neo_obj.file_origin:
             nix_attrs["file_origin"] = neo_obj.file_origin
         if neo_obj.annotations:
