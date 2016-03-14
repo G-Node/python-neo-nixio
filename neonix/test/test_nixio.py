@@ -524,7 +524,6 @@ class NixIOWriteTest(NixIOTest):
         neo_block.file_origin = "test_file_origin"
         self.io.write_block(neo_block)
         nix_block = self.io.nix_file.blocks[0]
-
         self.compare_attr(neo_block, nix_block)
 
     def test_anonymous_objects_write(self):
