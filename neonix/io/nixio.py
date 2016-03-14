@@ -247,27 +247,21 @@ class NixIO(BaseIO):
         :param neo_block: Neo block to be written
         :return: The new NIX Block
         """
-        nix_name = self._create_name(neo_block, self.nix_file.blocks)
-        nix_type = "neo.block"
-        nix_definition = neo_block.description
-        nix_block = self.nix_file.create_block(nix_name, nix_type)
-        nix_block.definition = nix_definition
-        object_path = [("block", nix_name)]
+        attr = self._neo_attr_to_nix(neo_block, self.nix_file.blocks)
+        nix_block = self.nix_file.create_block(attr["name"], attr["type"])
+        nix_block.definition = attr["definition"]
+        object_path = [("block",  nix_block.name)]
         self.object_map[id(neo_block)] = nix_block
-        if neo_block.rec_datetime:
-            nix_block.force_created_at(
-                    calculate_timestamp(neo_block.rec_datetime)
-            )
-        if neo_block.file_datetime:
+        if "rec_datetime" in attr:
+            nix_block.force_created_at(attr["rec_datetime"])
+        if "file_datetime" in attr:
             block_metadata = self._get_or_init_metadata(nix_block)
-            block_metadata.create_property(
-                    "file_datetime",
-                    nixio.Value(calculate_timestamp(neo_block.file_datetime))
-            )
-        if neo_block.file_origin:
+            block_metadata.create_property("file_datetime",
+                                           nixio.Value(attr["file_datetime"]))
+        if "file_origin" in attr:
             block_metadata = self._get_or_init_metadata(nix_block)
             block_metadata.create_property("file_origin",
-                                           nixio.Value(neo_block.file_origin))
+                                           nixio.Value(attr["file_origin"]))
         self._copy_annotations(neo_block, nix_block, object_path)
         for segment in neo_block.segments:
             self.write_segment(segment, object_path)
@@ -296,25 +290,21 @@ class NixIO(BaseIO):
         :return: The newly created NIX Group
         """
         parent_block = self._get_object_at(parent_path)
-        nix_name = self._create_name(segment, parent_block.groups)
-        nix_type = "neo.segment"
-        nix_definition = segment.description
-        nix_group = parent_block.create_group(nix_name, nix_type)
-        nix_group.definition = nix_definition
-        object_path = parent_path + [("group", nix_name)]
+        attr = self._neo_attr_to_nix(segment, parent_block.groups)
+        nix_group = parent_block.create_group(attr["name"], attr["type"])
+        nix_group.definition = attr["definition"]
+        object_path = parent_path + [("group", nix_group.name)]
         self.object_map[id(segment)] = nix_group
-        if segment.rec_datetime:
-            nix_group.force_created_at(calculate_timestamp(segment.rec_datetime))
-        if segment.file_datetime:
+        if "rec_datetime" in attr:
+            nix_group.force_created_at(attr["rec_datetime"])
+        if "file_datetime" in attr:
             group_metadata = self._get_or_init_metadata(nix_group, object_path)
-            group_metadata .create_property(
-                    "file_datetime",
-                    nixio.Value(calculate_timestamp(segment.file_datetime))
-            )
-        if segment.file_origin:
+            group_metadata .create_property("file_datetime",
+                                            nixio.Value(attr["file_datetime"]))
+        if "file_origin" in attr:
             group_metadata = self._get_or_init_metadata(nix_group, object_path)
             group_metadata.create_property("file_origin",
-                                           nixio.Value(segment.file_origin))
+                                           nixio.Value(attr["file_origin"]))
         self._copy_annotations(segment, nix_group, object_path)
         for anasig in segment.analogsignals:
             self.write_analogsignal(anasig, object_path)
@@ -339,18 +329,16 @@ class NixIO(BaseIO):
         :return: The newly created NIX Source
         """
         parent_block = self._get_object_at(parent_path)
-        nix_name = self._create_name(rcg, parent_block.sources)
-        nix_type = "neo.recordingchannelgroup"
-        nix_definition = rcg.description
-        nix_source = parent_block.create_source(nix_name, nix_type)
-        nix_source.definition = nix_definition
-        object_path = parent_path + [("source", nix_name)]
+        attr = self._neo_attr_to_nix(rcg, parent_block.sources)
+        nix_source = parent_block.create_source(attr["name"], attr["type"])
+        nix_source.definition = attr["definition"]
+        object_path = parent_path + [("source", nix_source.name)]
         self.object_map[id(rcg)] = nix_source
-        if rcg.file_origin:
+        if "file_origin" in attr:
             source_metadata = self._get_or_init_metadata(nix_source,
                                                          object_path)
             source_metadata.create_property("file_origin",
-                                            nixio.Value(rcg.file_origin))
+                                            nixio.Value(attr["file_origin"]))
         self._copy_annotations(rcg, nix_source, object_path)
         for idx, channel in enumerate(rcg.channel_indexes):
             # create a child source object to represent the individual channel
@@ -362,14 +350,14 @@ class NixIO(BaseIO):
                 )
             nix_chan_type = "neo.recordingchannel"
             nix_chan = nix_source.create_source(nix_chan_name, nix_chan_type)
-            nix_chan.definition = nix_definition
+            nix_chan.definition = nix_source.definition
             chan_obj_path = object_path + [("source", nix_chan_name)]
             chan_metadata = self._get_or_init_metadata(nix_chan,
                                                        chan_obj_path)
             chan_metadata.create_property("index", nixio.Value(int(channel)))
-            if rcg.file_origin:
+            if "file_origin" in attr:
                 chan_metadata.create_property("file_origin",
-                                              nixio.Value(rcg.file_origin))
+                                              nixio.Value(attr["file_origin"]))
 
             if hasattr(rcg, "coordinates"):
                 chan_coords = rcg.coordinates[idx]
@@ -411,17 +399,16 @@ class NixIO(BaseIO):
         """
         parent_group = self._get_object_at(parent_path)
         parent_block = self._get_object_at([parent_path[0]])
-        nix_type = "neo.analogsignal"
-        nix_definition = anasig.description
         parent_metadata = self._get_or_init_metadata(parent_group, parent_path)
-        nix_name = self._create_name(anasig, parent_block.data_arrays)
+        attr = self._neo_attr_to_nix(anasig, parent_block.data_arrays)
         anasig_group_segment = parent_metadata.create_section(
-            nix_name, nix_type+".metadata"
+            attr["name"], attr["type"]+".metadata"
         )
 
-        if anasig.file_origin:
-            anasig_group_segment.create_property("file_origin",
-                                                 nixio.Value(anasig.file_origin))
+        if "file_origin" in attr:
+            anasig_group_segment.create_property(
+                "file_origin", nixio.Value(attr["file_origin"])
+            )
         if anasig.annotations:
             self._add_annotations(anasig.annotations, anasig_group_segment)
 
@@ -436,11 +423,11 @@ class NixIO(BaseIO):
         nix_data_arrays = list()
         for idx, sig in enumerate(anasig.transpose()):
             nix_data_array = parent_block.create_data_array(
-                "{}.{}".format(nix_name, idx),
-                nix_type,
+                "{}.{}".format(attr["name"], idx),
+                attr["type"],
                 data=sig.magnitude
             )
-            nix_data_array.definition = nix_definition
+            nix_data_array.definition = attr["definition"]
             nix_data_array.unit = data_units
 
             timedim = nix_data_array.append_sampled_dimension(sampling_interval)
@@ -469,17 +456,16 @@ class NixIO(BaseIO):
         """
         parent_group = self._get_object_at(parent_path)
         parent_block = self._get_object_at([parent_path[0]])
-        nix_type = "neo.irregularlysampledsignal"
-        nix_definition = irsig.description
         parent_metadata = self._get_or_init_metadata(parent_group, parent_path)
-        nix_name = self._create_name(irsig, parent_block.data_arrays)
+        attr = self._neo_attr_to_nix(irsig, parent_block.data_arrays)
         irsig_group_segment = parent_metadata.create_section(
-            nix_name, nix_type+".metadata"
+            attr["name"], attr["type"]+".metadata"
         )
 
-        if irsig.file_origin:
-            irsig_group_segment.create_property("file_origin",
-                                                nixio.Value(irsig.file_origin))
+        if "file_origin" in attr:
+            irsig_group_segment.create_property(
+                "file_origin", nixio.Value(attr["file_origin"])
+            )
 
         if irsig.annotations:
             self._add_annotations(irsig.annotations, irsig_group_segment)
@@ -492,11 +478,11 @@ class NixIO(BaseIO):
         nix_data_arrays = list()
         for idx, sig in enumerate(irsig.transpose()):
             nix_data_array = parent_block.create_data_array(
-                "{}.{}".format(nix_name, idx),
-                nix_type,
+                "{}.{}".format(attr["name"], idx),
+                attr["type"],
                 data=sig.magnitude
             )
-            nix_data_array.definition = nix_definition
+            nix_data_array.definition = attr["definition"]
             nix_data_array.unit = data_units
 
             timedim = nix_data_array.append_range_dimension(times)
@@ -521,17 +507,15 @@ class NixIO(BaseIO):
         """
         parent_group = self._get_object_at(parent_path)
         parent_block = self._get_object_at([parent_path[0]])
-        nix_name = self._create_name(ep, parent_block.multi_tags)
-        nix_type = "neo.epoch"
-        nix_definition = ep.description
+        attr = self._neo_attr_to_nix(ep, parent_block.multi_tags)
 
         # times -> positions
         times = ep.times.magnitude
         time_units = self._get_units(ep.times)
 
-        times_da = parent_block.create_data_array("{}.times".format(nix_name),
-                                                  "neo.epoch.times",
-                                                  data=times)
+        times_da = parent_block.create_data_array(
+            attr["name"]+".times", attr["type"]+".times", data=times
+        )
         times_da.unit = time_units
 
         # durations -> extents
@@ -539,28 +523,28 @@ class NixIO(BaseIO):
         duration_units = self._get_units(ep.durations)
 
         durations_da = parent_block.create_data_array(
-            "{}.durations".format(nix_name),
-            "neo.epoch.durations",
+            attr["name"]+".durations",
+            attr["type"]+".durations",
             data=durations
         )
         durations_da.unit = duration_units
 
         # ready to create MTag
-        nix_multi_tag = parent_block.create_multi_tag(nix_name, nix_type,
-                                                      times_da)
+        nix_multi_tag = parent_block.create_multi_tag(
+            attr["name"], attr["type"], times_da)
         label_dim = nix_multi_tag.positions.append_set_dimension()
         label_dim.labels = ep.labels.tolist()
         nix_multi_tag.extents = durations_da
         parent_group.multi_tags.append(nix_multi_tag)
-        nix_multi_tag.definition = nix_definition
-        object_path = parent_path + [("multi_tag", nix_name)]
+        nix_multi_tag.definition = attr["definition"]
+        object_path = parent_path + [("multi_tag", nix_multi_tag.name)]
         self.object_map[id(ep)] = nix_multi_tag
 
-        if ep.file_origin:
+        if "file_origin" in attr:
             mtag_metadata = self._get_or_init_metadata(nix_multi_tag,
                                                        object_path)
             mtag_metadata.create_property("file_origin",
-                                          nixio.Value(ep.file_origin))
+                                          nixio.Value(attr["file_origin"]))
         self._copy_annotations(ep, nix_multi_tag, object_path)
 
         nix_multi_tag.references.extend(
@@ -579,34 +563,33 @@ class NixIO(BaseIO):
         """
         parent_group = self._get_object_at(parent_path)
         parent_block = self._get_object_at([parent_path[0]])
-        nix_name = self._create_name(ev, parent_block.multi_tags)
-        nix_type = "neo.event"
-        nix_definition = ev.description
+        attr = self._neo_attr_to_nix(ev, parent_block.multi_tags)
 
         # times -> positions
         times = ev.times.magnitude
         time_units = self._get_units(ev.times)
 
-        times_da = parent_block.create_data_array("{}.times".format(nix_name),
-                                                  "neo.event.times",
-                                                  data=times)
+        times_da = parent_block.create_data_array(
+            attr["name"]+".times", attr["type"]+".times", data=times
+        )
         times_da.unit = time_units
 
         # ready to create MTag
-        nix_multi_tag = parent_block.create_multi_tag(nix_name, nix_type,
-                                                      times_da)
+        nix_multi_tag = parent_block.create_multi_tag(
+            attr["name"], attr["type"], times_da
+        )
         label_dim = nix_multi_tag.positions.append_set_dimension()
         label_dim.labels = ev.labels.tolist()
         parent_group.multi_tags.append(nix_multi_tag)
-        nix_multi_tag.definition = nix_definition
-        object_path = parent_path + [("multi_tag", nix_name)]
+        nix_multi_tag.definition = attr["definition"]
+        object_path = parent_path + [("multi_tag", nix_multi_tag.name)]
         self.object_map[id(ev)] = nix_multi_tag
 
-        if ev.file_origin:
+        if "file_origin" in attr:
             mtag_metadata = self._get_or_init_metadata(nix_multi_tag,
                                                        object_path)
             mtag_metadata.create_property("file_origin",
-                                          nixio.Value(ev.file_origin))
+                                          nixio.Value(attr["file_origin"]))
         self._copy_annotations(ev, nix_multi_tag, object_path)
 
         nix_multi_tag.references.extend(
@@ -625,35 +608,33 @@ class NixIO(BaseIO):
         """
         parent_group = self._get_object_at(parent_path)
         parent_block = self._get_object_at([parent_path[0]])
-        nix_name = self._create_name(sptr, parent_block.multi_tags)
-        nix_type = "neo.spiketrain"
-        nix_definition = sptr.description
+        attr = self._neo_attr_to_nix(sptr, parent_block.multi_tags)
 
         # spike times
         time_units = self._get_units(sptr.times)
         times = sptr.times.magnitude
-        times_da = parent_block.create_data_array("{}.times".format(nix_name),
-                                                  "neo.spiketrain.times",
-                                                  data=times)
+        times_da = parent_block.create_data_array(
+            attr["name"]+".times", attr["type"]+".times", data=times
+        )
         times_da.unit = time_units
 
         # ready to create MTag
-        nix_multi_tag = parent_block.create_multi_tag(nix_name, nix_type,
-                                                      times_da)
+        nix_multi_tag = parent_block.create_multi_tag(
+            attr["name"], attr["type"], times_da
+        )
         parent_group.multi_tags.append(nix_multi_tag)
 
-        nix_multi_tag.definition = nix_definition
-        object_path = parent_path + [("multi_tag", nix_name)]
+        nix_multi_tag.definition = attr["definition"]
+        object_path = parent_path + [("multi_tag", nix_multi_tag.name)]
         self.object_map[id(sptr)] = nix_multi_tag
 
-        mtag_metadata = self._get_or_init_metadata(nix_multi_tag,
-                                                   object_path)
+        mtag_metadata = self._get_or_init_metadata(nix_multi_tag, object_path)
         self._copy_annotations(sptr, nix_multi_tag, object_path)
 
         # other attributes
-        if sptr.file_origin:
+        if "file_origin" in attr:
             mtag_metadata.create_property("file_origin",
-                                          nixio.Value(sptr.file_origin))
+                                          nixio.Value(attr["file_origin"]))
         if sptr.t_start:
             t_start = sptr.t_start.rescale(time_units).magnitude.item()
             mtag_metadata.create_property("t_start",
@@ -666,10 +647,9 @@ class NixIO(BaseIO):
         if sptr.waveforms is not None:
             wf_data = list(wf.magnitude for wf in
                            list(wfgroup for wfgroup in sptr.waveforms))
-            wf_name = "{}.waveforms".format(nix_name)
-            waveforms_da = parent_block.create_data_array(wf_name,
-                                                          "neo.waveforms",
-                                                          data=wf_data)
+            waveforms_da = parent_block.create_data_array(
+                attr["name"]+".waveforms" "neo.waveforms", data=wf_data
+            )
             wf_unit = self._get_units(sptr.waveforms)
             waveforms_da.unit = wf_unit
             nix_multi_tag.create_feature(waveforms_da, nixio.LinkType.Indexed)
@@ -680,7 +660,7 @@ class NixIO(BaseIO):
             wf_timedim = waveforms_da.append_sampled_dimension(sampling_interval)
             wf_timedim.unit = time_units
             wf_timedim.label = "time"
-            wf_path = object_path + [("data_array", wf_name)]
+            wf_path = object_path + [("data_array", waveforms_da.name)]
             waveforms_da.metadata = self._get_or_init_metadata(waveforms_da,
                                                                wf_path)
             if sptr.left_sweep:
@@ -701,21 +681,19 @@ class NixIO(BaseIO):
         :return: The newly created NIX Source
         """
         parent_source = self._get_object_at(parent_path)
-        nix_name = self._create_name(ut, parent_source.sources)
-        nix_type = "neo.unit"
-        nix_definition = ut.description
-        nix_source = parent_source.create_source(nix_name, nix_type)
-        nix_source.definition = nix_definition
+        attr = self._neo_attr_to_nix(ut, parent_source.sources)
+        nix_source = parent_source.create_source(attr["name"], attr["type"])
+        nix_source.definition = attr["definition"]
         # Units are children of the Block
-        object_path = [parent_path[0]] + [("source", nix_name)]
+        object_path = [parent_path[0]] + [("source", nix_source.name)]
         self.object_map[id(ut)] = nix_source
         self._copy_annotations(ut, nix_source, object_path)
 
-        if ut.file_origin:
+        if "file_origin" in attr:
             mtag_metadata = self._get_or_init_metadata(nix_source,
                                                        object_path)
             mtag_metadata.create_property("file_origin",
-                                          nixio.Value(ut.file_origin))
+                                          nixio.Value(attr["file_origin"]))
 
         # Make contained spike trains refer to parent rcg and new unit
         for nix_st in self._get_mapped_objects(ut.spiketrains):
@@ -786,7 +764,8 @@ class NixIO(BaseIO):
             self._add_annotations(neo_object.annotations, metadata)
 
     @staticmethod
-    def _create_name(neo_obj, container):
+    def _neo_attr_to_nix(neo_obj, container):
+        nix_attrs = dict()
         neo_type = type(neo_obj).__name__
         if neo_obj.name:
             nix_basename = neo_obj.name
@@ -797,13 +776,27 @@ class NixIO(BaseIO):
         else:
             suffix = ""
         if nix_basename+suffix not in container:
-            return nix_basename
-        idx = 1
-        nix_name = "{}-{}".format(nix_basename, idx)
-        while nix_name+suffix in container:
-            idx += 1
+            nix_name = nix_basename
+        else:
+            idx = 1
             nix_name = "{}-{}".format(nix_basename, idx)
-        return nix_name
+            while nix_name+suffix in container:
+                idx += 1
+                nix_name = "{}-{}".format(nix_basename, idx)
+        nix_attrs["name"] = nix_name
+        nix_attrs["type"] = "neo.{}".format(neo_type.lower())
+        nix_attrs["definition"] = neo_obj.description
+        if isinstance(neo_obj, (Block, Segment)):
+            if neo_obj.rec_datetime:
+                nix_attrs["created_at"] = calculate_timestamp(neo_obj.rec_datetime)
+            if neo_obj.file_datetime:
+                nix_attrs["file_datetime"] = calculate_timestamp(
+                    neo_obj.file_datetime
+                )
+        if neo_obj.file_origin:
+            nix_attrs["file_origin"] = neo_obj.file_origin
+
+        return nix_attrs
 
     @classmethod
     def _add_annotations(cls, annotations, metadata):
