@@ -648,7 +648,7 @@ class NixIO(BaseIO):
             wf_data = list(wf.magnitude for wf in
                            list(wfgroup for wfgroup in sptr.waveforms))
             waveforms_da = parent_block.create_data_array(
-                attr["name"]+".waveforms" "neo.waveforms", data=wf_data
+                attr["name"]+".waveforms", "neo.waveforms", data=wf_data
             )
             wf_unit = self._get_units(sptr.waveforms)
             waveforms_da.unit = wf_unit
