@@ -53,6 +53,17 @@ class NixIO(BaseIO):
     extensions = ["h5"]
     mode = "file"
 
+    _container_map = {
+        "segments": "groups",
+        "analogsignals": "data_arrays",
+        "irregularlysampledsignals": "data_arrays",
+        "events": "multi_tags",
+        "epochs": "multi_tags",
+        "spiketrains": "multi_tags",
+        "recordingchannelgroups": "sources",
+        "recordingchannels": "sources",
+    }
+
     def __init__(self, filename, mode="ro"):
         """
         Initialise IO instance and NIX file.
@@ -79,18 +90,15 @@ class NixIO(BaseIO):
         self.nix_file.close()
 
     def read_all_blocks(self):
-        return list(map(self._block_to_neo, self.nix_file.blocks))
+        blocks = list()
+        for blk in self.nix_file.blocks:
+            blocks.append(self.read_block("/" + blk.name))
+        return blocks
 
     def read_block(self, path, cascade=True, lazy=False):
         # check if path is valid and is a nix.Block
-        parts = path.split("/")
-        if parts[0]:
-            ValueError("Invalid object path: {}".format(path))
-        if len(parts) > 2:
-            ValueError("Invalid Block path: {}".format(path))
-        block_name = parts[1]
-        if block_name not in self.nix_file.blocks:
-            ValueError("No block named {} in NIX file.".format(block_name))
+        nix_block = self._get_object_at(path)
+        block_name = nix_block.name
         neo_block = {"object": None, "segments": {}, "rcgs": {}}
         self._read_objects[block_name] = neo_block
         nix_block = self.nix_file.blocks[block_name]
@@ -105,14 +113,23 @@ class NixIO(BaseIO):
                                      for seg in nix_block.groups)
             neo_block["segments"] = segments
             rcgs = containertype(
-                self.read_recordingchannelgroup(rcg, cascade, chlazy)
+                self.read_recordingchannelgroup(rcg, cascade, chlazy,
+                                                nix_block)
                 for rcg in nix_block.sources
             )
             neo_block["rcgs"] = rcgs
         if not lazy:
             neo_block["object"] = self._block_to_neo(nix_block)
+            neo_block["object"].segments = neo_block["segments"]
+            neo_block["object"].recordingchannelgroups = neo_block["rcgs"]
             neo_block["object"].create_many_to_one_relationship()
-        return neo_block
+        return neo_block["object"]
+
+    def read_segment(self, seg, cascade, lazy):
+        return self._group_to_neo(seg)
+
+    def read_recordingchannelgroup(self, rcg, cascade, lazy, block):
+        return self._source_rcg_to_neo(rcg, block)
 
     def _block_to_neo(self, nix_block):
         neo_attrs = self._nix_attr_to_neo(nix_block)
@@ -282,7 +299,7 @@ class NixIO(BaseIO):
         attr = self._neo_attr_to_nix(neo_block, self.nix_file.blocks)
         nix_block = self.nix_file.create_block(attr["name"], attr["type"])
         nix_block.definition = attr["definition"]
-        object_path = [("block",  nix_block.name)]
+        object_path = "/" + nix_block.name
         self._object_map[id(neo_block)] = nix_block
         self._write_attr_annotations(nix_block, attr, object_path)
         for segment in neo_block.segments:
@@ -315,7 +332,7 @@ class NixIO(BaseIO):
         attr = self._neo_attr_to_nix(segment, parent_block.groups)
         nix_group = parent_block.create_group(attr["name"], attr["type"])
         nix_group.definition = attr["definition"]
-        object_path = parent_path + [("group", nix_group.name)]
+        object_path = parent_path + "/segments/" + nix_group.name
         self._object_map[id(segment)] = nix_group
         self._write_attr_annotations(nix_group, attr, object_path)
         for anasig in segment.analogsignals:
@@ -344,7 +361,7 @@ class NixIO(BaseIO):
         attr = self._neo_attr_to_nix(rcg, parent_block.sources)
         nix_source = parent_block.create_source(attr["name"], attr["type"])
         nix_source.definition = attr["definition"]
-        object_path = parent_path + [("source", nix_source.name)]
+        object_path = parent_path + "/recordingchannelgroups/" + nix_source.name
         self._object_map[id(rcg)] = nix_source
         self._write_attr_annotations(nix_source, attr, object_path)
         for idx, channel in enumerate(rcg.channel_indexes):
@@ -358,7 +375,7 @@ class NixIO(BaseIO):
             nix_chan_type = "neo.recordingchannel"
             nix_chan = nix_source.create_source(nix_chan_name, nix_chan_type)
             nix_chan.definition = nix_source.definition
-            chan_obj_path = object_path + [("source", nix_chan_name)]
+            chan_obj_path = object_path + "/recordingchannels/" + nix_chan_name
             chan_metadata = self._get_or_init_metadata(nix_chan,
                                                        chan_obj_path)
             chan_metadata.create_property("index", self._to_value(int(channel)))
@@ -406,7 +423,8 @@ class NixIO(BaseIO):
         :return: A list containing the newly created NIX DataArrays
         """
         parent_group = self._get_object_at(parent_path)
-        parent_block = self._get_object_at([parent_path[0]])
+        block_path = "/" + parent_path.split("/")[1]
+        parent_block = self._get_object_at(block_path)
         parent_metadata = self._get_or_init_metadata(parent_group, parent_path)
         attr = self._neo_attr_to_nix(anasig, parent_block.data_arrays)
         anasig_group_segment = parent_metadata.create_section(
@@ -463,7 +481,8 @@ class NixIO(BaseIO):
         :return: The newly created NIX DataArray
         """
         parent_group = self._get_object_at(parent_path)
-        parent_block = self._get_object_at([parent_path[0]])
+        block_path = "/" + parent_path.split("/")[1]
+        parent_block = self._get_object_at(block_path)
         parent_metadata = self._get_or_init_metadata(parent_group, parent_path)
         attr = self._neo_attr_to_nix(irsig, parent_block.data_arrays)
         irsig_group_segment = parent_metadata.create_section(
@@ -514,7 +533,8 @@ class NixIO(BaseIO):
         :return: The newly created NIX MultiTag
         """
         parent_group = self._get_object_at(parent_path)
-        parent_block = self._get_object_at([parent_path[0]])
+        block_path = "/" + parent_path.split("/")[1]
+        parent_block = self._get_object_at(block_path)
         attr = self._neo_attr_to_nix(ep, parent_block.multi_tags)
 
         # times -> positions
@@ -545,7 +565,7 @@ class NixIO(BaseIO):
         nix_multi_tag.extents = durations_da
         parent_group.multi_tags.append(nix_multi_tag)
         nix_multi_tag.definition = attr["definition"]
-        object_path = parent_path + [("multi_tag", nix_multi_tag.name)]
+        object_path = parent_path + "/epochs/" + nix_multi_tag.name
         self._object_map[id(ep)] = nix_multi_tag
         self._write_attr_annotations(nix_multi_tag, attr, object_path)
 
@@ -564,7 +584,8 @@ class NixIO(BaseIO):
         :return: The newly created NIX MultiTag
         """
         parent_group = self._get_object_at(parent_path)
-        parent_block = self._get_object_at([parent_path[0]])
+        block_path = "/" + parent_path.split("/")[1]
+        parent_block = self._get_object_at(block_path)
         attr = self._neo_attr_to_nix(ev, parent_block.multi_tags)
 
         # times -> positions
@@ -584,7 +605,7 @@ class NixIO(BaseIO):
         label_dim.labels = ev.labels.tolist()
         parent_group.multi_tags.append(nix_multi_tag)
         nix_multi_tag.definition = attr["definition"]
-        object_path = parent_path + [("multi_tag", nix_multi_tag.name)]
+        object_path = parent_path + "/events/" + nix_multi_tag.name
         self._object_map[id(ev)] = nix_multi_tag
         self._write_attr_annotations(nix_multi_tag, attr, object_path)
 
@@ -603,7 +624,8 @@ class NixIO(BaseIO):
         :return: The newly created NIX MultiTag
         """
         parent_group = self._get_object_at(parent_path)
-        parent_block = self._get_object_at([parent_path[0]])
+        block_path = "/" + parent_path.split("/")[1]
+        parent_block = self._get_object_at(block_path)
         attr = self._neo_attr_to_nix(sptr, parent_block.multi_tags)
 
         # spike times
@@ -621,7 +643,7 @@ class NixIO(BaseIO):
         parent_group.multi_tags.append(nix_multi_tag)
 
         nix_multi_tag.definition = attr["definition"]
-        object_path = parent_path + [("multi_tag", nix_multi_tag.name)]
+        object_path = parent_path + "/spiketrains/" + nix_multi_tag.name
         self._object_map[id(sptr)] = nix_multi_tag
 
         mtag_metadata = self._get_or_init_metadata(nix_multi_tag, object_path)
@@ -651,7 +673,7 @@ class NixIO(BaseIO):
             wf_timedim = waveforms_da.append_sampled_dimension(sampling_interval)
             wf_timedim.unit = time_units
             wf_timedim.label = "time"
-            wf_path = object_path + [("data_array", waveforms_da.name)]
+            wf_path = object_path + "/waveforms/" + waveforms_da.name
             waveforms_da.metadata = self._get_or_init_metadata(waveforms_da,
                                                                wf_path)
             if sptr.left_sweep:
@@ -677,7 +699,7 @@ class NixIO(BaseIO):
         nix_source = parent_source.create_source(attr["name"], attr["type"])
         nix_source.definition = attr["definition"]
         # Units are children of the Block
-        object_path = [parent_path[0]] + [("source", nix_source.name)]
+        object_path = parent_path + "/units/" + nix_source.name
         self._object_map[id(ut)] = nix_source
         self._write_attr_annotations(nix_source, attr, object_path)
         # Make contained spike trains refer to parent rcg and new unit
@@ -687,22 +709,24 @@ class NixIO(BaseIO):
 
         return nix_source
 
-    def _get_or_init_metadata(self, nix_obj, obj_path=list()):
+    def _get_or_init_metadata(self, nix_obj, path):
         """
         Creates a metadata Section for the provided NIX object if it doesn't
         have one already. Returns the new or existing metadata section.
 
         :param nix_obj: The object to which the Section is attached
-        :param obj_path: Path to nix_obj
+        :param path: Path to nix_obj
         :return: The metadata section of the provided object
         """
+        parent_parts = path.split("/")[:-2]
+        parent_path = "/".join(parent_parts)
         if nix_obj.metadata is None:
-            if len(obj_path) <= 1:  # nix_obj is root block
+            if len(parent_parts) == 0:  # nix_obj is root block
                 parent_metadata = self.nix_file
             else:
-                obj_parent = self._get_object_at(obj_path[:-1])
+                obj_parent = self._get_object_at(parent_path)
                 parent_metadata = self._get_or_init_metadata(obj_parent,
-                                                             obj_path[:-1])
+                                                             parent_path)
             nix_obj.metadata = parent_metadata.create_section(
                     nix_obj.name, nix_obj.type+".metadata"
             )
@@ -711,24 +735,23 @@ class NixIO(BaseIO):
     def _get_object_at(self, path):
         """
         Returns the object at the location defined by the path. ``path`` is a
-        list of tuples. Each tuple contains the NIX type of each object as a
-        string and the name of the object at the location in the path.
-        Valid object type strings are: block, group, source, data_array, tag,
-        multi_tag, feature.
+        '/' delimited string. Each part of the string alternates between an
+        object name and a container.
 
-        :param path: List of tuples that define a location in the file
+        Example path: /block_1/segments/segment_a/events/event_a1
+
+        :param path: Path string
         :return: The object at the location defined by the path
         """
-        obj = self.nix_file
-        for obj_type, obj_name in path:
-            container = "{}s".format(obj_type)
-            try:
-                obj = getattr(obj, container)[obj_name]
-            except AttributeError:
-                AttributeError("Container with name '{}' not found in "
-                               "NIX object with name '{}'".format(container,
-                                                                  obj.name))
-        return obj
+        parts = path.split("/")
+        if parts[0]:
+            ValueError("Invalid object path: {}".format(path))
+        if len(parts) == 2:  # root block
+            return self.nix_file.blocks[parts[1]]
+        parent_path = "/".join(parts[:-2])
+        parent_obj = self._get_object_at(parent_path)
+        parent_container = getattr(parent_obj, self._container_map[parts[-2]])
+        return parent_container[parts[-1]]
 
     def _get_mapped_objects(self, object_list):
         return list(map(self._get_mapped_object, object_list))
@@ -747,16 +770,15 @@ class NixIO(BaseIO):
         if "created_at" in attr:
             nix_object.force_created_at(calculate_timestamp(attr["created_at"]))
         if "file_datetime" in attr:
-            block_metadata = self._get_or_init_metadata(nix_object)
-            block_metadata.create_property(
+            metadata = self._get_or_init_metadata(nix_object, object_path)
+            metadata.create_property(
                 "file_datetime", self._to_value(attr["file_datetime"])
             )
         if "file_origin" in attr:
-            block_metadata = self._get_or_init_metadata(nix_object)
-            block_metadata.create_property(
+            metadata = self._get_or_init_metadata(nix_object, object_path)
+            metadata.create_property(
                 "file_origin", self._to_value(attr["file_origin"])
             )
-
         if "annotations" in attr:
             metadata = self._get_or_init_metadata(nix_object, object_path)
             self._add_annotations(attr["annotations"], metadata)
