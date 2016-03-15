@@ -94,8 +94,6 @@ class NixIO(BaseIO):
         neo_block = {"object": None, "segments": {}, "rcgs": {}}
         self._read_objects[block_name] = neo_block
         nix_block = self.nix_file.blocks[block_name]
-        if not lazy:
-            self._read_objects[block_name] = self._block_to_neo(nix_block)
         if cascade:
             if cascade == "lazy":
                 chlazy = True
@@ -111,18 +109,15 @@ class NixIO(BaseIO):
                 for rcg in nix_block.sources
             )
             neo_block["rcgs"] = rcgs
+        if not lazy:
+            neo_block["object"] = self._block_to_neo(nix_block)
+            neo_block["object"].create_many_to_one_relationship()
         return neo_block
 
-    def _block_to_neo(self, nix_block, lazy=True):
+    def _block_to_neo(self, nix_block):
         neo_attrs = self._nix_attr_to_neo(nix_block)
         neo_block = Block(**neo_attrs)
         self._object_map[nix_block.id] = neo_block
-        neo_block.segments.extend(map(self._group_to_neo, nix_block.groups))
-        neo_block.recordingchannelgroups = list(
-            self._source_rcg_to_neo(src, nix_block)
-            for src in nix_block.sources
-        )
-        neo_block.create_many_to_one_relationship()
         return neo_block
 
     def _group_to_neo(self, nix_group):
