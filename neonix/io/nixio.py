@@ -89,36 +89,38 @@ class NixIO(BaseIO):
             self._source_rcg_to_neo(src, nix_block)
             for src in nix_block.sources
         )
+        neo_block.create_many_to_one_relationship()
         return neo_block
 
     def _group_to_neo(self, nix_group):
         neo_attrs = self._nix_attr_to_neo(nix_group)
-        neo_group = Block(**neo_attrs)
-        self.object_map[nix_group.id] = neo_group
+        neo_segment = Block(**neo_attrs)
+        self.object_map[nix_group.id] = neo_segment
         nix_grouped_signals = self._group_signals(nix_group.data_arrays)
         signals = list(
             map(self._signal_da_to_neo, nix_grouped_signals)
         )
-        neo_group.analogsignals = list(
+        neo_segment.analogsignals = list(
             s for s in signals if isinstance(s, AnalogSignal)
         )
-        neo_group.irregularlysampledsignals = list(
+        neo_segment.irregularlysampledsignals = list(
             s for s in signals if isinstance(s, IrregularlySampledSignal)
         )
         # eest: Epoch, Event, SpikeTrain
         eest = list(
             map(self._mtag_eest_to_neo, nix_group.multi_tags)
         )
-        neo_group.epochs = list(
+        neo_segment.epochs = list(
             e for e in eest if isinstance(e, Epoch)
         )
-        neo_group.events = list(
+        neo_segment.events = list(
             e for e in eest if isinstance(e, Event)
         )
-        neo_group.spiketrains = list(
+        neo_segment.spiketrains = list(
             st for st in eest if isinstance(st, SpikeTrain)
         )
-        return neo_group
+        neo_segment.create_many_to_one_relationship()
+        return neo_segment
 
     def _source_rcg_to_neo(self, nix_source, parent_block):
         neo_attrs = self._nix_attr_to_neo(nix_source)
@@ -156,6 +158,7 @@ class NixIO(BaseIO):
         neo_isigs = self._get_mapped_objects(nix_isigs)
         neo_isigs = list(dict((s.name, s) for s in neo_isigs).values())
         rcg.irregularlysampledsignals.extend(neo_isigs)
+        rcg.create_many_to_one_relationship()
         return rcg
 
     def _source_unit_to_neo(self, nix_unit, parent_block):
@@ -169,6 +172,7 @@ class NixIO(BaseIO):
         nix_sts = self._get_referers(nix_unit, all_nix_sts)
         neo_sts = self._get_mapped_objects(nix_sts)
         neo_unit.spiketrains.extend(neo_sts)
+        neo_unit.create_many_to_one_relationship()
         return neo_unit
 
     def _signal_da_to_neo(self, nix_da_group):
