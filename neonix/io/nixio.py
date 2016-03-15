@@ -22,6 +22,7 @@ import numpy as np
 from neo.io.baseio import BaseIO
 from neo.core import (Block, Segment, RecordingChannelGroup, AnalogSignal,
                       IrregularlySampledSignal, Epoch, Event, SpikeTrain, Unit)
+from neo.io.tools import LazyList
 
 try:
     import nixio
@@ -71,7 +72,8 @@ class NixIO(BaseIO):
                        "Valid modes: 'ro' (ReadOnly)', 'rw' (ReadWrite), "
                        "'ow' (Overwrite).".format(mode))
         self.nix_file = nixio.File.open(self.filename, filemode)
-        self.object_map = {}
+        self._object_map = dict()
+        self._read_objects = dict()
 
     def __del__(self):
         self.nix_file.close()
@@ -79,12 +81,43 @@ class NixIO(BaseIO):
     def read_all_blocks(self):
         return list(map(self._block_to_neo, self.nix_file.blocks))
 
-    def _block_to_neo(self, nix_block):
+    def read_block(self, path, cascade=True, lazy=False):
+        # check if path is valid and is a nix.Block
+        parts = path.split("/")
+        if parts[0]:
+            ValueError("Invalid object path: {}".format(path))
+        if len(parts) > 2:
+            ValueError("Invalid Block path: {}".format(path))
+        block_name = parts[1]
+        if block_name not in self.nix_file.blocks:
+            ValueError("No block named {} in NIX file.".format(block_name))
+        neo_block = {"object": None, "segments": {}, "rcgs": {}}
+        self._read_objects[block_name] = neo_block
+        nix_block = self.nix_file.blocks[block_name]
+        if not lazy:
+            self._read_objects[block_name] = self._block_to_neo(nix_block)
+        if cascade:
+            if cascade == "lazy":
+                chlazy = True
+                containertype = LazyList
+            else:
+                chlazy = False
+                containertype = list
+            segments = containertype(self.read_segment(seg, cascade, chlazy)
+                                     for seg in nix_block.groups)
+            neo_block["segments"] = segments
+            rcgs = containertype(
+                self.read_recordingchannelgroup(rcg, cascade, chlazy)
+                for rcg in nix_block.sources
+            )
+            neo_block["rcgs"] = rcgs
+        return neo_block
+
+    def _block_to_neo(self, nix_block, lazy=True):
         neo_attrs = self._nix_attr_to_neo(nix_block)
         neo_block = Block(**neo_attrs)
-        self.object_map[nix_block.id] = neo_block
-
-        neo_block.segments = list(map(self._group_to_neo, nix_block.groups))
+        self._object_map[nix_block.id] = neo_block
+        neo_block.segments.extend(map(self._group_to_neo, nix_block.groups))
         neo_block.recordingchannelgroups = list(
             self._source_rcg_to_neo(src, nix_block)
             for src in nix_block.sources
@@ -95,7 +128,7 @@ class NixIO(BaseIO):
     def _group_to_neo(self, nix_group):
         neo_attrs = self._nix_attr_to_neo(nix_group)
         neo_segment = Segment(**neo_attrs)
-        self.object_map[nix_group.id] = neo_segment
+        self._object_map[nix_group.id] = neo_segment
         nix_grouped_signals = self._group_signals(nix_group.data_arrays)
         signals = list(
             map(self._signal_da_to_neo, nix_grouped_signals)
@@ -135,7 +168,7 @@ class NixIO(BaseIO):
             coord_values = list(c["coordinates"] for c in rec_channels)
             neo_attrs["coordinates"] = pq.Quantity(coord_values, coord_units)
         rcg = RecordingChannelGroup(**neo_attrs)
-        self.object_map[nix_source.id] = rcg
+        self._object_map[nix_source.id] = rcg
 
         nix_units = list(src for src in nix_source.sources
                          if src.type == "neo.unit")
@@ -164,7 +197,7 @@ class NixIO(BaseIO):
     def _source_unit_to_neo(self, nix_unit, parent_block):
         neo_attrs = self._nix_attr_to_neo(nix_unit)
         neo_unit = Unit(**neo_attrs)
-        self.object_map[nix_unit.id] = neo_unit
+        self._object_map[nix_unit.id] = neo_unit
 
         # referenced spiketrains
         all_nix_sts = list(mtag for mtag in parent_block.multi_tags
@@ -214,7 +247,7 @@ class NixIO(BaseIO):
         else:
             return None
         for da in nix_da_group:
-            self.object_map[da.id] = neo_signal
+            self._object_map[da.id] = neo_signal
         return neo_signal
 
     def _mtag_eest_to_neo(self, nix_mtag):
@@ -241,7 +274,7 @@ class NixIO(BaseIO):
                 eest.left_sweep = wfda.metadata["left_sweep"]
         else:
             return None
-        self.object_map[nix_mtag.id] = eest
+        self._object_map[nix_mtag.id] = eest
         return eest
 
     def write_block(self, neo_block):
@@ -255,7 +288,7 @@ class NixIO(BaseIO):
         nix_block = self.nix_file.create_block(attr["name"], attr["type"])
         nix_block.definition = attr["definition"]
         object_path = [("block",  nix_block.name)]
-        self.object_map[id(neo_block)] = nix_block
+        self._object_map[id(neo_block)] = nix_block
         self._write_attr_annotations(nix_block, attr, object_path)
         for segment in neo_block.segments:
             self.write_segment(segment, object_path)
@@ -288,7 +321,7 @@ class NixIO(BaseIO):
         nix_group = parent_block.create_group(attr["name"], attr["type"])
         nix_group.definition = attr["definition"]
         object_path = parent_path + [("group", nix_group.name)]
-        self.object_map[id(segment)] = nix_group
+        self._object_map[id(segment)] = nix_group
         self._write_attr_annotations(nix_group, attr, object_path)
         for anasig in segment.analogsignals:
             self.write_analogsignal(anasig, object_path)
@@ -317,7 +350,7 @@ class NixIO(BaseIO):
         nix_source = parent_block.create_source(attr["name"], attr["type"])
         nix_source.definition = attr["definition"]
         object_path = parent_path + [("source", nix_source.name)]
-        self.object_map[id(rcg)] = nix_source
+        self._object_map[id(rcg)] = nix_source
         self._write_attr_annotations(nix_source, attr, object_path)
         for idx, channel in enumerate(rcg.channel_indexes):
             # create a child source object to represent the individual channel
@@ -419,7 +452,7 @@ class NixIO(BaseIO):
             # point metadata to common section
             nix_data_array.metadata = anasig_group_segment
             nix_data_arrays.append(nix_data_array)
-        self.object_map[id(anasig)] = nix_data_arrays
+        self._object_map[id(anasig)] = nix_data_arrays
         return nix_data_arrays
 
     def write_irregularlysampledsignal(self, irsig, parent_path):
@@ -473,7 +506,7 @@ class NixIO(BaseIO):
             # point metadata to common section
             nix_data_array.metadata = irsig_group_segment
             nix_data_arrays.append(nix_data_array)
-        self.object_map[id(irsig)] = nix_data_arrays
+        self._object_map[id(irsig)] = nix_data_arrays
         return nix_data_arrays
 
     def write_epoch(self, ep, parent_path):
@@ -518,7 +551,7 @@ class NixIO(BaseIO):
         parent_group.multi_tags.append(nix_multi_tag)
         nix_multi_tag.definition = attr["definition"]
         object_path = parent_path + [("multi_tag", nix_multi_tag.name)]
-        self.object_map[id(ep)] = nix_multi_tag
+        self._object_map[id(ep)] = nix_multi_tag
         self._write_attr_annotations(nix_multi_tag, attr, object_path)
 
         nix_multi_tag.references.extend(
@@ -557,7 +590,7 @@ class NixIO(BaseIO):
         parent_group.multi_tags.append(nix_multi_tag)
         nix_multi_tag.definition = attr["definition"]
         object_path = parent_path + [("multi_tag", nix_multi_tag.name)]
-        self.object_map[id(ev)] = nix_multi_tag
+        self._object_map[id(ev)] = nix_multi_tag
         self._write_attr_annotations(nix_multi_tag, attr, object_path)
 
         nix_multi_tag.references.extend(
@@ -594,7 +627,7 @@ class NixIO(BaseIO):
 
         nix_multi_tag.definition = attr["definition"]
         object_path = parent_path + [("multi_tag", nix_multi_tag.name)]
-        self.object_map[id(sptr)] = nix_multi_tag
+        self._object_map[id(sptr)] = nix_multi_tag
 
         mtag_metadata = self._get_or_init_metadata(nix_multi_tag, object_path)
         self._write_attr_annotations(nix_multi_tag, attr, object_path)
@@ -650,7 +683,7 @@ class NixIO(BaseIO):
         nix_source.definition = attr["definition"]
         # Units are children of the Block
         object_path = [parent_path[0]] + [("source", nix_source.name)]
-        self.object_map[id(ut)] = nix_source
+        self._object_map[id(ut)] = nix_source
         self._write_attr_annotations(nix_source, attr, object_path)
         # Make contained spike trains refer to parent rcg and new unit
         for nix_st in self._get_mapped_objects(ut.spiketrains):
@@ -708,9 +741,9 @@ class NixIO(BaseIO):
     def _get_mapped_object(self, obj):
         try:
             if hasattr(obj, "id"):
-                return self.object_map[obj.id]
+                return self._object_map[obj.id]
             else:
-                return self.object_map[id(obj)]
+                return self._object_map[id(obj)]
         except KeyError:
             raise KeyError("Failed to find mapped object for {}. "
                            "Object not yet converted.".format(obj))
