@@ -36,6 +36,7 @@ class NixIOTest(unittest.TestCase):
     def compare_blocks(self, neoblocks, nixblocks):
         for neoblock, nixblock in zip(neoblocks, nixblocks):
             self.compare_attr(neoblock, nixblock)
+            self.assertEqual(len(neoblock.segments), len(nixblock.groups))
             for idx, neoseg in enumerate(neoblock.segments):
                 if neoseg.name:
                     nixgrp = nixblock.groups[neoseg.name]

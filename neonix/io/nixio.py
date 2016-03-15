@@ -94,7 +94,7 @@ class NixIO(BaseIO):
 
     def _group_to_neo(self, nix_group):
         neo_attrs = self._nix_attr_to_neo(nix_group)
-        neo_segment = Block(**neo_attrs)
+        neo_segment = Segment(**neo_attrs)
         self.object_map[nix_group.id] = neo_segment
         nix_grouped_signals = self._group_signals(nix_group.data_arrays)
         signals = list(
