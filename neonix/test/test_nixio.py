@@ -444,6 +444,10 @@ class NixIOTest(unittest.TestCase):
 
 class NixIOWriteTest(NixIOTest):
 
+    # TODO: Use neo.test.tools
+    # TODO: Use neo.test.iotest.common_io_test
+    # TODO: Use neo.test.generate_datasets
+
     def setUp(self):
         self.filename = "nixio_testfile_write.hd5"
         self.io = NixIO(self.filename, "ow")
