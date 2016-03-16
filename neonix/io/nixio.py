@@ -84,7 +84,7 @@ class NixIO(BaseIO):
                        "'ow' (Overwrite).".format(mode))
         self.nix_file = nixio.File.open(self.filename, filemode)
         self._object_map = dict()
-        self._read_objects = dict()
+        self._lazy_loaded = dict()
 
     def __del__(self):
         self.nix_file.close()
@@ -96,40 +96,36 @@ class NixIO(BaseIO):
         return blocks
 
     def read_block(self, path, cascade=True, lazy=False):
-        # check if path is valid and is a nix.Block
         nix_block = self._get_object_at(path)
-        block_name = nix_block.name
-        neo_block = {"object": None, "segments": {}, "rcgs": {}}
-        self._read_objects[block_name] = neo_block
-        nix_block = self.nix_file.blocks[block_name]
+        neo_block = self._block_to_neo(nix_block)
+        self._lazy_loaded[neo_block] = path
         if cascade:
-            if cascade == "lazy":
-                chlazy = True
-                containertype = LazyList
-            else:
-                chlazy = False
-                containertype = list
-            segments = containertype(self.read_segment(seg, cascade, chlazy)
-                                     for seg in nix_block.groups)
-            neo_block["segments"] = segments
-            rcgs = containertype(
-                self.read_recordingchannelgroup(rcg, cascade, chlazy,
-                                                nix_block)
-                for rcg in nix_block.sources
-            )
-            neo_block["rcgs"] = rcgs
+            self._read_cascade(nix_block, path, cascade, lazy)
         if not lazy:
-            neo_block["object"] = self._block_to_neo(nix_block)
-            neo_block["object"].segments = neo_block["segments"]
-            neo_block["object"].recordingchannelgroups = neo_block["rcgs"]
-            neo_block["object"].create_many_to_one_relationship()
-        return neo_block["object"]
+            # no data to load for Block
+            del self._lazy_loaded[neo_block]
+        return neo_block
 
-    def read_segment(self, seg, cascade, lazy):
-        return self._group_to_neo(seg)
+    def read_segment(self, path, cascade=True, lazy=False):
+        nix_group = self._get_object_at(path)
+        neo_segment = self._group_to_neo(nix_group)
+        self._lazy_loaded[neo_segment] = path
+        if cascade:
+            self._read_cascade(nix_group, path, cascade, lazy)
+        if not lazy:
+            # no data to load for Block
+            del self._lazy_loaded[neo_segment]
+        return neo_segment
 
     def read_recordingchannelgroup(self, rcg, cascade, lazy, block):
         return self._source_rcg_to_neo(rcg, block)
+
+    def read_analogsignal(self, **kargs):
+        # TODO: Path argument will point to the signal group name
+        #       Call the _get_object_at() method with a ".0" appended to the
+        #       path argument, then use the metadata section to find all the
+        #       other MultiTag objects
+        pass
 
     def _block_to_neo(self, nix_block):
         neo_attrs = self._nix_attr_to_neo(nix_block)
@@ -288,6 +284,23 @@ class NixIO(BaseIO):
             return None
         self._object_map[nix_mtag.id] = eest
         return eest
+
+    def _read_cascade(self, nix_obj, path, cascade, lazy):
+        neo_obj = self._object_map[nix_obj.id]
+        for neocontainer, nixcontainer in self._container_map.items():
+            neotype = neocontainer[:-1]
+            if not hasattr(nix_obj, nixcontainer):
+                continue
+            children = LazyList(path + "/" + neocontainer + "/" + c.name
+                                for c in getattr(nix_obj, nixcontainer)
+                                if c.type == "neo." + neotype)
+            if neocontainer in ("analogsignals", "irregularlysampledsignals"):
+                children = self._group_signals(children)
+            if cascade != "lazy":
+                read_obj = getattr(self, "read_" + neotype)
+                children = list(read_obj(cp, cascade, lazy)
+                                for cp in children)
+            setattr(neo_obj, neocontainer, children)
 
     def write_block(self, neo_block):
         """
@@ -922,6 +935,10 @@ class NixIO(BaseIO):
         :return: A list of lists of data arrays, grouping arrays that belong to
         the same AnalogSignal or IrregularlySampledSignal
         """
+        # TODO: Change this method to work with paths
+        #       It should accept a list of paths which contain individual
+        #       signals and return a list of paths for signal groups
+        #       The last part of the path should not have a '.n' suffix.
         signals_dict = dict()
         for da in data_arrays:
             mdsection = da.metadata
