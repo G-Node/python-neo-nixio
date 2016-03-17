@@ -327,33 +327,30 @@ class NixIO(BaseIO):
     def _read_cascade(self, nix_obj, path, cascade, lazy):
         print("Cascading {}".format(path))
         neo_obj = self._object_map[nix_obj.id]
-        if isinstance(neo_obj, (RecordingChannelGroup, Unit)):
-            # TODO: Reference loaded objects and add paths of non-loaded objects
-            pass
-        else:
-            for neocontainer, nixcontainer in self._container_map.items():
-                neotype = neocontainer[:-1]
-                if not hasattr(neo_obj, neocontainer):
-                    continue
-                print("Descending into {} - {}".format(nixcontainer,
-                                                       neocontainer))
-                chpaths = list(path + "/" + neocontainer + "/" + c.name
-                               for c in getattr(nix_obj, nixcontainer)
-                               if c.type == "neo." + neotype)
-                print("Found {} items".format(len(chpaths)))
-                if neocontainer in ("analogsignals",
-                                    "irregularlysampledsignals"):
-                    chpaths = self._group_signals(chpaths)
-                    print("{} groups".format(len(chpaths)))
-                if cascade != "lazy":
-                    print("Converting...")
-                    read_obj = getattr(self, "read_" + neotype)
-                    children = list(read_obj(cp, cascade, lazy)
-                                    for cp in chpaths)
-                    print("Done")
-                else:
-                    children = LazyList(self, lazy, chpaths)
-                setattr(neo_obj, neocontainer, children)
+        for neocontainer, nixcontainer in self._container_map.items():
+            neotype = neocontainer[:-1]
+            if not (hasattr(neo_obj, neocontainer) and
+                    hasattr(nix_obj, nixcontainer)):
+                continue
+            print("Descending into {} - {}".format(nixcontainer,
+                                                   neocontainer))
+            chpaths = list(path + "/" + neocontainer + "/" + c.name
+                           for c in getattr(nix_obj, nixcontainer)
+                           if c.type == "neo." + neotype)
+            print("Found {} items".format(len(chpaths)))
+            if neocontainer in ("analogsignals",
+                                "irregularlysampledsignals"):
+                chpaths = self._group_signals(chpaths)
+                print("{} groups".format(len(chpaths)))
+            if cascade != "lazy":
+                print("Converting...")
+                read_obj = getattr(self, "read_" + neotype)
+                children = list(read_obj(cp, cascade, lazy)
+                                for cp in chpaths)
+                print("Done")
+            else:
+                children = LazyList(self, lazy, chpaths)
+            setattr(neo_obj, neocontainer, children)
 
     def write_block(self, neo_block):
         """
