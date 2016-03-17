@@ -356,6 +356,7 @@ class NixIO(BaseIO):
                 children = LazyList(self, lazy, chpaths)
             setattr(neo_obj, neocontainer, children)
 
+        # TODO: Handle non-loaded referenced objects and lazy cascading
         if isinstance(neo_obj, RecordingChannelGroup):
             # set references to signals
             parent_block_path = "/" + path.split("/")[1]
