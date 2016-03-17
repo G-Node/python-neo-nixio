@@ -170,6 +170,16 @@ class NixIO(BaseIO):
     def read_spiketrain(self, path, cascade, lazy=False):
         return self.read_eest(path, lazy)
 
+    def read_unit(self, path, cascade, lazy=False):
+        nix_source = self._get_object_at(path)
+        neo_unit = self._source_unit_to_neo(nix_source)
+        if cascade:
+            # TODO: Set references (loaded STs) or paths (not loaded STs)
+            pass
+        if lazy:
+            self._lazy_loaded.append(path)
+        return neo_unit
+
     def _block_to_neo(self, nix_block):
         neo_attrs = self._nix_attr_to_neo(nix_block)
         neo_block = Block(**neo_attrs)
