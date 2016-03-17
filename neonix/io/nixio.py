@@ -146,6 +146,7 @@ class NixIO(BaseIO):
         neo_signal = self._signal_da_to_neo(nix_data_arrays, lazy)
         if lazy:
             self._lazy_loaded.append(path)
+        return neo_signal
 
     def read_analogsignal(self, path, cascade, lazy=False):
         return self.read_signal(path, lazy)
@@ -153,18 +154,21 @@ class NixIO(BaseIO):
     def read_irregularlysampledsignal(self, path, cascade, lazy=False):
         return self.read_signal(path, lazy)
 
-    def read_epoch(self, path, cascade, lazy=False):
+    def read_eest(self, path, lazy=False):
         nix_mtag = self._get_object_at(path)
-        neo_epoch = self._mtag_eest_to_neo(nix_mtag, lazy)
+        neo_eest = self._mtag_eest_to_neo(nix_mtag, lazy)
         if lazy:
             self._lazy_loaded.append(path)
-        return neo_epoch
+        return neo_eest
+
+    def read_epoch(self, path, cascade, lazy=False):
+        return self.read_eest(path, lazy)
 
     def read_event(self, path, cascade, lazy=False):
-        pass
+        return self.read_eest(path, lazy)
 
     def read_spiketrain(self, path, cascade, lazy=False):
-        pass
+        return self.read_eest(path, lazy)
 
     def _block_to_neo(self, nix_block):
         neo_attrs = self._nix_attr_to_neo(nix_block)
