@@ -134,8 +134,6 @@ class NixIO(BaseIO):
                 nix_data_arrays.append(parent_container[signal_name])
             else:
                 break
-        print("Found {} signals for {}".format(len(nix_data_arrays),
-                                               signal_group_name))
         # check metadata segment
         group_section = nix_data_arrays[0].metadata
         for da in nix_data_arrays:
@@ -174,8 +172,7 @@ class NixIO(BaseIO):
         nix_source = self._get_object_at(path)
         neo_unit = self._source_unit_to_neo(nix_source)
         if cascade:
-            # TODO: Set references (loaded STs) or paths (not loaded STs)
-            pass
+            self._read_cascade(nix_source, path, cascade, lazy)
         if lazy:
             self._lazy_loaded.append(path)
         return neo_unit
@@ -339,32 +336,56 @@ class NixIO(BaseIO):
         return eest
 
     def _read_cascade(self, nix_obj, path, cascade, lazy):
-        print("Cascading {}".format(path))
         neo_obj = self._object_map[nix_obj.id]
-        for neocontainer, nixcontainer in self._container_map.items():
-            neotype = neocontainer[:-1]
-            if not (hasattr(neo_obj, neocontainer) and
-                    hasattr(nix_obj, nixcontainer)):
+        for neocontainer in getattr(neo_obj, "_child_containers", []):
+            nixcontainer = self._container_map[neocontainer]
+            if not hasattr(nix_obj, nixcontainer):
                 continue
-            print("Descending into {} - {}".format(nixcontainer,
-                                                   neocontainer))
+            neotype = neocontainer[:-1]
             chpaths = list(path + "/" + neocontainer + "/" + c.name
                            for c in getattr(nix_obj, nixcontainer)
                            if c.type == "neo." + neotype)
-            print("Found {} items".format(len(chpaths)))
             if neocontainer in ("analogsignals",
                                 "irregularlysampledsignals"):
                 chpaths = self._group_signals(chpaths)
-                print("{} groups".format(len(chpaths)))
             if cascade != "lazy":
-                print("Converting...")
                 read_obj = getattr(self, "read_" + neotype)
                 children = list(read_obj(cp, cascade, lazy)
                                 for cp in chpaths)
-                print("Done")
             else:
                 children = LazyList(self, lazy, chpaths)
             setattr(neo_obj, neocontainer, children)
+
+        if isinstance(neo_obj, RecordingChannelGroup):
+            # set references to signals
+            parent_block_path = "/" + path.split("/")[1]
+            parent_block = self._get_object_at(parent_block_path)
+            all_nix_asigs = list(da for da in parent_block.data_arrays
+                                 if da.type == "neo.analogsignal")
+            nix_asigs = self._get_referers(nix_obj, all_nix_asigs)
+            neo_asigs = self._get_mapped_objects(nix_asigs)
+            # deduplicate by name
+            neo_asigs = list(dict((s.name, s) for s in neo_asigs).values())
+            neo_obj.analogsignals.extend(neo_asigs)
+
+            all_nix_isigs = list(da for da in parent_block.data_arrays
+                                 if da.type == "neo.irregularlysampledsignal")
+            nix_isigs = self._get_referers(nix_obj, all_nix_isigs)
+            neo_isigs = self._get_mapped_objects(nix_isigs)
+            neo_isigs = list(dict((s.name, s) for s in neo_isigs).values())
+            neo_obj.irregularlysampledsignals.extend(neo_isigs)
+            neo_obj.create_many_to_one_relationship()
+
+        elif isinstance(neo_obj, Unit):
+            # set references to spiketrains
+            parent_block_path = "/" + path.split("/")[1]
+            parent_block = self._get_object_at(parent_block_path)
+            all_nix_sts = list(mtag for mtag in parent_block.multi_tags
+                               if mtag.type == "neo.spiketrain")
+            nix_sts = self._get_referers(nix_obj, all_nix_sts)
+            neo_sts = self._get_mapped_objects(nix_sts)
+            neo_obj.spiketrains.extend(neo_sts)
+            neo_obj.create_many_to_one_relationship()
 
     def write_block(self, neo_block):
         """
