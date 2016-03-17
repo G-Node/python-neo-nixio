@@ -1348,5 +1348,5 @@ class NixIOReadTest(NixIOTest):
                 for sig in siggroup:
                     sig.sources.append(nixrcg)
 
-        neo_blocks = self.io.read_all_blocks()
+        neo_blocks = self.io.read_all_blocks(True, True)
         self.compare_blocks(neo_blocks, nix_blocks)

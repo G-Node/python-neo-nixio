@@ -85,15 +85,15 @@ class NixIO(BaseIO):
                        "'ow' (Overwrite).".format(mode))
         self.nix_file = nixio.File.open(self.filename, filemode)
         self._object_map = dict()
-        self._lazy_loaded = dict()
+        self._lazy_loaded = list()
 
     def __del__(self):
         self.nix_file.close()
 
-    def read_all_blocks(self):
+    def read_all_blocks(self, cascade=True, lazy=False):
         blocks = list()
         for blk in self.nix_file.blocks:
-            blocks.append(self.read_block("/" + blk.name))
+            blocks.append(self.read_block("/" + blk.name, cascade, lazy))
         return blocks
 
     def read_block(self, path, cascade=True, lazy=False):
@@ -102,7 +102,7 @@ class NixIO(BaseIO):
         if cascade:
             self._read_cascade(nix_block, path, cascade, lazy)
         if lazy:
-            self._lazy_loaded[neo_block] = path
+            self._lazy_loaded.append(path)
         return neo_block
 
     def read_segment(self, path, cascade=True, lazy=False):
@@ -111,7 +111,7 @@ class NixIO(BaseIO):
         if cascade:
             self._read_cascade(nix_group, path, cascade, lazy)
         if lazy:
-            self._lazy_loaded[neo_segment] = path
+            self._lazy_loaded.append(path)
         return neo_segment
 
     def read_recordingchannelgroup(self, path, cascade, lazy):
@@ -120,7 +120,7 @@ class NixIO(BaseIO):
         if cascade:
             self._read_cascade(nix_source, path, cascade, lazy)
         if lazy:
-            self._lazy_loaded[neo_rcg] = path
+            self._lazy_loaded.append(path)
         return neo_rcg
 
     def read_signal(self, path, lazy=False):
@@ -145,7 +145,7 @@ class NixIO(BaseIO):
                 )
         neo_signal = self._signal_da_to_neo(nix_data_arrays, lazy)
         if lazy:
-            self._lazy_loaded[neo_signal] = path
+            self._lazy_loaded.append(path)
 
     def read_analogsignal(self, path, cascade, lazy=False):
         return self.read_signal(path, lazy)
@@ -157,7 +157,7 @@ class NixIO(BaseIO):
         nix_mtag = self._get_object_at(path)
         neo_epoch = self._mtag_eest_to_neo(nix_mtag, lazy)
         if lazy:
-            self._lazy_loaded[neo_epoch] = path
+            self._lazy_loaded.append(path)
         return neo_epoch
 
     def read_event(self, path, cascade, lazy=False):
