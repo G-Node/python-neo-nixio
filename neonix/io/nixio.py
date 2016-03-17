@@ -13,6 +13,7 @@ import sys
 import time
 from datetime import datetime
 from collections import Iterable
+import itertools
 from six import string_types
 import warnings
 
@@ -61,7 +62,7 @@ class NixIO(BaseIO):
         "epochs": "multi_tags",
         "spiketrains": "multi_tags",
         "recordingchannelgroups": "sources",
-        "recordingchannels": "sources",
+        # "recordingchannels": "sources",
     }
 
     def __init__(self, filename, mode="ro"):
@@ -98,34 +99,51 @@ class NixIO(BaseIO):
     def read_block(self, path, cascade=True, lazy=False):
         nix_block = self._get_object_at(path)
         neo_block = self._block_to_neo(nix_block)
-        self._lazy_loaded[neo_block] = path
         if cascade:
             self._read_cascade(nix_block, path, cascade, lazy)
-        if not lazy:
-            # no data to load for Block
-            del self._lazy_loaded[neo_block]
+        if lazy:
+            self._lazy_loaded[neo_block] = path
         return neo_block
 
     def read_segment(self, path, cascade=True, lazy=False):
         nix_group = self._get_object_at(path)
         neo_segment = self._group_to_neo(nix_group)
-        self._lazy_loaded[neo_segment] = path
         if cascade:
             self._read_cascade(nix_group, path, cascade, lazy)
-        if not lazy:
-            # no data to load for Block
-            del self._lazy_loaded[neo_segment]
+        if lazy:
+            self._lazy_loaded[neo_segment] = path
         return neo_segment
 
     def read_recordingchannelgroup(self, rcg, cascade, lazy, block):
         return self._source_rcg_to_neo(rcg, block)
 
-    def read_analogsignal(self, **kargs):
-        # TODO: Path argument will point to the signal group name
-        #       Call the _get_object_at() method with a ".0" appended to the
-        #       path argument, then use the metadata section to find all the
-        #       other MultiTag objects
-        pass
+    def read_signal(self, path, lazy=False):
+        nix_data_arrays = list()
+        parent_group = self._get_object_at("/".join(path.split("/")[:-2]))
+        parent_container = parent_group.multi_tags
+        signal_group_name = path.split("/")[-1]
+        for idx in itertools.count():
+            signal_name = "{}.{}".format(signal_group_name, idx)
+            if signal_name in parent_container:
+                nix_data_arrays.append(parent_container[signal_name])
+            else:
+                break
+        # check metadata segment
+        group_section = nix_data_arrays[0].metadata
+        for da in nix_data_arrays:
+            assert da.metadata == group_section,\
+                "DataArray {} is not a member of signal group {}".format(
+                    da.name, group_section.name
+                )
+        neo_signal = self._signal_da_to_neo(nix_data_arrays, lazy)
+        if lazy:
+            self._lazy_loaded[neo_signal] = path
+
+    def read_analogsignal(self, path, cascade, lazy=False):
+        return self.read_signal(path, lazy)
+
+    def read_irregularlysampledsignal(self, path, cascade, lazy=False):
+        return self.read_signal(path, lazy)
 
     def _block_to_neo(self, nix_block):
         neo_attrs = self._nix_attr_to_neo(nix_block)
@@ -216,7 +234,7 @@ class NixIO(BaseIO):
         neo_unit.create_many_to_one_relationship()
         return neo_unit
 
-    def _signal_da_to_neo(self, nix_da_group):
+    def _signal_da_to_neo(self, nix_da_group, lazy):
         """
         Convert a group of NIX DataArrays to a Neo signal. This method expects
         a list of data arrays that all represent the same, multidimensional
@@ -229,26 +247,33 @@ class NixIO(BaseIO):
         nix_da_group = sorted(nix_da_group, key=lambda d: d.name)
         neo_attrs = self._nix_attr_to_neo(nix_da_group[0])
         neo_attrs["name"] = nix_da_group[0].metadata.name
-        unit = nix_da_group[0].unit
         neo_type = nix_da_group[0].type
-        signaldata = pq.Quantity(np.transpose(nix_da_group), unit)
+
+        unit = nix_da_group[0].unit
+        if lazy:
+            signaldata = pq.Quantity(np.empty(0), unit)
+        else:
+            signaldata = pq.Quantity(np.transpose(nix_da_group), unit)
         timedim = self._get_time_dimension(nix_da_group[0])
-        if timedim is None:
-            # no time dimension - error?
-            pass
         if neo_type == "neo.analogsignal"\
                 or isinstance(timedim, nixio.SampledDimension):
-            sampling_period = pq.Quantity(timedim.sampling_interval,
-                                          timedim.unit)
-            t_start = pq.Quantity(timedim.offset, timedim.unit)
+            if lazy:
+                sampling_period = pq.Quantity(0, timedim.unit)
+                t_start = pq.Quantity(0, timedim.unit)
+            else:
+                sampling_period = pq.Quantity(timedim.sampling_interval,
+                                              timedim.unit)
+                t_start = pq.Quantity(timedim.offset, timedim.unit)
             neo_signal = AnalogSignal(
                 signal=signaldata, sampling_period=sampling_period,
                 t_start=t_start, **neo_attrs
             )
         elif neo_type == "neo.irregularlysampledsignal"\
                 or isinstance(timedim, nixio.RangeDimension):
-            times = pq.Quantity(timedim.ticks, timedim.unit)
-
+            if lazy:
+                times = pq.Quantity(np.empty(0), timedim.unit)
+            else:
+                times = pq.Quantity(timedim.ticks, timedim.unit)
             neo_signal = IrregularlySampledSignal(
                 signal=signaldata, times=times, **neo_attrs
             )
@@ -291,15 +316,17 @@ class NixIO(BaseIO):
             neotype = neocontainer[:-1]
             if not hasattr(nix_obj, nixcontainer):
                 continue
-            children = LazyList(path + "/" + neocontainer + "/" + c.name
-                                for c in getattr(nix_obj, nixcontainer)
-                                if c.type == "neo." + neotype)
+            chpaths = list(path + "/" + neocontainer + "/" + c.name
+                           for c in getattr(nix_obj, nixcontainer)
+                           if c.type == "neo." + neotype)
             if neocontainer in ("analogsignals", "irregularlysampledsignals"):
-                children = self._group_signals(children)
+                chpaths = self._group_signals(chpaths)
             if cascade != "lazy":
                 read_obj = getattr(self, "read_" + neotype)
                 children = list(read_obj(cp, cascade, lazy)
-                                for cp in children)
+                                for cp in chpaths)
+            else:
+                children = LazyList(self, lazy, chpaths)
             setattr(neo_obj, neocontainer, children)
 
     def write_block(self, neo_block):
@@ -927,26 +954,17 @@ class NixIO(BaseIO):
         return neo_attrs
 
     @staticmethod
-    def _group_signals(data_arrays):
+    def _group_signals(paths):
         """
         Groups data arrays that were generated by the same Neo Signal object.
 
-        :param data_arrays: The data array objects of a NIX Group
-        :return: A list of lists of data arrays, grouping arrays that belong to
-        the same AnalogSignal or IrregularlySampledSignal
+        :param paths: A list of paths (strings) of all the signals to be grouped
+        :return: A list of paths (strings) of signal groups. The last part of
+        each path is the common name of the signals in the group.
         """
-        # TODO: Change this method to work with paths
-        #       It should accept a list of paths which contain individual
-        #       signals and return a list of paths for signal groups
-        #       The last part of the path should not have a '.n' suffix.
-        signals_dict = dict()
-        for da in data_arrays:
-            mdsection = da.metadata
-            if mdsection in signals_dict:
-                signals_dict[mdsection].append(da)
-            else:
-                signals_dict[mdsection] = [da]
-        return list(signals_dict.values())
+        grouppaths = list(".".join(p.split(".")[:-1])
+                          for p in paths)
+        return list(set(grouppaths))
 
     @staticmethod
     def _get_referers(nix_obj, obj_list):
