@@ -450,7 +450,7 @@ class NixIOWriteTest(NixIOTest):
     # TODO: Use neo.test.generate_datasets
 
     def setUp(self):
-        self.filename = "nixio_testfile_write.hd5"
+        self.filename = "nixio_testfile_write.h5"
         self.io = NixIO(self.filename, "ow")
 
     def test_block_write(self):
@@ -1115,7 +1115,7 @@ class NixIOWriteTest(NixIOTest):
 class NixIOReadTest(NixIOTest):
 
     def setUp(self):
-        self.filename = "nixio_testfile_read.hd5"
+        self.filename = "nixio_testfile_read.h5"
         self.io = NixIO(self.filename, "rw")
         self.nixfile = self.io.nix_file
 
