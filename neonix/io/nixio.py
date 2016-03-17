@@ -62,7 +62,7 @@ class NixIO(BaseIO):
         "epochs": "multi_tags",
         "spiketrains": "multi_tags",
         "recordingchannelgroups": "sources",
-        # "recordingchannels": "sources",
+        "units": "sources"
     }
 
     def __init__(self, filename, mode="ro"):
@@ -114,13 +114,19 @@ class NixIO(BaseIO):
             self._lazy_loaded[neo_segment] = path
         return neo_segment
 
-    def read_recordingchannelgroup(self, rcg, cascade, lazy, block):
-        return self._source_rcg_to_neo(rcg, block)
+    def read_recordingchannelgroup(self, path, cascade, lazy):
+        nix_source = self._get_object_at(path)
+        neo_rcg = self._source_rcg_to_neo(nix_source)
+        if cascade:
+            self._read_cascade(nix_source, path, cascade, lazy)
+        if lazy:
+            self._lazy_loaded[neo_rcg] = path
+        return neo_rcg
 
     def read_signal(self, path, lazy=False):
         nix_data_arrays = list()
         parent_group = self._get_object_at("/".join(path.split("/")[:-2]))
-        parent_container = parent_group.multi_tags
+        parent_container = parent_group.data_arrays
         signal_group_name = path.split("/")[-1]
         for idx in itertools.count():
             signal_name = "{}.{}".format(signal_group_name, idx)
@@ -128,6 +134,8 @@ class NixIO(BaseIO):
                 nix_data_arrays.append(parent_container[signal_name])
             else:
                 break
+        print("Found {} signals for {}".format(len(nix_data_arrays),
+                                               signal_group_name))
         # check metadata segment
         group_section = nix_data_arrays[0].metadata
         for da in nix_data_arrays:
@@ -145,6 +153,19 @@ class NixIO(BaseIO):
     def read_irregularlysampledsignal(self, path, cascade, lazy=False):
         return self.read_signal(path, lazy)
 
+    def read_epoch(self, path, cascade, lazy=False):
+        nix_mtag = self._get_object_at(path)
+        neo_epoch = self._mtag_eest_to_neo(nix_mtag, lazy)
+        if lazy:
+            self._lazy_loaded[neo_epoch] = path
+        return neo_epoch
+
+    def read_event(self, path, cascade, lazy=False):
+        pass
+
+    def read_spiketrain(self, path, cascade, lazy=False):
+        pass
+
     def _block_to_neo(self, nix_block):
         neo_attrs = self._nix_attr_to_neo(nix_block)
         neo_block = Block(**neo_attrs)
@@ -155,33 +176,9 @@ class NixIO(BaseIO):
         neo_attrs = self._nix_attr_to_neo(nix_group)
         neo_segment = Segment(**neo_attrs)
         self._object_map[nix_group.id] = neo_segment
-        nix_grouped_signals = self._group_signals(nix_group.data_arrays)
-        signals = list(
-            map(self._signal_da_to_neo, nix_grouped_signals)
-        )
-        neo_segment.analogsignals = list(
-            s for s in signals if isinstance(s, AnalogSignal)
-        )
-        neo_segment.irregularlysampledsignals = list(
-            s for s in signals if isinstance(s, IrregularlySampledSignal)
-        )
-        # eest: Epoch, Event, SpikeTrain
-        eest = list(
-            map(self._mtag_eest_to_neo, nix_group.multi_tags)
-        )
-        neo_segment.epochs = list(
-            e for e in eest if isinstance(e, Epoch)
-        )
-        neo_segment.events = list(
-            e for e in eest if isinstance(e, Event)
-        )
-        neo_segment.spiketrains = list(
-            st for st in eest if isinstance(st, SpikeTrain)
-        )
-        neo_segment.create_many_to_one_relationship()
         return neo_segment
 
-    def _source_rcg_to_neo(self, nix_source, parent_block):
+    def _source_rcg_to_neo(self, nix_source):
         neo_attrs = self._nix_attr_to_neo(nix_source)
         rec_channels = list(self._nix_attr_to_neo(c)
                             for c in nix_source.sources
@@ -198,40 +195,40 @@ class NixIO(BaseIO):
 
         nix_units = list(src for src in nix_source.sources
                          if src.type == "neo.unit")
-        neo_units = list(self._source_unit_to_neo(nixut, parent_block)
+        neo_units = list(self._source_unit_to_neo(nixut)
                          for nixut in nix_units)
         rcg.units.extend(neo_units)
 
         # referenced signals
-        all_nix_asigs = list(da for da in parent_block.data_arrays
-                             if da.type == "neo.analogsignal")
-        nix_asigs = self._get_referers(nix_source, all_nix_asigs)
-        neo_asigs = self._get_mapped_objects(nix_asigs)
+        # all_nix_asigs = list(da for da in parent_block.data_arrays
+        #                      if da.type == "neo.analogsignal")
+        # nix_asigs = self._get_referers(nix_source, all_nix_asigs)
+        # neo_asigs = self._get_mapped_objects(nix_asigs)
         # deduplicate by name
-        neo_asigs = list(dict((s.name, s) for s in neo_asigs).values())
-        rcg.analogsignals.extend(neo_asigs)
+        # neo_asigs = list(dict((s.name, s) for s in neo_asigs).values())
+        # rcg.analogsignals.extend(neo_asigs)
 
-        all_nix_isigs = list(da for da in parent_block.data_arrays
-                             if da.type == "neo.irregularlysampledsignal")
-        nix_isigs = self._get_referers(nix_source, all_nix_isigs)
-        neo_isigs = self._get_mapped_objects(nix_isigs)
-        neo_isigs = list(dict((s.name, s) for s in neo_isigs).values())
-        rcg.irregularlysampledsignals.extend(neo_isigs)
-        rcg.create_many_to_one_relationship()
+        # all_nix_isigs = list(da for da in parent_block.data_arrays
+        #                      if da.type == "neo.irregularlysampledsignal")
+        # nix_isigs = self._get_referers(nix_source, all_nix_isigs)
+        # neo_isigs = self._get_mapped_objects(nix_isigs)
+        # neo_isigs = list(dict((s.name, s) for s in neo_isigs).values())
+        # rcg.irregularlysampledsignals.extend(neo_isigs)
+        # rcg.create_many_to_one_relationship()
         return rcg
 
-    def _source_unit_to_neo(self, nix_unit, parent_block):
+    def _source_unit_to_neo(self, nix_unit):
         neo_attrs = self._nix_attr_to_neo(nix_unit)
         neo_unit = Unit(**neo_attrs)
         self._object_map[nix_unit.id] = neo_unit
 
         # referenced spiketrains
-        all_nix_sts = list(mtag for mtag in parent_block.multi_tags
-                           if mtag.type == "neo.spiketrain")
-        nix_sts = self._get_referers(nix_unit, all_nix_sts)
-        neo_sts = self._get_mapped_objects(nix_sts)
-        neo_unit.spiketrains.extend(neo_sts)
-        neo_unit.create_many_to_one_relationship()
+        # all_nix_sts = list(mtag for mtag in parent_block.multi_tags
+        #                    if mtag.type == "neo.spiketrain")
+        # nix_sts = self._get_referers(nix_unit, all_nix_sts)
+        # neo_sts = self._get_mapped_objects(nix_sts)
+        # neo_unit.spiketrains.extend(neo_sts)
+        # neo_unit.create_many_to_one_relationship()
         return neo_unit
 
     def _signal_da_to_neo(self, nix_da_group, lazy):
@@ -283,51 +280,80 @@ class NixIO(BaseIO):
             self._object_map[da.id] = neo_signal
         return neo_signal
 
-    def _mtag_eest_to_neo(self, nix_mtag):
+    def _mtag_eest_to_neo(self, nix_mtag, lazy):
         neo_attrs = self._nix_attr_to_neo(nix_mtag)
         neo_type = nix_mtag.type
-        times = pq.Quantity(nix_mtag.positions, nix_mtag.positions.unit)
+
+        time_unit = nix_mtag.positions.unit
+        if lazy:
+            times = pq.Quantity(np.empty(0), time_unit)
+        else:
+            times = pq.Quantity(nix_mtag.positions, time_unit)
         if neo_type == "neo.epoch":
-            durations = pq.Quantity(nix_mtag.extents, nix_mtag.extents.unit)
-            labels = nix_mtag.positions.dimensions[0].labels
+            if lazy:
+                durations = pq.Quantity(np.empty(0), nix_mtag.extents.unit)
+                labels = []
+            else:
+                durations = pq.Quantity(nix_mtag.extents, nix_mtag.extents.unit)
+                labels = nix_mtag.positions.dimensions[0].labels
             eest = Epoch(times=times, durations=durations, labels=labels,
                          **neo_attrs)
         elif neo_type == "neo.event":
-            labels = nix_mtag.positions.dimensions[0].labels
+            if lazy:
+                labels = []
+            else:
+                labels = nix_mtag.positions.dimensions[0].labels
             eest = Event(times=times, labels=labels, **neo_attrs)
         elif neo_type == "neo.spiketrain":
             eest = SpikeTrain(times=times, **neo_attrs)
             if len(nix_mtag.features):
                 wfda = nix_mtag.features[0].data
-                eest.waveforms = pq.Quantity(wfda, wfda.unit)
                 wftime = self._get_time_dimension(wfda)
-                eest.sampling_period = pq.Quantity(
-                    wftime.sampling_interval, wftime.unit
-                )
-                eest.left_sweep = wfda.metadata["left_sweep"]
+                if lazy:
+                    eest.waveforms = pq.Quantity(np.empty(0), wfda.unit)
+                    eest.sampling_period = pq.Quantity(0, wftime.unit)
+                    eest.left_sweep = 0
+                else:
+                    eest.waveforms = pq.Quantity(wfda, wfda.unit)
+                    eest.sampling_period = pq.Quantity(
+                        wftime.sampling_interval, wftime.unit
+                    )
+                    eest.left_sweep = wfda.metadata["left_sweep"]
         else:
             return None
         self._object_map[nix_mtag.id] = eest
         return eest
 
     def _read_cascade(self, nix_obj, path, cascade, lazy):
+        print("Cascading {}".format(path))
         neo_obj = self._object_map[nix_obj.id]
-        for neocontainer, nixcontainer in self._container_map.items():
-            neotype = neocontainer[:-1]
-            if not hasattr(nix_obj, nixcontainer):
-                continue
-            chpaths = list(path + "/" + neocontainer + "/" + c.name
-                           for c in getattr(nix_obj, nixcontainer)
-                           if c.type == "neo." + neotype)
-            if neocontainer in ("analogsignals", "irregularlysampledsignals"):
-                chpaths = self._group_signals(chpaths)
-            if cascade != "lazy":
-                read_obj = getattr(self, "read_" + neotype)
-                children = list(read_obj(cp, cascade, lazy)
-                                for cp in chpaths)
-            else:
-                children = LazyList(self, lazy, chpaths)
-            setattr(neo_obj, neocontainer, children)
+        if isinstance(neo_obj, (RecordingChannelGroup, Unit)):
+            # TODO: Reference loaded objects and add paths of non-loaded objects
+            pass
+        else:
+            for neocontainer, nixcontainer in self._container_map.items():
+                neotype = neocontainer[:-1]
+                if not hasattr(neo_obj, neocontainer):
+                    continue
+                print("Descending into {} - {}".format(nixcontainer,
+                                                       neocontainer))
+                chpaths = list(path + "/" + neocontainer + "/" + c.name
+                               for c in getattr(nix_obj, nixcontainer)
+                               if c.type == "neo." + neotype)
+                print("Found {} items".format(len(chpaths)))
+                if neocontainer in ("analogsignals",
+                                    "irregularlysampledsignals"):
+                    chpaths = self._group_signals(chpaths)
+                    print("{} groups".format(len(chpaths)))
+                if cascade != "lazy":
+                    print("Converting...")
+                    read_obj = getattr(self, "read_" + neotype)
+                    children = list(read_obj(cp, cascade, lazy)
+                                    for cp in chpaths)
+                    print("Done")
+                else:
+                    children = LazyList(self, lazy, chpaths)
+                setattr(neo_obj, neocontainer, children)
 
     def write_block(self, neo_block):
         """
