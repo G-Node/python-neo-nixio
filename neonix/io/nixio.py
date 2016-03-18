@@ -209,37 +209,12 @@ class NixIO(BaseIO):
         neo_units = list(self._source_unit_to_neo(nixut)
                          for nixut in nix_units)
         rcg.units.extend(neo_units)
-
-        # referenced signals
-        # all_nix_asigs = list(da for da in parent_block.data_arrays
-        #                      if da.type == "neo.analogsignal")
-        # nix_asigs = self._get_referers(nix_source, all_nix_asigs)
-        # neo_asigs = self._get_mapped_objects(nix_asigs)
-        # deduplicate by name
-        # neo_asigs = list(dict((s.name, s) for s in neo_asigs).values())
-        # rcg.analogsignals.extend(neo_asigs)
-
-        # all_nix_isigs = list(da for da in parent_block.data_arrays
-        #                      if da.type == "neo.irregularlysampledsignal")
-        # nix_isigs = self._get_referers(nix_source, all_nix_isigs)
-        # neo_isigs = self._get_mapped_objects(nix_isigs)
-        # neo_isigs = list(dict((s.name, s) for s in neo_isigs).values())
-        # rcg.irregularlysampledsignals.extend(neo_isigs)
-        # rcg.create_many_to_one_relationship()
         return rcg
 
     def _source_unit_to_neo(self, nix_unit):
         neo_attrs = self._nix_attr_to_neo(nix_unit)
         neo_unit = Unit(**neo_attrs)
         self._object_map[nix_unit.id] = neo_unit
-
-        # referenced spiketrains
-        # all_nix_sts = list(mtag for mtag in parent_block.multi_tags
-        #                    if mtag.type == "neo.spiketrain")
-        # nix_sts = self._get_referers(nix_unit, all_nix_sts)
-        # neo_sts = self._get_mapped_objects(nix_sts)
-        # neo_unit.spiketrains.extend(neo_sts)
-        # neo_unit.create_many_to_one_relationship()
         return neo_unit
 
     def _signal_da_to_neo(self, nix_da_group, lazy):
