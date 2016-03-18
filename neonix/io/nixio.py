@@ -241,7 +241,7 @@ class NixIO(BaseIO):
         if neo_type == "neo.analogsignal"\
                 or isinstance(timedim, nixio.SampledDimension):
             if lazy:
-                sampling_period = pq.Quantity(0, timedim.unit)
+                sampling_period = pq.Quantity(1, timedim.unit)
                 t_start = pq.Quantity(0, timedim.unit)
             else:
                 sampling_period = pq.Quantity(timedim.sampling_interval,
@@ -297,7 +297,7 @@ class NixIO(BaseIO):
                 wftime = self._get_time_dimension(wfda)
                 if lazy:
                     eest.waveforms = pq.Quantity(np.empty(0), wfda.unit)
-                    eest.sampling_period = pq.Quantity(0, wftime.unit)
+                    eest.sampling_period = pq.Quantity(1, wftime.unit)
                     eest.left_sweep = 0
                 else:
                     eest.waveforms = pq.Quantity(wfda, wfda.unit)
