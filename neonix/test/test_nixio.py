@@ -1139,6 +1139,39 @@ class NixIOReadTest(NixIOTest):
         Write all objects to a using nix directly, read them using the NixIO
         reader, and check for equality.
         """
+        nix_blocks = self._create_full_nix()
+        neo_blocks = self.io.read_all_blocks(cascade=True, lazy=False)
+        self.compare_blocks(neo_blocks, nix_blocks)
+
+    def test_lazyload_fullcascade_read(self):
+        """
+        Read everything lazily: Lazy integration test with all features
+        """
+        nix_blocks = self._create_full_nix()
+        neo_blocks = self.io.read_all_blocks(cascade=True, lazy=True)
+        print(neo_blocks[0].recordingchannelgroups[0].analogsignals)
+        print(self.io._lazy_loaded)
+        self.compare_blocks(neo_blocks, nix_blocks)
+
+    def test_lazyload_lazycascade_read(self):
+        """
+        Read everything lazily with lazy cascade
+        """
+        nix_blocks = self._create_full_nix()
+        neo_blocks = self.io.read_all_blocks(cascade="lazy", lazy=True)
+        print(self.io._lazy_loaded)
+        self.compare_blocks(neo_blocks, nix_blocks)
+
+    def test_fullload_lazycascade_read(self):
+        """
+        Read everything with lazy cascade
+        """
+        nix_blocks = self._create_full_nix()
+        neo_blocks = self.io.read_all_blocks(cascade="lazy", lazy=False)
+        print(self.io._lazy_loaded)
+        self.compare_blocks(neo_blocks, nix_blocks)
+
+    def _create_full_nix(self):
         nix_block_a = self.nixfile.create_block(self.rword(10), "neo.block")
         nix_block_a.definition = self.rsentence(5, 10)
         nix_block_b = self.nixfile.create_block(self.rword(10), "neo.block")
@@ -1347,6 +1380,4 @@ class NixIOReadTest(NixIOTest):
             for siggroup in randsiggroups:
                 for sig in siggroup:
                     sig.sources.append(nixrcg)
-
-        neo_blocks = self.io.read_all_blocks(cascade=True, lazy=False)
-        self.compare_blocks(neo_blocks, nix_blocks)
+        return nix_blocks
