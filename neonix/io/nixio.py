@@ -324,8 +324,8 @@ class NixIO(BaseIO):
                                 "irregularlysampledsignals"):
                 chpaths = self._group_signals(chpaths)
             if cascade != "lazy":
-                read_obj = getattr(self, "read_" + neotype)
-                children = list(read_obj(cp, cascade, lazy)
+                read_func = getattr(self, "read_" + neotype)
+                children = list(read_func(cp, cascade, lazy)
                                 for cp in chpaths)
             else:
                 children = LazyList(self, lazy, chpaths)
@@ -362,6 +362,27 @@ class NixIO(BaseIO):
             neo_sts = self._get_mapped_objects(nix_sts)
             neo_obj.spiketrains.extend(neo_sts)
             neo_obj.create_many_to_one_relationship()
+
+    def get(self, path, cascade, lazy):
+        parts = path.split("/")
+        if parts[-1]:
+            neotype = parts[-2][:-1]
+        else:
+            neotype = "block"
+        read_func = getattr(self, "read_" + neotype)
+        return read_func(path, cascade, lazy)
+
+    def load_lazy_cascade(self, path, lazy):
+        """
+        Loads the object at the location specified by the path and all children.
+        Data is loaded is lazy is False.
+
+        :param path: Location of object in file
+        :param lazy: Do not load data if True
+        :return: The loaded object
+        """
+        neoobj = self.get(path, cascade=True, lazy=lazy)
+        return neoobj
 
     def write_block(self, neo_block):
         """
