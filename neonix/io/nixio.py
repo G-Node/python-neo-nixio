@@ -373,8 +373,7 @@ class NixIO(BaseIO):
         return read_func(path, cascade, lazy)
 
     def load_lazy_object(self, obj):
-
-        pass
+        return self.get(obj.path, cascade=False, lazy=False)
 
     def load_lazy_cascade(self, path, lazy):
         """
@@ -884,11 +883,18 @@ class NixIO(BaseIO):
             self._add_annotations(attr["annotations"], metadata)
 
     def _update_lazy_loaded(self, obj, lazy):
-        if lazy and obj not in self._lazy_loaded:
-            obj.path = obj
+        objidx = self._find_lazy_loaded(obj)
+        if lazy and objidx is None:
             self._lazy_loaded.append(obj)
-        elif not lazy and obj in self._lazy_loaded:
-            self._lazy_loaded.remove(obj)
+        elif not lazy and objidx is not None:
+            self._lazy_loaded.pop(objidx)
+
+    def _find_lazy_loaded(self, obj):
+        for idx, llobj in enumerate(self._lazy_loaded):
+            if (type(llobj) is type(obj)) and (llobj is obj):
+                return idx
+        else:
+            return None
 
     @staticmethod
     def _neo_attr_to_nix(neo_obj, container):
