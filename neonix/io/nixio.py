@@ -203,12 +203,6 @@ class NixIO(BaseIO):
             neo_attrs["coordinates"] = pq.Quantity(coord_values, coord_units)
         rcg = RecordingChannelGroup(**neo_attrs)
         self._object_map[nix_source.id] = rcg
-
-        nix_units = list(src for src in nix_source.sources
-                         if src.type == "neo.unit")
-        neo_units = list(self._source_unit_to_neo(nixut)
-                         for nixut in nix_units)
-        rcg.units.extend(neo_units)
         return rcg
 
     def _source_unit_to_neo(self, nix_unit):
@@ -331,7 +325,6 @@ class NixIO(BaseIO):
                 children = LazyList(self, lazy, chpaths)
             setattr(neo_obj, neocontainer, children)
 
-        # TODO: Handle non-loaded referenced objects and lazy cascading
         if isinstance(neo_obj, RecordingChannelGroup):
             # set references to signals
             parent_block_path = "/" + path.split("/")[1]
