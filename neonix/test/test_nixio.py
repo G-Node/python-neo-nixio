@@ -1145,50 +1145,33 @@ class NixIOReadTest(NixIOTest):
         reader, and check for equality.
         """
         nix_blocks = self._create_full_nix()
-        print("Cascade - Greedy loading")
-        start = time()
         neo_blocks = self.io.read_all_blocks(cascade=True, lazy=False)
-        print("Reading took {}".format(time() - start))
-        start = time()
         self.compare_blocks(neo_blocks, nix_blocks)
-        print("Comparison took {}".format(time() - start))
 
     def test_lazyload_fullcascade_read(self):
         """
         Read everything lazily: Lazy integration test with all features
         """
         nix_blocks = self._create_full_nix()
-        print("Cascade - Lazy loading")
-        start = time()
         neo_blocks = self.io.read_all_blocks(cascade=True, lazy=True)
         print("Reading took {}".format(time() - start))
         start = time()
         self.compare_blocks(neo_blocks, nix_blocks)
-        print("Comparison took {}".format(time() - start))
 
     def test_lazyload_lazycascade_read(self):
         """
         Read everything lazily with lazy cascade
         """
         nix_blocks = self._create_full_nix()
-        print("Lazy cascade - Lazy loading")
-        start = time()
         neo_blocks = self.io.read_all_blocks(cascade="lazy", lazy=True)
-        print("Reading took {}".format(time() - start))
-        start = time()
         self.compare_blocks(neo_blocks, nix_blocks)
-        print("Comparison took {}".format(time() - start))
 
     def test_fullload_lazycascade_read(self):
         """
         Read everything with lazy cascade
         """
         nix_blocks = self._create_full_nix()
-        print("Lazy cascade - Greedy loading")
-        start = time()
         neo_blocks = self.io.read_all_blocks(cascade="lazy", lazy=False)
-        print("Reading took {}".format(time() - start))
-        start = time()
         self.compare_blocks(neo_blocks, nix_blocks)
         print("Comparison took {}".format(time() - start))
 
