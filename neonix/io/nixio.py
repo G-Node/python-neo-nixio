@@ -99,28 +99,28 @@ class NixIO(BaseIO):
     def read_block(self, path, cascade=True, lazy=False):
         nix_block = self._get_object_at(path)
         neo_block = self._block_to_neo(nix_block)
+        neo_block.path = path
         if cascade:
             self._read_cascade(nix_block, path, cascade, lazy)
-        if lazy:
-            self._lazy_loaded.append(path)
+        self._update_lazy_loaded(neo_block, lazy)
         return neo_block
 
     def read_segment(self, path, cascade=True, lazy=False):
         nix_group = self._get_object_at(path)
         neo_segment = self._group_to_neo(nix_group)
+        neo_segment.path = path
         if cascade:
             self._read_cascade(nix_group, path, cascade, lazy)
-        if lazy:
-            self._lazy_loaded.append(path)
+        self._update_lazy_loaded(neo_segment, lazy)
         return neo_segment
 
     def read_recordingchannelgroup(self, path, cascade, lazy):
         nix_source = self._get_object_at(path)
         neo_rcg = self._source_rcg_to_neo(nix_source)
+        neo_rcg.path = path
         if cascade:
             self._read_cascade(nix_source, path, cascade, lazy)
-        if lazy:
-            self._lazy_loaded.append(path)
+        self._update_lazy_loaded(neo_rcg, lazy)
         return neo_rcg
 
     def read_signal(self, path, lazy=False):
@@ -142,8 +142,8 @@ class NixIO(BaseIO):
                     da.name, group_section.name
                 )
         neo_signal = self._signal_da_to_neo(nix_data_arrays, lazy)
-        if lazy:
-            self._lazy_loaded.append(path)
+        neo_signal.path = path
+        self._update_lazy_loaded(neo_signal, lazy)
         return neo_signal
 
     def read_analogsignal(self, path, cascade, lazy=False):
@@ -155,8 +155,8 @@ class NixIO(BaseIO):
     def read_eest(self, path, lazy=False):
         nix_mtag = self._get_object_at(path)
         neo_eest = self._mtag_eest_to_neo(nix_mtag, lazy)
-        if lazy:
-            self._lazy_loaded.append(path)
+        neo_eest.path = path
+        self._update_lazy_loaded(neo_eest, lazy)
         return neo_eest
 
     def read_epoch(self, path, cascade, lazy=False):
@@ -171,10 +171,10 @@ class NixIO(BaseIO):
     def read_unit(self, path, cascade, lazy=False):
         nix_source = self._get_object_at(path)
         neo_unit = self._source_unit_to_neo(nix_source)
+        neo_unit.path = path
         if cascade:
             self._read_cascade(nix_source, path, cascade, lazy)
-        if lazy:
-            self._lazy_loaded.append(path)
+        self._update_lazy_loaded(neo_unit, lazy)
         return neo_unit
 
     def _block_to_neo(self, nix_block):
@@ -373,6 +373,7 @@ class NixIO(BaseIO):
         return read_func(path, cascade, lazy)
 
     def load_lazy_object(self, obj):
+
         pass
 
     def load_lazy_cascade(self, path, lazy):
@@ -881,6 +882,13 @@ class NixIO(BaseIO):
         if "annotations" in attr:
             metadata = self._get_or_init_metadata(nix_object, object_path)
             self._add_annotations(attr["annotations"], metadata)
+
+    def _update_lazy_loaded(self, obj, lazy):
+        if lazy and obj not in self._lazy_loaded:
+            obj.path = obj
+            self._lazy_loaded.append(obj)
+        elif not lazy and obj in self._lazy_loaded:
+            self._lazy_loaded.remove(obj)
 
     @staticmethod
     def _neo_attr_to_nix(neo_obj, container):
