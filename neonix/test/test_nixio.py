@@ -166,6 +166,8 @@ class NixIOTest(unittest.TestCase):
                 signame = sig.name
             else:
                 signame = self.find_nix_name_signal(sig, data_arrays)
+            if self.io._find_lazy_loaded(sig) is not None:
+                sig = self.io.load_lazy_object(sig)
             dalist = list()
             for idx in itertools.count():
                 nixname = "{}.{}".format(signame, idx)
@@ -173,8 +175,8 @@ class NixIOTest(unittest.TestCase):
                     dalist.append(data_arrays[nixname])
                 else:
                     break
-            _, nasig = np.shape(sig)
-            self.assertEqual(nasig, len(dalist))
+            _, nsig = np.shape(sig)
+            self.assertEqual(nsig, len(dalist))
             self.compare_signal_dalist(sig, dalist)
 
     def find_nix_name_signal(self, neosig, nixsigs):
@@ -246,6 +248,8 @@ class NixIOTest(unittest.TestCase):
                 eestname = eest.name
             else:
                 eestname = self.find_nix_name_eest(eest, mtaglist)
+            if self.io._find_lazy_loaded(eest) is not None:
+                eest = self.io.load_lazy_object(eest)
             mtag = mtaglist[eestname]
             if isinstance(eest, Epoch):
                 self.compare_epoch_mtag(eest, mtag)
