@@ -97,7 +97,7 @@ class NixIOTest(unittest.TestCase):
                     self.assertIn(neoname, nixasigs)
                 else:
                     nneoanon += 1
-            autoname = "{}.AnalogSignal".format(nixblock.name)
+            autoname = "neo.AnalogSignal"
             nixanon = sum(1 for n in nixasigs if autoname in n)
             self.assertEqual(nneoanon, nixanon)
 
@@ -113,7 +113,7 @@ class NixIOTest(unittest.TestCase):
                     self.assertIn(neoname, nixisigs)
                 else:
                     nneoanon += 1
-            autoname = "{}.IrregularlySampledSignal".format(nixblock.name)
+            autoname = "neo.IrregularlySampledSignal"
             nixanon = sum(1 for n in nixisigs if autoname in n)
             self.assertEqual(nneoanon, nixanon)
 
@@ -136,7 +136,7 @@ class NixIOTest(unittest.TestCase):
                     if neoname:
                         self.assertIn(neoname, nixsts)
                 neoanon = sum(1 for n in neosts if not n)
-                autoname = "{}.SpikeTrain".format(nixblock.name)
+                autoname = "neo.SpikeTrain"
                 nixanon = sum(1 for n in nixsts if autoname in n)
                 self.assertEqual(neoanon, nixanon)
 
@@ -309,6 +309,7 @@ class NixIOTest(unittest.TestCase):
         for neol, nixl in zip(event.labels,
                               mtag.positions.dimensions[0].labels):
             # Dirty. Should find the root cause instead
+            # Only happens in 3.2
             if isinstance(neol, bytes):
                 neol = neol.decode()
             if isinstance(nixl, bytes):
@@ -581,6 +582,38 @@ class NixIOWriteTest(NixIOTest):
         # Purpose of test is name generation
         #  Comparing everything takes too long
         self.compare_blocks(blocks, nixblocks)
+
+    def test_name_conflict(self):
+        """
+        Test resolution of naming conflicts from Neo files.
+
+        Object names in Neo may not be unique. The writer should resolve
+        naming conflicts.
+        """
+        block = Block()
+        nsegs = 10
+        name = "name_conflict"
+
+        times = self.rquant(1, pq.s)
+        signal = self.rquant(1, pq.V)
+
+        for n in range(nsegs):
+            seg = Segment()
+            block.segments.append(seg)
+            seg.analogsignals.append(AnalogSignal(name=name,
+                                                  signal=signal,
+                                                  sampling_rate=pq.Hz))
+            seg.irregularlysampledsignals.append(
+                IrregularlySampledSignal(name=name,
+                                         times=times,
+                                         signal=signal,
+                                         time_units=pq.s)
+            )
+            seg.epochs.append(Epoch(name=name, times=times, durations=times))
+            seg.events.append(Event(name=name, times=times))
+            seg.spiketrains.append(SpikeTrain(times=times, t_stop=pq.s,
+                                              units=pq.s))
+        nixblock = self.io.write_block(block)
 
     def test_annotations_write(self):
         """

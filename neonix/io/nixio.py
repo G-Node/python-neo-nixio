@@ -247,10 +247,7 @@ class NixIO(BaseIO):
         :param neo_block: Neo block to be written
         :return: The new NIX Block
         """
-        nix_name = neo_block.name
-        if not nix_name:
-            nblocks = len(self.nix_file.blocks)
-            nix_name = "neo.Block{}".format(nblocks)
+        nix_name = self._create_name(neo_block, self.nix_file.blocks)
         nix_type = "neo.block"
         nix_definition = neo_block.description
         nix_block = self.nix_file.create_block(nix_name, nix_type)
@@ -299,10 +296,7 @@ class NixIO(BaseIO):
         :return: The newly created NIX Group
         """
         parent_block = self._get_object_at(parent_path)
-        nix_name = segment.name
-        if not nix_name:
-            ngroups = len(parent_block.groups)
-            nix_name = "{}.Segment{}".format(parent_block.name, ngroups)
+        nix_name = self._create_name(segment, parent_block.groups)
         nix_type = "neo.segment"
         nix_definition = segment.description
         nix_group = parent_block.create_group(nix_name, nix_type)
@@ -345,11 +339,7 @@ class NixIO(BaseIO):
         :return: The newly created NIX Source
         """
         parent_block = self._get_object_at(parent_path)
-        nix_name = rcg.name
-        if not nix_name:
-            nsources = len(parent_block.sources)
-            nix_name = "{}.RecordingChannelGroup{}".format(parent_block.name,
-                                                           nsources)
+        nix_name = self._create_name(rcg, parent_block.sources)
         nix_type = "neo.recordingchannelgroup"
         nix_definition = rcg.description
         nix_source = parent_block.create_source(nix_name, nix_type)
@@ -421,13 +411,10 @@ class NixIO(BaseIO):
         """
         parent_group = self._get_object_at(parent_path)
         parent_block = self._get_object_at([parent_path[0]])
-        nix_name = anasig.name
-        if not nix_name:
-            nda = len(parent_block.data_arrays)
-            nix_name = "{}.AnalogSignal{}".format(parent_block.name, nda)
         nix_type = "neo.analogsignal"
         nix_definition = anasig.description
         parent_metadata = self._get_or_init_metadata(parent_group, parent_path)
+        nix_name = self._create_name(anasig, parent_block.data_arrays)
         anasig_group_segment = parent_metadata.create_section(
             nix_name, nix_type+".metadata"
         )
@@ -482,14 +469,10 @@ class NixIO(BaseIO):
         """
         parent_group = self._get_object_at(parent_path)
         parent_block = self._get_object_at([parent_path[0]])
-        nix_name = irsig.name
-        if not nix_name:
-            nda = len(parent_block.data_arrays)
-            nix_name = "{}.IrregularlySampledSignal{}".format(parent_block.name,
-                                                              nda)
         nix_type = "neo.irregularlysampledsignal"
         nix_definition = irsig.description
         parent_metadata = self._get_or_init_metadata(parent_group, parent_path)
+        nix_name = self._create_name(irsig, parent_block.data_arrays)
         irsig_group_segment = parent_metadata.create_section(
             nix_name, nix_type+".metadata"
         )
@@ -538,10 +521,7 @@ class NixIO(BaseIO):
         """
         parent_group = self._get_object_at(parent_path)
         parent_block = self._get_object_at([parent_path[0]])
-        nix_name = ep.name
-        if not nix_name:
-            nmt = len(parent_group.multi_tags)
-            nix_name = "{}.Epoch{}".format(parent_group.name, nmt)
+        nix_name = self._create_name(ep, parent_block.multi_tags)
         nix_type = "neo.epoch"
         nix_definition = ep.description
 
@@ -599,10 +579,7 @@ class NixIO(BaseIO):
         """
         parent_group = self._get_object_at(parent_path)
         parent_block = self._get_object_at([parent_path[0]])
-        nix_name = ev.name
-        if not nix_name:
-            nmt = len(parent_group.multi_tags)
-            nix_name = "{}.Event{}".format(parent_group.name, nmt)
+        nix_name = self._create_name(ev, parent_block.multi_tags)
         nix_type = "neo.event"
         nix_definition = ev.description
 
@@ -648,10 +625,7 @@ class NixIO(BaseIO):
         """
         parent_group = self._get_object_at(parent_path)
         parent_block = self._get_object_at([parent_path[0]])
-        nix_name = sptr.name
-        if not nix_name:
-            nmt = len(parent_block.multi_tags)
-            nix_name = "{}.SpikeTrain{}".format(parent_block.name, nmt)
+        nix_name = self._create_name(sptr, parent_block.multi_tags)
         nix_type = "neo.spiketrain"
         nix_definition = sptr.description
 
@@ -727,10 +701,7 @@ class NixIO(BaseIO):
         :return: The newly created NIX Source
         """
         parent_source = self._get_object_at(parent_path)
-        nix_name = ut.name
-        if not nix_name:
-            nsrc = len(parent_source.sources)
-            nix_name = "{}.Unit{}".format(parent_source.name, nsrc)
+        nix_name = self._create_name(ut, parent_source.sources)
         nix_type = "neo.unit"
         nix_definition = ut.description
         nix_source = parent_source.create_source(nix_name, nix_type)
@@ -813,6 +784,26 @@ class NixIO(BaseIO):
         if neo_object.annotations:
             metadata = self._get_or_init_metadata(nix_object, object_path)
             self._add_annotations(neo_object.annotations, metadata)
+
+    @staticmethod
+    def _create_name(neo_obj, container):
+        neo_type = type(neo_obj).__name__
+        if neo_obj.name:
+            nix_basename = neo_obj.name
+        else:
+            nix_basename = "neo.{}".format(neo_type)
+        if neo_type in ["AnalogSignal", "IrregularlySampledSignal"]:
+            suffix = ".0"
+        else:
+            suffix = ""
+        if nix_basename+suffix not in container:
+            return nix_basename
+        idx = 1
+        nix_name = "{}-{}".format(nix_basename, idx)
+        while nix_name+suffix in container:
+            idx += 1
+            nix_name = "{}-{}".format(nix_basename, idx)
+        return nix_name
 
     @classmethod
     def _add_annotations(cls, annotations, metadata):
@@ -942,3 +933,4 @@ class NixIO(BaseIO):
             if hasattr(dim, "label") and dim.label == "time":
                 return dim
         return None
+
