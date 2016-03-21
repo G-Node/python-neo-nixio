@@ -890,8 +890,16 @@ class NixIO(BaseIO):
             self._lazy_loaded.pop(objidx)
 
     def _find_lazy_loaded(self, obj):
+        """
+        Finds the index of an object in the _lazy_loaded list by comparing the
+        path attribute. Returns None if the object is not in the list.
+
+        :param obj: The object to find
+        :return: The index of the object in the _lazy_loaded list or None if it
+        was not added
+        """
         for idx, llobj in enumerate(self._lazy_loaded):
-            if (type(llobj) is type(obj)) and (llobj is obj):
+            if llobj.path == obj.path:
                 return idx
         else:
             return None
