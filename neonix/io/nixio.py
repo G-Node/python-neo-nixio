@@ -372,6 +372,9 @@ class NixIO(BaseIO):
         read_func = getattr(self, "read_" + neotype)
         return read_func(path, cascade, lazy)
 
+    def load_lazy_object(self, obj):
+        pass
+
     def load_lazy_cascade(self, path, lazy):
         """
         Loads the object at the location specified by the path and all children.
