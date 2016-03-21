@@ -1184,7 +1184,20 @@ class NixIOReadTest(NixIOTest):
         nix_blocks = self._create_full_nix()
         neo_blocks = self.io.read_all_blocks(cascade="lazy", lazy=False)
         self.compare_blocks(neo_blocks, nix_blocks)
-        print("Comparison took {}".format(time() - start))
+
+    def test_nocascade(self):
+        """
+        Read a Block without cascading
+        """
+        nix_block = self.nixfile.create_block(self.rword(), "neo.block")
+        nix_block.definition = self.rsentence()
+        for idx in range(5):
+            group = nix_block.create_group(self.rword(), "neo.segment")
+            group.definition = self.rsentence()
+        blockpath = "/" + nix_block.name
+        neo_block = self.io.read_block(blockpath, cascade=False, lazy=False)
+        self.assertEqual(len(neo_block.segments), 0)
+        self.compare_attr(neo_block, nix_block)
 
     def _create_full_nix(self):
         nix_block_a = self.nixfile.create_block(self.rword(10), "neo.block")
