@@ -1154,8 +1154,19 @@ class NixIOReadTest(NixIOTest):
         """
         nix_blocks = self._create_full_nix()
         neo_blocks = self.io.read_all_blocks(cascade=True, lazy=True)
-        print("Reading took {}".format(time() - start))
-        start = time()
+        # data objects should be empty
+        for block in neo_blocks:
+            for seg in block.segments:
+                for asig in seg.analogsignals:
+                    self.assertEqual(len(asig), 0)
+                for isig in seg.irregularlysampledsignals:
+                    self.assertEqual(len(isig), 0)
+                for epoch in seg.epochs:
+                    self.assertEqual(len(epoch), 0)
+                for event in seg.events:
+                    self.assertEqual(len(event), 0)
+                for st in seg.spiketrains:
+                    self.assertEqual(len(st), 0)
         self.compare_blocks(neo_blocks, nix_blocks)
 
     def test_lazyload_lazycascade_read(self):
