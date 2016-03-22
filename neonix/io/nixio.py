@@ -87,6 +87,7 @@ class NixIO(BaseIO):
         self.nix_file = nixio.File.open(self.filename, filemode)
         self._object_map = dict()
         self._lazy_loaded = list()
+        self._object_hashes = dict()
 
     def __del__(self):
         self.nix_file.close()
@@ -104,6 +105,7 @@ class NixIO(BaseIO):
         if cascade:
             self._read_cascade(nix_block, path, cascade, lazy)
         self._update_lazy_loaded(neo_block, lazy)
+        self._object_hashes[path] = self._hash_object(neo_block)
         return neo_block
 
     def read_segment(self, path, cascade=True, lazy=False):
@@ -113,6 +115,7 @@ class NixIO(BaseIO):
         if cascade:
             self._read_cascade(nix_group, path, cascade, lazy)
         self._update_lazy_loaded(neo_segment, lazy)
+        self._object_hashes[path] = self._hash_object(neo_segment)
         return neo_segment
 
     def read_recordingchannelgroup(self, path, cascade, lazy):
@@ -122,6 +125,7 @@ class NixIO(BaseIO):
         if cascade:
             self._read_cascade(nix_source, path, cascade, lazy)
         self._update_lazy_loaded(neo_rcg, lazy)
+        self._object_hashes[path] = self._hash_object(neo_rcg)
         return neo_rcg
 
     def read_signal(self, path, lazy=False):
@@ -145,6 +149,7 @@ class NixIO(BaseIO):
         neo_signal = self._signal_da_to_neo(nix_data_arrays, lazy)
         neo_signal.path = path
         self._update_lazy_loaded(neo_signal, lazy)
+        self._object_hashes[path] = self._hash_object(neo_signal)
         return neo_signal
 
     def read_analogsignal(self, path, cascade, lazy=False):
@@ -158,6 +163,7 @@ class NixIO(BaseIO):
         neo_eest = self._mtag_eest_to_neo(nix_mtag, lazy)
         neo_eest.path = path
         self._update_lazy_loaded(neo_eest, lazy)
+        self._object_hashes[path] = self._hash_object(neo_eest)
         return neo_eest
 
     def read_epoch(self, path, cascade, lazy=False):
@@ -176,6 +182,7 @@ class NixIO(BaseIO):
         if cascade:
             self._read_cascade(nix_source, path, cascade, lazy)
         self._update_lazy_loaded(neo_unit, lazy)
+        self._object_hashes[path] = self._hash_object(neo_unit)
         return neo_unit
 
     def _block_to_neo(self, nix_block):
