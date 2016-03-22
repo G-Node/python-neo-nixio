@@ -104,8 +104,7 @@ class NixIO(BaseIO):
         neo_block.path = path
         if cascade:
             self._read_cascade(nix_block, path, cascade, lazy)
-        self._update_lazy_loaded(neo_block, lazy)
-        self._object_hashes[path] = self._hash_object(neo_block)
+        self._update_maps(neo_block, lazy)
         return neo_block
 
     def read_segment(self, path, cascade=True, lazy=False):
@@ -114,8 +113,7 @@ class NixIO(BaseIO):
         neo_segment.path = path
         if cascade:
             self._read_cascade(nix_group, path, cascade, lazy)
-        self._update_lazy_loaded(neo_segment, lazy)
-        self._object_hashes[path] = self._hash_object(neo_segment)
+        self._update_maps(neo_segment, lazy)
         return neo_segment
 
     def read_recordingchannelgroup(self, path, cascade, lazy):
@@ -124,8 +122,7 @@ class NixIO(BaseIO):
         neo_rcg.path = path
         if cascade:
             self._read_cascade(nix_source, path, cascade, lazy)
-        self._update_lazy_loaded(neo_rcg, lazy)
-        self._object_hashes[path] = self._hash_object(neo_rcg)
+        self._update_maps(neo_rcg, lazy)
         return neo_rcg
 
     def read_signal(self, path, lazy=False):
@@ -148,8 +145,7 @@ class NixIO(BaseIO):
                 )
         neo_signal = self._signal_da_to_neo(nix_data_arrays, lazy)
         neo_signal.path = path
-        self._update_lazy_loaded(neo_signal, lazy)
-        self._object_hashes[path] = self._hash_object(neo_signal)
+        self._update_maps(neo_signal, lazy)
         return neo_signal
 
     def read_analogsignal(self, path, cascade, lazy=False):
@@ -162,8 +158,7 @@ class NixIO(BaseIO):
         nix_mtag = self._get_object_at(path)
         neo_eest = self._mtag_eest_to_neo(nix_mtag, lazy)
         neo_eest.path = path
-        self._update_lazy_loaded(neo_eest, lazy)
-        self._object_hashes[path] = self._hash_object(neo_eest)
+        self._update_maps(neo_eest, lazy)
         return neo_eest
 
     def read_epoch(self, path, cascade, lazy=False):
@@ -181,8 +176,7 @@ class NixIO(BaseIO):
         neo_unit.path = path
         if cascade:
             self._read_cascade(nix_source, path, cascade, lazy)
-        self._update_lazy_loaded(neo_unit, lazy)
-        self._object_hashes[path] = self._hash_object(neo_unit)
+        self._update_maps(neo_unit, lazy)
         return neo_unit
 
     def _block_to_neo(self, nix_block):
@@ -883,12 +877,14 @@ class NixIO(BaseIO):
             metadata = self._get_or_init_metadata(nix_object, object_path)
             self._add_annotations(attr["annotations"], metadata)
 
-    def _update_lazy_loaded(self, obj, lazy):
+    def _update_maps(self, obj, lazy):
         objidx = self._find_lazy_loaded(obj)
         if lazy and objidx is None:
             self._lazy_loaded.append(obj)
         elif not lazy and objidx is not None:
             self._lazy_loaded.pop(objidx)
+        if not lazy:
+            self._object_hashes[obj.path] = self._hash_object(obj)
 
     def _find_lazy_loaded(self, obj):
         """
@@ -1098,7 +1094,7 @@ class NixIO(BaseIO):
             for idx in obj.channel_indexes:
                 strupdate(idx)
             for n in obj.channel_names:
-                strupdate(idx)
+                strupdate(n)
             for coord in obj.coordinates:
                 for c in coord:
                     strupdate(c)
@@ -1112,7 +1108,6 @@ class NixIO(BaseIO):
             dupdate(obj)
             dupdate(obj.times)
             dupdate(obj.units)
-            dupdate(obj.time_units)
         elif isinstance(obj, Event):
             dupdate(obj.times)
             for l in obj.labels:
@@ -1129,7 +1124,8 @@ class NixIO(BaseIO):
             dupdate(obj.t_start)
             dupdate(obj.waveforms)
             dupdate(obj.sampling_rate)
-            dupdate(obj.left_sweep)
+            if obj.left_sweep:
+                dupdate(obj.left_sweep)
 
         # type
         strupdate(type(obj).__name__)
