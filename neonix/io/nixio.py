@@ -15,6 +15,7 @@ from datetime import datetime
 from collections import Iterable
 import itertools
 from six import string_types
+from hashlib import md5
 import warnings
 
 import quantities as pq
@@ -1055,3 +1056,75 @@ class NixIO(BaseIO):
                 return dim
         return None
 
+    @staticmethod
+    def _hash_object(obj):
+        """
+        Computes an MD5 hash of a Neo object based on its attribute values and
+        data objects. Child objects are not counted.
+
+        :param obj: A Neo object
+        :return: MD5 sum
+        """
+        objhash = md5()
+
+        def strupdate(a):
+            objhash.update(str(a).encode())
+
+        def dupdate(d):
+            objhash.update(d)
+
+        # attributes
+        strupdate(obj.name)
+        strupdate(obj.description)
+        strupdate(obj.file_origin)
+
+        # annotations
+        for k, v in sorted(obj.annotations.items()):
+            strupdate(k)
+            strupdate(v)
+
+        # data objects and type-specific attributes
+        if isinstance(obj, (Block, Segment)):
+            strupdate(obj.rec_datetime)
+            strupdate(obj.file_datetime)
+        elif isinstance(obj, RecordingChannelGroup):
+            for idx in obj.channel_indexes:
+                strupdate(idx)
+            for n in obj.channel_names:
+                strupdate(idx)
+            for coord in obj.coordinates:
+                for c in coord:
+                    strupdate(c)
+        elif isinstance(obj, AnalogSignal):
+            dupdate(obj)
+            dupdate(obj.units)
+            dupdate(obj.t_start)
+            dupdate(obj.sampling_rate)
+            dupdate(obj.t_stop)
+        elif isinstance(obj, IrregularlySampledSignal):
+            dupdate(obj)
+            dupdate(obj.times)
+            dupdate(obj.units)
+            dupdate(obj.time_units)
+        elif isinstance(obj, Event):
+            dupdate(obj.times)
+            for l in obj.labels:
+                strupdate(l)
+        elif isinstance(obj, Epoch):
+            dupdate(obj.times)
+            dupdate(obj.durations)
+            for l in obj.labels:
+                strupdate(l)
+        elif isinstance(obj, SpikeTrain):
+            dupdate(obj.times)
+            dupdate(obj.units)
+            dupdate(obj.t_stop)
+            dupdate(obj.t_start)
+            dupdate(obj.waveforms)
+            dupdate(obj.sampling_rate)
+            dupdate(obj.left_sweep)
+
+        # type
+        strupdate(type(obj).__name__)
+
+        return objhash.hexdigest()
