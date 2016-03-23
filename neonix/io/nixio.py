@@ -390,6 +390,9 @@ class NixIO(BaseIO):
         :param parent_path: Unused for blocks
         :return: The new NIX Block
         """
+        object_path = "/" + bl.name
+        if not self._obj_modified(bl, object_path):
+            return
         attr = self._neo_attr_to_nix(bl, self.nix_file.blocks)
         nix_block = self.nix_file.create_block(attr["name"], attr["type"])
         nix_block.definition = attr["definition"]
@@ -421,6 +424,9 @@ class NixIO(BaseIO):
         :param parent_path: Path to the parent of the new seg
         :return: The newly created NIX Group
         """
+        object_path = parent_path + "/" + seg.name
+        if not self._obj_modified(seg, object_path):
+            return
         parent_block = self._get_object_at(parent_path)
         attr = self._neo_attr_to_nix(seg, parent_block.groups)
         nix_group = parent_block.create_group(attr["name"], attr["type"])
@@ -448,6 +454,9 @@ class NixIO(BaseIO):
         :param parent_path: Path to the parent of the new segment
         :return: The newly created NIX Source
         """
+        object_path = parent_path + "/" + rcg.name
+        if not self._obj_modified(rcg, object_path):
+            return
         parent_block = self._get_object_at(parent_path)
         attr = self._neo_attr_to_nix(rcg, parent_block.sources)
         nix_source = parent_block.create_source(attr["name"], attr["type"])
@@ -511,6 +520,9 @@ class NixIO(BaseIO):
         :param parent_path: Path to the parent of the new segment
         :return: A list containing the newly created NIX DataArrays
         """
+        object_path = parent_path + "/" + anasig.name
+        if not self._obj_modified(anasig, object_path):
+            return
         parent_group = self._get_object_at(parent_path)
         block_path = "/" + parent_path.split("/")[1]
         parent_block = self._get_object_at(block_path)
@@ -568,6 +580,9 @@ class NixIO(BaseIO):
         :param parent_path: Path to the parent of the new
         :return: The newly created NIX DataArray
         """
+        object_path = parent_path + "/" + irsig.name
+        if not self._obj_modified(irsig, object_path):
+            return
         parent_group = self._get_object_at(parent_path)
         block_path = "/" + parent_path.split("/")[1]
         parent_block = self._get_object_at(block_path)
@@ -619,6 +634,9 @@ class NixIO(BaseIO):
         :param parent_path: Path to the parent of the new MultiTag
         :return: The newly created NIX MultiTag
         """
+        object_path = parent_path + "/" + ep.name
+        if not self._obj_modified(ep, object_path):
+            return
         parent_group = self._get_object_at(parent_path)
         block_path = "/" + parent_path.split("/")[1]
         parent_block = self._get_object_at(block_path)
@@ -669,6 +687,9 @@ class NixIO(BaseIO):
         :param parent_path: Path to the parent of the new MultiTag
         :return: The newly created NIX MultiTag
         """
+        object_path = parent_path + "/" + ev.name
+        if not self._obj_modified(ev, object_path):
+            return
         parent_group = self._get_object_at(parent_path)
         block_path = "/" + parent_path.split("/")[1]
         parent_block = self._get_object_at(block_path)
@@ -708,6 +729,9 @@ class NixIO(BaseIO):
         :param parent_path: Path to the parent of the new MultiTag
         :return: The newly created NIX MultiTag
         """
+        object_path = parent_path + "/" + sptr.name
+        if not self._obj_modified(sptr, object_path):
+            return
         parent_group = self._get_object_at(parent_path)
         block_path = "/" + parent_path.split("/")[1]
         parent_block = self._get_object_at(block_path)
@@ -777,6 +801,9 @@ class NixIO(BaseIO):
         :param parent_path: Path to the parent of the new Source
         :return: The newly created NIX Source
         """
+        object_path = parent_path + "/" + ut.name
+        if not self._obj_modified(ut, object_path):
+            return
         parent_source = self._get_object_at(parent_path)
         attr = self._neo_attr_to_nix(ut, parent_source.sources)
         nix_source = parent_source.create_source(attr["name"], attr["type"])
@@ -895,7 +922,6 @@ class NixIO(BaseIO):
             return False
         else:
             return True
-
 
     @staticmethod
     def _neo_attr_to_nix(neo_obj, container):
