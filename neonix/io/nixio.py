@@ -851,6 +851,8 @@ class NixIO(BaseIO):
         :param path: Path string
         :return: The object at the location defined by the path
         """
+        if path == "":
+            return self.nix_file.blocks
         parts = path.split("/")
         if parts[0]:
             ValueError("Invalid object path: {}".format(path))
