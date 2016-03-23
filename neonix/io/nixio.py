@@ -382,6 +382,17 @@ class NixIO(BaseIO):
         neoobj = self.get(path, cascade=True, lazy=lazy)
         return neoobj
 
+    def write_all_blocks(self, neo_blocks):
+        """
+        Convert all ``neo_blocks`` to the NIX equivalent and write them to the
+        file.
+
+        :param neo_blocks: List (or iterable) containing Neo blocks
+        :return: A list containing the new NIX Blocks
+        """
+        for bl in neo_blocks:
+            self.write_block(bl)
+
     def write_block(self, bl, parent_path=""):
         """
         Convert ``bl`` to the NIX equivalent and write it to the file.
@@ -403,17 +414,6 @@ class NixIO(BaseIO):
             self.write_segment(segment, object_path)
         for rcg in bl.recordingchannelgroups:
             self.write_recordingchannelgroup(rcg, object_path)
-
-    def write_all_blocks(self, neo_blocks):
-        """
-        Convert all ``neo_blocks`` to the NIX equivalent and write them to the
-        file.
-
-        :param neo_blocks: List (or iterable) containing Neo blocks
-        :return: A list containing the new NIX Blocks
-        """
-        for bl in neo_blocks:
-            self.write_block(bl)
 
     def write_segment(self, seg, parent_path=""):
         """
