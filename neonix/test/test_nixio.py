@@ -10,11 +10,12 @@
 import os
 from datetime import datetime
 import unittest
+from time import time
+import string
+import itertools
 
 import numpy as np
 import quantities as pq
-import string
-import itertools
 
 import nixio
 from neo.core import (Block, Segment, RecordingChannelGroup, AnalogSignal,
@@ -36,6 +37,7 @@ class NixIOTest(unittest.TestCase):
     def compare_blocks(self, neoblocks, nixblocks):
         for neoblock, nixblock in zip(neoblocks, nixblocks):
             self.compare_attr(neoblock, nixblock)
+            self.assertEqual(len(neoblock.segments), len(nixblock.groups))
             for idx, neoseg in enumerate(neoblock.segments):
                 if neoseg.name:
                     nixgrp = nixblock.groups[neoseg.name]
@@ -164,6 +166,8 @@ class NixIOTest(unittest.TestCase):
                 signame = sig.name
             else:
                 signame = self.find_nix_name_signal(sig, data_arrays)
+            if self.io._find_lazy_loaded(sig) is not None:
+                sig = self.io.load_lazy_object(sig)
             dalist = list()
             for idx in itertools.count():
                 nixname = "{}.{}".format(signame, idx)
@@ -171,8 +175,8 @@ class NixIOTest(unittest.TestCase):
                     dalist.append(data_arrays[nixname])
                 else:
                     break
-            _, nasig = np.shape(sig)
-            self.assertEqual(nasig, len(dalist))
+            _, nsig = np.shape(sig)
+            self.assertEqual(nsig, len(dalist))
             self.compare_signal_dalist(sig, dalist)
 
     def find_nix_name_signal(self, neosig, nixsigs):
@@ -244,6 +248,8 @@ class NixIOTest(unittest.TestCase):
                 eestname = eest.name
             else:
                 eestname = self.find_nix_name_eest(eest, mtaglist)
+            if self.io._find_lazy_loaded(eest) is not None:
+                eest = self.io.load_lazy_object(eest)
             mtag = mtaglist[eestname]
             if isinstance(eest, Epoch):
                 self.compare_epoch_mtag(eest, mtag)
@@ -445,7 +451,7 @@ class NixIOTest(unittest.TestCase):
 class NixIOWriteTest(NixIOTest):
 
     def setUp(self):
-        self.filename = "nixio_testfile_write.hd5"
+        self.filename = "nixio_testfile_write.h5"
         self.io = NixIO(self.filename, "ow")
 
     def test_block_write(self):
@@ -1110,7 +1116,7 @@ class NixIOWriteTest(NixIOTest):
 class NixIOReadTest(NixIOTest):
 
     def setUp(self):
-        self.filename = "nixio_testfile_read.hd5"
+        self.filename = "nixio_testfile_read.h5"
         self.io = NixIO(self.filename, "rw")
         self.nixfile = self.io.nix_file
 
@@ -1134,6 +1140,62 @@ class NixIOReadTest(NixIOTest):
         Write all objects to a using nix directly, read them using the NixIO
         reader, and check for equality.
         """
+        nix_blocks = self._create_full_nix()
+        neo_blocks = self.io.read_all_blocks(cascade=True, lazy=False)
+        self.compare_blocks(neo_blocks, nix_blocks)
+
+    def test_lazyload_fullcascade_read(self):
+        """
+        Read everything lazily: Lazy integration test with all features
+        """
+        nix_blocks = self._create_full_nix()
+        neo_blocks = self.io.read_all_blocks(cascade=True, lazy=True)
+        # data objects should be empty
+        for block in neo_blocks:
+            for seg in block.segments:
+                for asig in seg.analogsignals:
+                    self.assertEqual(len(asig), 0)
+                for isig in seg.irregularlysampledsignals:
+                    self.assertEqual(len(isig), 0)
+                for epoch in seg.epochs:
+                    self.assertEqual(len(epoch), 0)
+                for event in seg.events:
+                    self.assertEqual(len(event), 0)
+                for st in seg.spiketrains:
+                    self.assertEqual(len(st), 0)
+        self.compare_blocks(neo_blocks, nix_blocks)
+
+    def test_lazyload_lazycascade_read(self):
+        """
+        Read everything lazily with lazy cascade
+        """
+        nix_blocks = self._create_full_nix()
+        neo_blocks = self.io.read_all_blocks(cascade="lazy", lazy=True)
+        self.compare_blocks(neo_blocks, nix_blocks)
+
+    def test_fullload_lazycascade_read(self):
+        """
+        Read everything with lazy cascade
+        """
+        nix_blocks = self._create_full_nix()
+        neo_blocks = self.io.read_all_blocks(cascade="lazy", lazy=False)
+        self.compare_blocks(neo_blocks, nix_blocks)
+
+    def test_nocascade(self):
+        """
+        Read a Block without cascading
+        """
+        nix_block = self.nixfile.create_block(self.rword(), "neo.block")
+        nix_block.definition = self.rsentence()
+        for idx in range(5):
+            group = nix_block.create_group(self.rword(), "neo.segment")
+            group.definition = self.rsentence()
+        blockpath = "/" + nix_block.name
+        neo_block = self.io.read_block(blockpath, cascade=False, lazy=False)
+        self.assertEqual(len(neo_block.segments), 0)
+        self.compare_attr(neo_block, nix_block)
+
+    def _create_full_nix(self):
         nix_block_a = self.nixfile.create_block(self.rword(10), "neo.block")
         nix_block_a.definition = self.rsentence(5, 10)
         nix_block_b = self.nixfile.create_block(self.rword(10), "neo.block")
@@ -1342,6 +1404,4 @@ class NixIOReadTest(NixIOTest):
             for siggroup in randsiggroups:
                 for sig in siggroup:
                     sig.sources.append(nixrcg)
-
-        neo_blocks = self.io.read_all_blocks()
-        self.compare_blocks(neo_blocks, nix_blocks)
+        return nix_blocks
