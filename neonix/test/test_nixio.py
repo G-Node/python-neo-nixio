@@ -1440,7 +1440,10 @@ class NixIOHashTest(NixIOTest):
             chattr[arg] = func()
             obj_two = objtype(**chattr)
             hash_two = self.hash(obj_two)
-            self.assertNotEqual(hash_one, hash_two)
+            self.assertNotEqual(
+                hash_one, hash_two,
+                "Hash test failed with different '{}'".format(arg)
+            )
 
     def test_block_seg_hash(self):
         argfuncs = {"name": self.rword,
@@ -1452,6 +1455,21 @@ class NixIOHashTest(NixIOTest):
                     self.rword(): lambda: self.rquant((10, 10), pq.mV)}
         self._hash_test(Block, argfuncs)
         self._hash_test(Segment, argfuncs)
+        self._hash_test(Unit, argfuncs)
+
+    def test_rcg_hash(self):
+        argfuncs = {"name": self.rword,
+                    "description": self.rsentence,
+                    "channel_indexes": lambda: np.random.random(10).tolist(),
+                    "channel_names": lambda: self.rsentence(10).split(" "),
+                    # RCG does not store coordinates
+                    # "coordinates": lambda: [(np.random.random() * pq.cm,
+                    #                          np.random.random() * pq.cm,
+                    #                          np.random.random() * pq.cm)]*10,
+                    # annotations
+                    self.rword(): self.rword,
+                    self.rword(): lambda: self.rquant((10, 10), pq.mV)}
+        self._hash_test(RecordingChannelGroup, argfuncs)
 
     def test_analogsignal_hash(self):
         argfuncs = {"name": self.rword,
@@ -1464,6 +1482,40 @@ class NixIOHashTest(NixIOTest):
                     self.rword(): self.rword,
                     self.rword(): lambda: self.rquant((10, 10), pq.mV)}
         self._hash_test(AnalogSignal, argfuncs)
+
+    def test_irregularsignal_hash(self):
+        argfuncs = {"name": self.rword,
+                    "description": self.rsentence,
+                    "signal": lambda: self.rquant((10, 10), pq.mV),
+                    "times": lambda: self.rquant(10, pq.ms, True),
+                    # annotations
+                    self.rword(): self.rword,
+                    self.rword(): lambda: self.rquant((10, 10), pq.mV)}
+        self._hash_test(IrregularlySampledSignal, argfuncs)
+
+    def test_event_hash(self):
+        argfuncs = {"name": self.rword,
+                    "description": self.rsentence,
+                    "times": lambda: self.rquant(10, pq.ms),
+                    "durations": lambda: self.rquant(10, pq.ms),
+                    "labels": lambda: self.rsentence(10).split(" "),
+                    # annotations
+                    self.rword(): self.rword,
+                    self.rword(): lambda: self.rquant((10, 10), pq.mV)}
+        self._hash_test(Event, argfuncs)
+        self._hash_test(Epoch, argfuncs)
+
+    def test_spiketrain_hash(self):
+        argfuncs = {"name": self.rword,
+                    "description": self.rsentence,
+                    "times": lambda: self.rquant(10, pq.ms),
+                    "t_start": lambda: -np.random.random() * pq.sec,
+                    "t_stop": lambda: np.random.random() * pq.sec,
+                    "waveforms": lambda: self.rquant((10, 10, 20), pq.mV),
+                    # annotations
+                    self.rword(): self.rword,
+                    self.rword(): lambda: self.rquant((10, 10), pq.mV)}
+        self._hash_test(SpikeTrain, argfuncs)
 
 
 @unittest.skipIf(nomock, "Skipping mock tests in Python 2")
