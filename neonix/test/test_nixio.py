@@ -30,8 +30,9 @@ class NixIOTest(unittest.TestCase):
     io = None
 
     def tearDown(self):
-        del self.io
-        if os.path.exists(self.filename):
+        if self.io:
+            del self.io
+        if self.filename and os.path.exists(self.filename):
             os.remove(self.filename)
 
     def compare_blocks(self, neoblocks, nixblocks):
