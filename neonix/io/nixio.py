@@ -382,7 +382,7 @@ class NixIO(BaseIO):
         neoobj = self.get(path, cascade=True, lazy=lazy)
         return neoobj
 
-    def write_block(self, bl, parent_path=None):
+    def write_block(self, bl, parent_path="/"):
         """
         Convert ``bl`` to the NIX equivalent and write it to the file.
 
@@ -889,6 +889,15 @@ class NixIO(BaseIO):
                 return idx
         else:
             return None
+
+    def _obj_modified(self, obj, path):
+        cursum = self._hash_object(obj)
+        oldsum = self._object_hashes.get(path)
+        if cursum == oldsum:
+            return False
+        else:
+            return True
+
 
     @staticmethod
     def _neo_attr_to_nix(neo_obj, container):
