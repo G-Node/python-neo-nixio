@@ -382,7 +382,7 @@ class NixIO(BaseIO):
         neoobj = self.get(path, cascade=True, lazy=lazy)
         return neoobj
 
-    def write_block(self, bl, parent_path="/"):
+    def write_block(self, bl, parent_path=""):
         """
         Convert ``bl`` to the NIX equivalent and write it to the file.
 
@@ -412,7 +412,7 @@ class NixIO(BaseIO):
         for bl in neo_blocks:
             self.write_block(bl)
 
-    def write_segment(self, seg, parent_path="/"):
+    def write_segment(self, seg, parent_path=""):
         """
         Convert the provided ``seg`` to a NIX Group and write it to the NIX
         file at the location defined by ``parent_path``.
@@ -439,7 +439,7 @@ class NixIO(BaseIO):
         for sptr in seg.spiketrains:
             self.write_spiketrain(sptr, object_path)
 
-    def write_recordingchannelgroup(self, rcg, parent_path="/"):
+    def write_recordingchannelgroup(self, rcg, parent_path=""):
         """
         Convert the provided ``rcg`` (RecordingChannelGroup) to a NIX Source
         and write it to the NIX file at the location defined by ``parent_path``.
@@ -500,7 +500,7 @@ class NixIO(BaseIO):
             for da in nix_isigs:
                 da.sources.append(nix_source)
 
-    def write_analogsignal(self, anasig, parent_path="/"):
+    def write_analogsignal(self, anasig, parent_path=""):
         """
         Convert the provided ``anasig`` (AnalogSignal) to a list of NIX
         DataArray objects and write them to the NIX file at the location defined
@@ -556,7 +556,7 @@ class NixIO(BaseIO):
             nix_data_arrays.append(nix_data_array)
         self._object_map[id(anasig)] = nix_data_arrays
 
-    def write_irregularlysampledsignal(self, irsig, parent_path="/"):
+    def write_irregularlysampledsignal(self, irsig, parent_path=""):
         """
         Convert the provided ``irsig`` (IrregularlySampledSignal) to a list of
         NIX DataArray objects and write them to the NIX file at the location
@@ -610,7 +610,7 @@ class NixIO(BaseIO):
             nix_data_arrays.append(nix_data_array)
         self._object_map[id(irsig)] = nix_data_arrays
 
-    def write_epoch(self, ep, parent_path="/"):
+    def write_epoch(self, ep, parent_path=""):
         """
         Convert the provided ``ep`` (Epoch) to a NIX MultiTag and write it to
         the NIX file at the location defined by ``parent_path``.
@@ -660,7 +660,7 @@ class NixIO(BaseIO):
             self._get_contained_signals(parent_group)
         )
 
-    def write_event(self, ev, parent_path="/"):
+    def write_event(self, ev, parent_path=""):
         """
         Convert the provided ``ev`` (Event) to a NIX MultiTag and write it to
         the NIX file at the location defined by ``parent_path``.
@@ -699,7 +699,7 @@ class NixIO(BaseIO):
             self._get_contained_signals(parent_group)
         )
 
-    def write_spiketrain(self, sptr, parent_path="/"):
+    def write_spiketrain(self, sptr, parent_path=""):
         """
         Convert the provided ``sptr`` (SpikeTrain) to a NIX MultiTag and write
         it to the NIX file at the location defined by ``parent_path``.
@@ -768,7 +768,7 @@ class NixIO(BaseIO):
                     "left_sweep", self._to_value(left_sweep)
                 )
 
-    def write_unit(self, ut, parent_path="/"):
+    def write_unit(self, ut, parent_path=""):
         """
         Convert the provided ``ut`` (Unit) to a NIX Source and write it to the
         NIX file at the parent RCG.
@@ -824,8 +824,6 @@ class NixIO(BaseIO):
         :param path: Path string
         :return: The object at the location defined by the path
         """
-        if path == "/":
-            return self.nix_file.blocks
         parts = path.split("/")
         if parts[0]:
             ValueError("Invalid object path: {}".format(path))
