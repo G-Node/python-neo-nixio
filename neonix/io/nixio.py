@@ -400,7 +400,6 @@ class NixIO(BaseIO):
             self.write_segment(segment, object_path)
         for rcg in bl.recordingchannelgroups:
             self.write_recordingchannelgroup(rcg, object_path)
-        return nix_block
 
     def write_all_blocks(self, neo_blocks):
         """
@@ -410,8 +409,8 @@ class NixIO(BaseIO):
         :param neo_blocks: List (or iterable) containing Neo blocks
         :return: A list containing the new NIX Blocks
         """
-        nix_blocks = list(map(self.write_block, neo_blocks))
-        return nix_blocks
+        for bl in neo_blocks:
+            self.write_block(bl)
 
     def write_segment(self, seg, parent_path=None):
         """
@@ -439,8 +438,6 @@ class NixIO(BaseIO):
             self.write_event(ev, object_path)
         for sptr in seg.spiketrains:
             self.write_spiketrain(sptr, object_path)
-
-        return nix_group
 
     def write_recordingchannelgroup(self, rcg, parent_path=None):
         """
@@ -503,8 +500,6 @@ class NixIO(BaseIO):
             for da in nix_isigs:
                 da.sources.append(nix_source)
 
-        return nix_source
-
     def write_analogsignal(self, anasig, parent_path=None):
         """
         Convert the provided ``anasig`` (AnalogSignal) to a list of NIX
@@ -560,7 +555,6 @@ class NixIO(BaseIO):
             nix_data_array.metadata = anasig_group_segment
             nix_data_arrays.append(nix_data_array)
         self._object_map[id(anasig)] = nix_data_arrays
-        return nix_data_arrays
 
     def write_irregularlysampledsignal(self, irsig, parent_path=None):
         """
@@ -615,7 +609,6 @@ class NixIO(BaseIO):
             nix_data_array.metadata = irsig_group_segment
             nix_data_arrays.append(nix_data_array)
         self._object_map[id(irsig)] = nix_data_arrays
-        return nix_data_arrays
 
     def write_epoch(self, ep, parent_path=None):
         """
@@ -666,7 +659,6 @@ class NixIO(BaseIO):
         nix_multi_tag.references.extend(
             self._get_contained_signals(parent_group)
         )
-        return nix_multi_tag
 
     def write_event(self, ev, parent_path=None):
         """
@@ -706,7 +698,6 @@ class NixIO(BaseIO):
         nix_multi_tag.references.extend(
             self._get_contained_signals(parent_group)
         )
-        return nix_multi_tag
 
     def write_spiketrain(self, sptr, parent_path=None):
         """
@@ -777,8 +768,6 @@ class NixIO(BaseIO):
                     "left_sweep", self._to_value(left_sweep)
                 )
 
-        return nix_multi_tag
-
     def write_unit(self, ut, parent_path=None):
         """
         Convert the provided ``ut`` (Unit) to a NIX Source and write it to the
@@ -800,8 +789,6 @@ class NixIO(BaseIO):
         for nix_st in self._get_mapped_objects(ut.spiketrains):
             nix_st.sources.append(parent_source)
             nix_st.sources.append(nix_source)
-
-        return nix_source
 
     def _get_or_init_metadata(self, nix_obj, path):
         """

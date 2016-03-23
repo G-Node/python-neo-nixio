@@ -462,7 +462,8 @@ class NixIOWriteTest(NixIOTest):
         """
         neo_block = Block(name=self.rword(),
                           description=self.rsentence())
-        nix_block = self.io.write_block(neo_block)
+        self.io.write_block(neo_block)
+        nix_block = self.io.nix_file.blocks[0]
         self.assertEqual(nix_block.type, "neo.block")
         self.compare_attr(neo_block, nix_block)
 
@@ -583,7 +584,8 @@ class NixIOWriteTest(NixIOTest):
                 for unidx in range(nunits):
                     unit = Unit()
                     rcg.units.append(unit)
-        nixblocks = self.io.write_all_blocks(blocks)
+        self.io.write_all_blocks(blocks)
+        nixblocks = self.io.nix_file.blocks
         # Purpose of test is name generation
         #  Comparing everything takes too long
         self.compare_blocks(blocks, nixblocks)
@@ -618,7 +620,7 @@ class NixIOWriteTest(NixIOTest):
             seg.events.append(Event(name=name, times=times))
             seg.spiketrains.append(SpikeTrain(times=times, t_stop=pq.s,
                                               units=pq.s))
-        nixblock = self.io.write_block(block)
+        self.io.write_block(block)
 
     def test_annotations_write(self):
         """
@@ -626,7 +628,8 @@ class NixIOWriteTest(NixIOTest):
         """
         blk = self.create_all_annotated()
 
-        nixblk = self.io.write_block(blk)
+        self.io.write_block(blk)
+        nixblk = self.io.nix_file.blocks[0]
 
         self.compare_attr(blk, nixblk)
 
@@ -669,8 +672,9 @@ class NixIOWriteTest(NixIOTest):
 
         Metadata hierarchy should mirror object hierarchy.
         """
-        blk = self.create_all_annotated()
-        blk = self.io.write_block(blk)
+        neoblk = self.create_all_annotated()
+        self.io.write_block(neoblk)
+        blk = self.io.nix_file.blocks[0]
 
         blkmd = blk.metadata
         self.assertEqual(blk.name, blkmd.name)
@@ -707,7 +711,8 @@ class NixIOWriteTest(NixIOTest):
         seg.spiketrains.append(spkt)
         blk.segments.append(seg)
 
-        nix_block = self.io.write_block(blk)
+        self.io.write_block(blk)
+        nix_block = self.io.nix_file.blocks[0]
 
         nix_spkt = nix_block.multi_tags["spkt_with_waveform"]
         self.assertAlmostEqual(nix_spkt.metadata["t_stop"], 100)
@@ -776,7 +781,8 @@ class NixIOWriteTest(NixIOTest):
         unit.file_origin = "/home/user/data/unitfile"
         rcg.units.append(unit)
 
-        nixblk = self.io.write_block(blk)
+        self.io.write_block(blk)
+        nixblk = self.io.nix_file.blocks[0]
 
         self.compare_attr(blk, nixblk)
         self.compare_attr(seg, nixblk.groups[0])
@@ -895,7 +901,8 @@ class NixIOWriteTest(NixIOTest):
         neo_block_a.segments[1].epochs.append(epc)
 
         # Write all the blocks
-        nix_blocks = self.io.write_all_blocks(neo_blocks)
+        self.io.write_all_blocks(neo_blocks)
+        nix_blocks = self.io.nix_file.blocks
 
         # ================== TESTING WRITTEN DATA ==================
         self.compare_blocks(neo_blocks, nix_blocks)
