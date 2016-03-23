@@ -401,8 +401,7 @@ class NixIO(BaseIO):
         :param parent_path: Unused for blocks
         :return: The new NIX Block
         """
-        object_path = "/" + bl.name
-        if not self._obj_modified(bl, object_path):
+        if not self._obj_modified(bl, parent_path):
             return
         attr = self._neo_attr_to_nix(bl, self.nix_file.blocks)
         nix_block = self.nix_file.create_block(attr["name"], attr["type"])
@@ -424,8 +423,7 @@ class NixIO(BaseIO):
         :param parent_path: Path to the parent of the new seg
         :return: The newly created NIX Group
         """
-        object_path = parent_path + "/" + seg.name
-        if not self._obj_modified(seg, object_path):
+        if not self._obj_modified(seg, parent_path):
             return
         parent_block = self._get_object_at(parent_path)
         attr = self._neo_attr_to_nix(seg, parent_block.groups)
@@ -454,8 +452,7 @@ class NixIO(BaseIO):
         :param parent_path: Path to the parent of the new segment
         :return: The newly created NIX Source
         """
-        object_path = parent_path + "/" + rcg.name
-        if not self._obj_modified(rcg, object_path):
+        if not self._obj_modified(rcg, parent_path):
             return
         parent_block = self._get_object_at(parent_path)
         attr = self._neo_attr_to_nix(rcg, parent_block.sources)
@@ -520,8 +517,7 @@ class NixIO(BaseIO):
         :param parent_path: Path to the parent of the new segment
         :return: A list containing the newly created NIX DataArrays
         """
-        object_path = parent_path + "/" + anasig.name
-        if not self._obj_modified(anasig, object_path):
+        if not self._obj_modified(anasig, parent_path):
             return
         parent_group = self._get_object_at(parent_path)
         block_path = "/" + parent_path.split("/")[1]
@@ -580,8 +576,7 @@ class NixIO(BaseIO):
         :param parent_path: Path to the parent of the new
         :return: The newly created NIX DataArray
         """
-        object_path = parent_path + "/" + irsig.name
-        if not self._obj_modified(irsig, object_path):
+        if not self._obj_modified(irsig, parent_path):
             return
         parent_group = self._get_object_at(parent_path)
         block_path = "/" + parent_path.split("/")[1]
@@ -634,8 +629,7 @@ class NixIO(BaseIO):
         :param parent_path: Path to the parent of the new MultiTag
         :return: The newly created NIX MultiTag
         """
-        object_path = parent_path + "/" + ep.name
-        if not self._obj_modified(ep, object_path):
+        if not self._obj_modified(ep, parent_path):
             return
         parent_group = self._get_object_at(parent_path)
         block_path = "/" + parent_path.split("/")[1]
@@ -687,8 +681,7 @@ class NixIO(BaseIO):
         :param parent_path: Path to the parent of the new MultiTag
         :return: The newly created NIX MultiTag
         """
-        object_path = parent_path + "/" + ev.name
-        if not self._obj_modified(ev, object_path):
+        if not self._obj_modified(ev, parent_path):
             return
         parent_group = self._get_object_at(parent_path)
         block_path = "/" + parent_path.split("/")[1]
@@ -729,8 +722,7 @@ class NixIO(BaseIO):
         :param parent_path: Path to the parent of the new MultiTag
         :return: The newly created NIX MultiTag
         """
-        object_path = parent_path + "/" + sptr.name
-        if not self._obj_modified(sptr, object_path):
+        if not self._obj_modified(sptr, parent_path):
             return
         parent_group = self._get_object_at(parent_path)
         block_path = "/" + parent_path.split("/")[1]
@@ -801,8 +793,7 @@ class NixIO(BaseIO):
         :param parent_path: Path to the parent of the new Source
         :return: The newly created NIX Source
         """
-        object_path = parent_path + "/" + ut.name
-        if not self._obj_modified(ut, object_path):
+        if not self._obj_modified(ut, parent_path):
             return
         parent_source = self._get_object_at(parent_path)
         attr = self._neo_attr_to_nix(ut, parent_source.sources)
@@ -917,8 +908,12 @@ class NixIO(BaseIO):
         else:
             return None
 
-    def _obj_modified(self, obj, path):
+    def _obj_modified(self, obj, parent_path):
+        if not obj.name:
+            # anonymous objects are always written as new
+            return True
         cursum = self._hash_object(obj)
+        path = parent_path + "/" + obj.name
         oldsum = self._object_hashes.get(path)
         if cursum == oldsum:
             return False
@@ -1149,7 +1144,8 @@ class NixIO(BaseIO):
             dupdate(obj.units)
             dupdate(obj.t_stop)
             dupdate(obj.t_start)
-            dupdate(obj.waveforms)
+            if obj.waveforms is not None:
+                dupdate(obj.waveforms)
             dupdate(obj.sampling_rate)
             if obj.left_sweep:
                 strupdate(obj.left_sweep)
