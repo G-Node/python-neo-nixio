@@ -1074,6 +1074,8 @@ class NixIO(BaseIO):
             objhash.update(str(a).encode())
 
         def dupdate(d):
+            if isinstance(d, np.ndarray) and not d.flags["C_CONTIGUOUS"]:
+                d = d.copy(order="C")
             objhash.update(d)
 
         # attributes
@@ -1095,9 +1097,10 @@ class NixIO(BaseIO):
                 strupdate(idx)
             for n in obj.channel_names:
                 strupdate(n)
-            for coord in obj.coordinates:
-                for c in coord:
-                    strupdate(c)
+            if hasattr(obj, "coordinates"):
+                for coord in obj.coordinates:
+                    for c in coord:
+                        strupdate(c)
         elif isinstance(obj, AnalogSignal):
             dupdate(obj)
             dupdate(obj.units)
@@ -1125,7 +1128,7 @@ class NixIO(BaseIO):
             dupdate(obj.waveforms)
             dupdate(obj.sampling_rate)
             if obj.left_sweep:
-                dupdate(obj.left_sweep)
+                strupdate(obj.left_sweep)
 
         # type
         strupdate(type(obj).__name__)
