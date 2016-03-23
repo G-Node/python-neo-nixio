@@ -10,7 +10,11 @@
 import os
 from datetime import datetime
 import unittest
-from time import time
+try:
+    from unittest import mock
+    nomock = False
+except ImportError:
+    nomock = True
 import string
 import itertools
 
@@ -1413,3 +1417,55 @@ class NixIOReadTest(NixIOTest):
                 for sig in siggroup:
                     sig.sources.append(nixrcg)
         return nix_blocks
+
+
+class NixIOHashTest(NixIOTest):
+
+    def setUp(self):
+        self.hash = NixIO._hash_object
+
+    def _hash_test(self, objtype, argfuncs):
+        attr = {}
+        for arg, func in argfuncs.items():
+            attr[arg] = func()
+
+        obj_one = objtype(**attr)
+        obj_two = objtype(**attr)
+        hash_one = self.hash(obj_one)
+        hash_two = self.hash(obj_two)
+        self.assertEqual(hash_one, hash_two)
+
+        for arg, func in argfuncs.items():
+            chattr = attr.copy()
+            chattr[arg] = func()
+            obj_two = objtype(**chattr)
+            hash_two = self.hash(obj_two)
+            self.assertNotEqual(hash_one, hash_two)
+
+    def test_block_seg_hash(self):
+        argfuncs = {"name": self.rword,
+                    "description": self.rsentence,
+                    "rec_datetime": self.rdate,
+                    "file_datetime": self.rdate,
+                    # annotations
+                    self.rword(): self.rword,
+                    self.rword(): lambda: self.rquant((10, 10), pq.mV)}
+        self._hash_test(Block, argfuncs)
+        self._hash_test(Segment, argfuncs)
+
+    def test_analogsignal_hash(self):
+        argfuncs = {"name": self.rword,
+                    "description": self.rsentence,
+                    "signal": lambda: self.rquant((10, 10), pq.mV),
+                    "sampling_rate": lambda: np.random.random() * pq.Hz,
+                    "t_start": lambda: np.random.random() * pq.sec,
+                    "t_stop": lambda: np.random.random() * pq.sec,
+                    # annotations
+                    self.rword(): self.rword,
+                    self.rword(): lambda: self.rquant((10, 10), pq.mV)}
+        self._hash_test(AnalogSignal, argfuncs)
+
+
+@unittest.skipIf(nomock, "Skipping mock tests in Python 2")
+class NixIOMockTest(NixIOTest):
+    pass
