@@ -14,7 +14,11 @@ try:
     from unittest import mock
     nomock = False
 except ImportError:
-    nomock = True
+    try:
+        import mock
+        nomock = False
+    except ImportError:
+        nomock = True
 import string
 import itertools
 
@@ -1518,6 +1522,6 @@ class NixIOHashTest(NixIOTest):
         self._hash_test(SpikeTrain, argfuncs)
 
 
-@unittest.skipIf(nomock, "Skipping mock tests in Python 2")
+@unittest.skipIf(nomock, "mock not found - skipping tests")
 class NixIOMockTest(NixIOTest):
     pass
