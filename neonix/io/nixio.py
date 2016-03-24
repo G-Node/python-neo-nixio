@@ -430,7 +430,7 @@ class NixIO(BaseIO):
         nix_group = self._object_hashes.get(obj_path)
         if nix_group is None:
             nix_group = parent_block.create_group(attr["name"], attr["type"])
-        if self._obj_modified(seg, parent_path):
+        if self._obj_modified(seg, obj_path):
             nix_group.definition = attr["definition"]
             self._write_attr_annotations(nix_group, attr, obj_path)
         self._object_map[id(seg)] = nix_group
@@ -454,59 +454,62 @@ class NixIO(BaseIO):
         :param parent_path: Path to the parent of the new segment
         :return: The newly created NIX Source
         """
-        if not self._obj_modified(rcg, parent_path):
-            return
         parent_block = self._get_object_at(parent_path)
         attr = self._neo_attr_to_nix(rcg, parent_block.sources)
-        nix_source = parent_block.create_source(attr["name"], attr["type"])
-        nix_source.definition = attr["definition"]
-        object_path = parent_path + "/recordingchannelgroups/" + nix_source.name
+        obj_path = parent_path + "/recordingchannelgroups/" + attr["name"]
+        nix_source = self._object_hashes.get(obj_path)
+        if nix_source is None:
+            nix_source = parent_block.create_source(attr["name"], attr["type"])
+        if self._obj_modified(rcg, obj_path):
+            nix_source.definition = attr["definition"]
+            self._write_attr_annotations(nix_source, attr, obj_path)
+            for idx, channel in enumerate(rcg.channel_indexes):
+                # create child source objects to represent each channel
+                if len(rcg.channel_names):
+                    nix_chan_name = rcg.channel_names[idx]
+                else:
+                    nix_chan_name = "{}.RecordingChannel{}".format(
+                        nix_source.name, idx
+                    )
+                nix_chan_type = "neo.recordingchannel"
+                nix_chan = nix_source.create_source(nix_chan_name,
+                                                    nix_chan_type)
+                nix_chan.definition = nix_source.definition
+                chan_obj_path = obj_path + "/recordingchannels/" + nix_chan_name
+                chan_metadata = self._get_or_init_metadata(nix_chan,
+                                                           chan_obj_path)
+                chan_metadata.create_property("index",
+                                              self._to_value(int(channel)))
+                if "file_origin" in attr:
+                    chan_metadata.create_property(
+                        "file_origin", self._to_value(attr["file_origin"])
+                    )
+
+                if hasattr(rcg, "coordinates"):
+                    chan_coords = rcg.coordinates[idx]
+                    coord_unit = str(chan_coords[0].dimensionality)
+                    nix_coord_unit = self._to_value(coord_unit)
+                    nix_coord_values = tuple(
+                        self._to_value(c.rescale(coord_unit).magnitude.item())
+                        for c in chan_coords
+                    )
+                    chan_metadata.create_property("coordinates",
+                                                  nix_coord_values)
+                    chan_metadata.create_property("coordinates.units",
+                                                  nix_coord_unit)
+
+            # add signal references
+            for nix_asigs in self._get_mapped_objects(rcg.analogsignals):
+                # One AnalogSignal maps to list of DataArrays
+                for da in nix_asigs:
+                    da.sources.append(nix_source)
+            for nix_isigs in self._get_mapped_objects(rcg.irregularlysampledsignals):
+                # One IrregularlySampledSignal maps to list of DataArrays
+                for da in nix_isigs:
+                    da.sources.append(nix_source)
         self._object_map[id(rcg)] = nix_source
-        self._write_attr_annotations(nix_source, attr, object_path)
-        for idx, channel in enumerate(rcg.channel_indexes):
-            # create a child source object to represent the individual channel
-            if len(rcg.channel_names):
-                nix_chan_name = rcg.channel_names[idx]
-            else:
-                nix_chan_name = "{}.RecordingChannel{}".format(
-                    parent_block.name, idx
-                )
-            nix_chan_type = "neo.recordingchannel"
-            nix_chan = nix_source.create_source(nix_chan_name, nix_chan_type)
-            nix_chan.definition = nix_source.definition
-            chan_obj_path = object_path + "/recordingchannels/" + nix_chan_name
-            chan_metadata = self._get_or_init_metadata(nix_chan,
-                                                       chan_obj_path)
-            chan_metadata.create_property("index", self._to_value(int(channel)))
-            if "file_origin" in attr:
-                chan_metadata.create_property(
-                    "file_origin", self._to_value(attr["file_origin"])
-                )
-
-            if hasattr(rcg, "coordinates"):
-                chan_coords = rcg.coordinates[idx]
-                coord_unit = str(chan_coords[0].dimensionality)
-                nix_coord_unit = self._to_value(coord_unit)
-                nix_coord_values = tuple(
-                    self._to_value(c.rescale(coord_unit).magnitude.item())
-                    for c in chan_coords
-                )
-                chan_metadata.create_property("coordinates",
-                                              nix_coord_values)
-                chan_metadata.create_property("coordinates.units",
-                                              nix_coord_unit)
         for unit in rcg.units:
-            self.write_unit(unit, object_path)
-
-        # add signal references
-        for nix_asigs in self._get_mapped_objects(rcg.analogsignals):
-            # One AnalogSignal maps to list of DataArrays
-            for da in nix_asigs:
-                da.sources.append(nix_source)
-        for nix_isigs in self._get_mapped_objects(rcg.irregularlysampledsignals):
-            # One IrregularlySampledSignal maps to list of DataArrays
-            for da in nix_isigs:
-                da.sources.append(nix_source)
+            self.write_unit(unit, obj_path)
 
     def write_analogsignal(self, anasig, parent_path=""):
         """
