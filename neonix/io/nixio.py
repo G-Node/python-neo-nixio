@@ -488,6 +488,18 @@ class NixIO(BaseIO):
         new_hash = self._hash_object(rcg)
         if old_hash is None:
             nix_source = parent_block.create_source(attr["name"], attr["type"])
+
+            # add signal references
+            for nix_asigs in self._get_mapped_objects(rcg.analogsignals):
+                # One AnalogSignal maps to list of DataArrays
+                for da in nix_asigs:
+                    da.sources.append(nix_source)
+            for nix_isigs in self._get_mapped_objects(
+                    rcg.irregularlysampledsignals
+            ):
+                # One IrregularlySampledSignal maps to list of DataArrays
+                for da in nix_isigs:
+                    da.sources.append(nix_source)
         else:
             nix_source = self._get_object_at(obj_path)
         if old_hash != new_hash:
@@ -526,16 +538,6 @@ class NixIO(BaseIO):
                     chan_metadata.create_property("coordinates",
                                                   nix_coord_values)
                     chan_metadata["coordinates.units"] = nix_coord_unit
-
-            # add signal references
-            for nix_asigs in self._get_mapped_objects(rcg.analogsignals):
-                # One AnalogSignal maps to list of DataArrays
-                for da in nix_asigs:
-                    da.sources.append(nix_source)
-            for nix_isigs in self._get_mapped_objects(rcg.irregularlysampledsignals):
-                # One IrregularlySampledSignal maps to list of DataArrays
-                for da in nix_isigs:
-                    da.sources.append(nix_source)
             self._object_hashes[obj_path] = new_hash
         self._object_map[id(rcg)] = nix_source
         for unit in rcg.units:
@@ -593,6 +595,7 @@ class NixIO(BaseIO):
                         attr["type"],
                         data=sig.magnitude
                     )
+                    parent_group.data_arrays.append(nix_data_array)
                 else:
                     nix_data_array = parent_block.data_arrays[daname]
                 nix_data_array.definition = attr["definition"]
@@ -605,7 +608,6 @@ class NixIO(BaseIO):
                 timedim.label = "time"
                 timedim.offset = offset
                 chandim = nix_data_array.append_set_dimension()
-                parent_group.data_arrays.append(nix_data_array)
                 # point metadata to common section
                 nix_data_array.metadata = anasig_group_segment
                 nix_data_arrays.append(nix_data_array)
@@ -666,6 +668,7 @@ class NixIO(BaseIO):
                         attr["type"],
                         data=sig.magnitude
                     )
+                    parent_group.data_arrays.append(nix_data_array)
                 else:
                     nix_data_array = parent_block.data_arrays[daname]
                 nix_data_array.definition = attr["definition"]
@@ -675,7 +678,6 @@ class NixIO(BaseIO):
                 timedim.unit = time_units
                 timedim.label = "time"
                 chandim = nix_data_array.append_set_dimension()
-                parent_group.data_arrays.append(nix_data_array)
                 # point metadata to common section
                 nix_data_array.metadata = irsig_group_segment
                 nix_data_arrays.append(nix_data_array)
@@ -734,13 +736,13 @@ class NixIO(BaseIO):
                 nix_multi_tag = parent_block.create_multi_tag(
                     attr["name"], attr["type"], times_da
                 )
+                parent_group.multi_tags.append(nix_multi_tag)
             else:
                 nix_multi_tag = parent_block.multi_tags[attr["name"]]
 
             label_dim = nix_multi_tag.positions.append_set_dimension()
             label_dim.labels = ep.labels.tolist()
             nix_multi_tag.extents = durations_da
-            parent_group.multi_tags.append(nix_multi_tag)
             nix_multi_tag.definition = attr["definition"]
             object_path = parent_path + "/epochs/" + nix_multi_tag.name
             self._write_attr_annotations(nix_multi_tag, attr, object_path)
@@ -788,6 +790,7 @@ class NixIO(BaseIO):
                 nix_multi_tag = parent_block.create_multi_tag(
                     attr["name"], attr["type"], times_da
                 )
+                parent_group.multi_tags.append(nix_multi_tag)
             else:
                 nix_multi_tag = parent_block.multi_tags[attr["name"]]
                 nix_multi_tag.times = times_da
@@ -796,7 +799,6 @@ class NixIO(BaseIO):
             label_dim = nix_multi_tag.positions.append_set_dimension()
             label_dim.labels = ev.labels.tolist()
 
-            parent_group.multi_tags.append(nix_multi_tag)
             self._write_attr_annotations(nix_multi_tag, attr, obj_path)
 
             nix_multi_tag.references.extend(
@@ -843,12 +845,12 @@ class NixIO(BaseIO):
                 nix_multi_tag = parent_block.create_multi_tag(
                     attr["name"], attr["type"], times_da
                 )
+                parent_group.multi_tags.append(nix_multi_tag)
             else:
                 nix_multi_tag = parent_block.multi_tags[attr["name"]]
                 nix_multi_tag.times = times_da
             nix_multi_tag.definition = attr["definition"]
 
-            parent_group.multi_tags.append(nix_multi_tag)
             self._write_attr_annotations(nix_multi_tag, attr, obj_path)
 
             mtag_metadata = self._get_or_init_metadata(nix_multi_tag,
@@ -914,15 +916,15 @@ class NixIO(BaseIO):
         new_hash = self._hash_object(ut)
         if old_hash is None:
             nix_source = parent_source.create_source(attr["name"], attr["type"])
+            for nix_st in self._get_mapped_objects(ut.spiketrains):
+                nix_st.sources.append(parent_source)
+                nix_st.sources.append(nix_source)
         else:
             nix_source = parent_source.sources[attr["name"]]
         if old_hash != new_hash:
             nix_source.definition = attr["definition"]
             self._write_attr_annotations(nix_source, attr, obj_path)
             # Make contained spike trains refer to parent rcg and new unit
-            for nix_st in self._get_mapped_objects(ut.spiketrains):
-                nix_st.sources.append(parent_source)
-                nix_st.sources.append(nix_source)
             self._object_hashes[obj_path] = new_hash
 
         self._object_map[id(ut)] = nix_source
