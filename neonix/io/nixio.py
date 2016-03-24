@@ -390,6 +390,7 @@ class NixIO(BaseIO):
         :param neo_blocks: List (or iterable) containing Neo blocks
         :return: A list containing the new NIX Blocks
         """
+        self.resolve_name_conflicts(neo_blocks)
         for bl in neo_blocks:
             self.write_block(bl)
 
@@ -401,6 +402,22 @@ class NixIO(BaseIO):
         :param parent_path: Unused for blocks
         :return: The new NIX Block
         """
+        if not bl.name:
+            self.resolve_name_conflicts([bl])
+        self.resolve_name_conflicts(bl.segments)
+        self.resolve_name_conflicts(bl.recordingchannelgroups)
+
+        allsignals = list()
+        alleests = list()
+        for s in bl.segments:
+            allsignals.extend(s.analogsignals)
+            allsignals.extend(s.irregularlysampledsignals)
+            alleests.extend(s.events)
+            alleests.extend(s.epochs)
+            alleests.extend(s.spiketrains)
+        self.resolve_name_conflicts(allsignals)
+        self.resolve_name_conflicts(alleests)
+
         attr = self._neo_attr_to_nix(bl)
         obj_path = "/" + attr["name"]
         old_hash = self._object_hashes.get(obj_path)
@@ -462,6 +479,8 @@ class NixIO(BaseIO):
         :param parent_path: Path to the parent of the new RCG
         :return: The newly created NIX Source
         """
+        self.resolve_name_conflicts(rcg.units)
+
         parent_block = self._get_object_at(parent_path)
         attr = self._neo_attr_to_nix(rcg)
         obj_path = parent_path + "/recordingchannelgroups/" + attr["name"]
@@ -748,6 +767,9 @@ class NixIO(BaseIO):
         parent_block = self._get_object_at(block_path)
         parent_group = self._get_object_at(parent_path)
         attr = self._neo_attr_to_nix(ev)
+        obj_path = parent_path + "/events/" + attr["name"]
+        old_hash = self._object_hashes.get(obj_path)
+        new_hash = self._hash_object(ev)
         if old_hash != new_hash:
             # times -> positions
             times_da_name = attr["name"] + ".times"
@@ -1011,10 +1033,15 @@ class NixIO(BaseIO):
 
         :param objects: List of Neo objects
         """
+        if not len(objects):
+            return
         names = [obj.name for obj in objects]
         for idx, cn in enumerate(names):
             if not cn:
-                cn = "neo.{}".format(objects[idx])
+                neo_type = type(objects[idx]).__name__
+                cn = "neo.{}".format(neo_type)
+            else:
+                names[idx] = ""
             if cn not in names:
                 newname = cn
             else:
