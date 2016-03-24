@@ -425,18 +425,22 @@ class NixIO(BaseIO):
         file at the location defined by ``parent_path``.
 
         :param seg: Neo seg to be written
-        :param parent_path: Path to the parent of the new seg
+        :param parent_path: Path to the parent of the new Segment
         :return: The newly created NIX Group
         """
         parent_block = self._get_object_at(parent_path)
         attr = self._neo_attr_to_nix(seg, parent_block.groups)
         obj_path = parent_path + "/segments/" + attr["name"]
-        nix_group = self._object_hashes.get(obj_path)
-        if nix_group is None:
+        old_hash = self._object_hashes.get(obj_path)
+        new_hash = self._hash_object(seg)
+        if old_hash is None:
             nix_group = parent_block.create_group(attr["name"], attr["type"])
-        if self._obj_modified(seg, obj_path):
+        else:
+            nix_group = self._get_object_at(obj_path)
+        if old_hash != new_hash:
             nix_group.definition = attr["definition"]
             self._write_attr_annotations(nix_group, attr, obj_path)
+            self._object_hashes[obj_path] = new_hash
         self._object_map[id(seg)] = nix_group
         for anasig in seg.analogsignals:
             self.write_analogsignal(anasig, obj_path)
@@ -455,16 +459,19 @@ class NixIO(BaseIO):
         and write it to the NIX file at the location defined by ``parent_path``.
 
         :param rcg: The Neo RecordingChannelGroup to be written
-        :param parent_path: Path to the parent of the new segment
+        :param parent_path: Path to the parent of the new RCG
         :return: The newly created NIX Source
         """
         parent_block = self._get_object_at(parent_path)
         attr = self._neo_attr_to_nix(rcg, parent_block.sources)
         obj_path = parent_path + "/recordingchannelgroups/" + attr["name"]
-        nix_source = self._object_hashes.get(obj_path)
-        if nix_source is None:
+        old_hash = self._object_hashes.get(obj_path)
+        new_hash = self._hash_object(rcg)
+        if old_hash is None:
             nix_source = parent_block.create_source(attr["name"], attr["type"])
-        if self._obj_modified(rcg, obj_path):
+        else:
+            nix_source = self._get_object_at(obj_path)
+        if old_hash != new_hash:
             nix_source.definition = attr["definition"]
             self._write_attr_annotations(nix_source, attr, obj_path)
             for idx, channel in enumerate(rcg.channel_indexes):
@@ -511,6 +518,7 @@ class NixIO(BaseIO):
                 # One IrregularlySampledSignal maps to list of DataArrays
                 for da in nix_isigs:
                     da.sources.append(nix_source)
+            self._object_hashes[obj_path] = new_hash
         self._object_map[id(rcg)] = nix_source
         for unit in rcg.units:
             self.write_unit(unit, obj_path)
@@ -523,54 +531,71 @@ class NixIO(BaseIO):
         AnalogSignal have their metadata section point to the same object.
 
         :param anasig: The Neo AnalogSignal to be written
-        :param parent_path: Path to the parent of the new segment
+        :param parent_path: Path to the parent of the new AnalogSignal
         :return: A list containing the newly created NIX DataArrays
         """
-        if not self._obj_modified(anasig, parent_path):
-            return
-        parent_group = self._get_object_at(parent_path)
+
         block_path = "/" + parent_path.split("/")[1]
         parent_block = self._get_object_at(block_path)
+        parent_group = self._get_object_at(parent_path)
         parent_metadata = self._get_or_init_metadata(parent_group, parent_path)
         attr = self._neo_attr_to_nix(anasig, parent_block.data_arrays)
-        anasig_group_segment = parent_metadata.create_section(
-            attr["name"], attr["type"]+".metadata"
-        )
-
-        if "file_origin" in attr:
-            anasig_group_segment.create_property(
-                "file_origin", self._to_value(attr["file_origin"])
+        obj_path = parent_path + "/analogisgnals/" + attr["name"]
+        old_hash = self._object_hashes.get(obj_path)
+        new_hash = self._hash_object(anasig)
+        if old_hash is None:
+            anasig_group_segment = parent_metadata.create_section(
+                attr["name"], attr["type"]+".metadata"
             )
-        if anasig.annotations:
-            self._add_annotations(anasig.annotations, anasig_group_segment)
-
-        # common properties
-        data_units = self._get_units(anasig)
-        # often sampling period is in 1/Hz or 1/kHz - simplifying to s
-        time_units = self._get_units(anasig.sampling_period, True)
-        # rescale after simplification
-        offset = anasig.t_start.rescale(time_units).item()
-        sampling_interval = anasig.sampling_period.rescale(time_units).item()
-
+            new = True
+        else:
+            anasig_group_segment = parent_metadata.sections[attr["name"]]
+            new = False
         nix_data_arrays = list()
-        for idx, sig in enumerate(anasig.transpose()):
-            nix_data_array = parent_block.create_data_array(
-                "{}.{}".format(attr["name"], idx),
-                attr["type"],
-                data=sig.magnitude
-            )
-            nix_data_array.definition = attr["definition"]
-            nix_data_array.unit = data_units
+        if old_hash != new_hash:
+            if "file_origin" in attr:
+                anasig_group_segment["file_origin"] =\
+                    self._to_value(attr["file_origin"])
+            if anasig.annotations:
+                self._add_annotations(anasig.annotations, anasig_group_segment)
 
-            timedim = nix_data_array.append_sampled_dimension(sampling_interval)
-            timedim.unit = time_units
-            timedim.label = "time"
-            timedim.offset = offset
-            chandim = nix_data_array.append_set_dimension()
-            parent_group.data_arrays.append(nix_data_array)
-            # point metadata to common section
-            nix_data_array.metadata = anasig_group_segment
-            nix_data_arrays.append(nix_data_array)
+            # common properties
+            data_units = self._get_units(anasig)
+            # often sampling period is in 1/Hz or 1/kHz - simplifying to s
+            time_units = self._get_units(anasig.sampling_period, True)
+            # rescale after simplification
+            offset = anasig.t_start.rescale(time_units).item()
+            sampling_interval = anasig.sampling_period.rescale(time_units).item()
+
+            for idx, sig in enumerate(anasig.transpose()):
+                daname = "{}.{}".format(attr["name"], idx)
+                if new:
+                    nix_data_array = parent_block.create_data_array(
+                        daname,
+                        attr["type"],
+                        data=sig.magnitude
+                    )
+                else:
+                    nix_data_array = parent_block.data_arrays[daname]
+                nix_data_array.definition = attr["definition"]
+                nix_data_array.unit = data_units
+
+                timedim = nix_data_array.append_sampled_dimension(
+                    sampling_interval
+                )
+                timedim.unit = time_units
+                timedim.label = "time"
+                timedim.offset = offset
+                chandim = nix_data_array.append_set_dimension()
+                parent_group.data_arrays.append(nix_data_array)
+                # point metadata to common section
+                nix_data_array.metadata = anasig_group_segment
+                nix_data_arrays.append(nix_data_array)
+        else:
+            for idx, sig in enumerate(anasig.transpose()):
+                daname = "{}.{}".format(attr["name"], idx)
+                nix_data_array = parent_block.data_arrays[daname]
+                nix_data_arrays.append(nix_data_array)
         self._object_map[id(anasig)] = nix_data_arrays
 
     def write_irregularlysampledsignal(self, irsig, parent_path=""):
@@ -917,20 +942,6 @@ class NixIO(BaseIO):
         else:
             return None
 
-    def _obj_modified(self, obj, path):
-        if not obj.name:
-            # anonymous objects are always written as new
-            return True
-        cursum = self._hash_object(obj)
-        oldsum = self._object_hashes.get(path)
-        if cursum == oldsum:
-            return False
-        else:
-            # update hash
-            print("Updating {}".format(path))
-            self._object_hashes[path] = cursum
-            return True
-
     @staticmethod
     def _neo_attr_to_nix(neo_obj, container):
         nix_attrs = dict()
@@ -969,7 +980,7 @@ class NixIO(BaseIO):
     def _add_annotations(cls, annotations, metadata):
         for k, v in annotations.items():
             v = cls._to_value(v)
-            metadata.create_property(k, v)
+            metadata[k] = v
 
     @staticmethod
     def _to_value(v):
