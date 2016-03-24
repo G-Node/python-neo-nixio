@@ -886,20 +886,25 @@ class NixIO(BaseIO):
         :param parent_path: Path to the parent of the new Source
         :return: The newly created NIX Source
         """
-        if not self._obj_modified(ut, parent_path):
-            return
         parent_source = self._get_object_at(parent_path)
-        attr = self._neo_attr_to_nix(ut, parent_source.sources)
-        nix_source = parent_source.create_source(attr["name"], attr["type"])
-        nix_source.definition = attr["definition"]
-        # Units are children of the Block
-        object_path = parent_path + "/units/" + nix_source.name
+        attr = self._neo_attr_to_nix(ut, parent_source.multi_tags)
+        obj_path = parent_path + "/units/" + attr["name"]
+        old_hash = self._object_hashes.get(obj_path)
+        new_hash = self._hash_object(ut)
+        if old_hash is None:
+            nix_source = parent_source.create_source(attr["name"], attr["type"])
+        else:
+            nix_source = parent_source.sources[attr["name"]]
+        if old_hash != new_hash
+            nix_source.definition = attr["definition"]
+            self._write_attr_annotations(nix_source, attr, obj_path)
+            # Make contained spike trains refer to parent rcg and new unit
+            for nix_st in self._get_mapped_objects(ut.spiketrains):
+                nix_st.sources.append(parent_source)
+                nix_st.sources.append(nix_source)
+            self._object_hashes[obj_path] = new_hash
+
         self._object_map[id(ut)] = nix_source
-        self._write_attr_annotations(nix_source, attr, object_path)
-        # Make contained spike trains refer to parent rcg and new unit
-        for nix_st in self._get_mapped_objects(ut.spiketrains):
-            nix_st.sources.append(parent_source)
-            nix_st.sources.append(nix_source)
 
     def _get_or_init_metadata(self, nix_obj, path):
         """
