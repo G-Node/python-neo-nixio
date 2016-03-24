@@ -704,21 +704,21 @@ class NixIO(BaseIO):
             times_da = parent_block.create_data_array(
                 times_da_name, attr["type"]+".times", data=times
             )
+            times_da.unit = time_units
             durations_da = parent_block.create_data_array(
                 attr["name"]+".durations",
                 attr["type"]+".durations",
                 data=durations
             )
             durations_da.unit = duration_units
-            times_da.unit = time_units
 
             if old_hash is None:
-                # ready to create MTag
                 nix_multi_tag = parent_block.create_multi_tag(
                     attr["name"], attr["type"], times_da
                 )
             else:
                 nix_multi_tag = parent_block.multi_tags[attr["name"]]
+
             label_dim = nix_multi_tag.positions.append_set_dimension()
             label_dim.labels = ep.labels.tolist()
             nix_multi_tag.extents = durations_da
@@ -730,6 +730,7 @@ class NixIO(BaseIO):
             nix_multi_tag.references.extend(
                 self._get_contained_signals(parent_group)
             )
+
             self._object_hashes[obj_path] = new_hash
         else:
             nix_multi_tag = parent_block.multi_tags[attr["name"]]
@@ -744,37 +745,50 @@ class NixIO(BaseIO):
         :param parent_path: Path to the parent of the new MultiTag
         :return: The newly created NIX MultiTag
         """
-        if not self._obj_modified(ev, parent_path):
-            return
-        parent_group = self._get_object_at(parent_path)
         block_path = "/" + parent_path.split("/")[1]
         parent_block = self._get_object_at(block_path)
+        parent_group = self._get_object_at(parent_path)
         attr = self._neo_attr_to_nix(ev, parent_block.multi_tags)
+        obj_path = parent_path + "/events/" + attr["name"]
+        old_hash = self._object_hashes.get(obj_path)
+        new_hash = self._hash_object(ev)
 
-        # times -> positions
-        times = ev.times.magnitude
-        time_units = self._get_units(ev.times)
+        if old_hash != new_hash:
+            # times -> positions
+            times_da_name = attr["name"] + ".times"
+            times = ev.times.magnitude
+            time_units = self._get_units(ev.times)
 
-        times_da = parent_block.create_data_array(
-            attr["name"]+".times", attr["type"]+".times", data=times
-        )
-        times_da.unit = time_units
+            if old_hash:
+                del parent_block.data_arrays[times_da_name]
 
-        # ready to create MTag
-        nix_multi_tag = parent_block.create_multi_tag(
-            attr["name"], attr["type"], times_da
-        )
-        label_dim = nix_multi_tag.positions.append_set_dimension()
-        label_dim.labels = ev.labels.tolist()
-        parent_group.multi_tags.append(nix_multi_tag)
-        nix_multi_tag.definition = attr["definition"]
-        object_path = parent_path + "/events/" + nix_multi_tag.name
+            times_da = parent_block.create_data_array(
+                attr["name"]+".times", attr["type"]+".times", data=times
+            )
+            times_da.unit = time_units
+
+            if old_hash is None:
+                nix_multi_tag = parent_block.create_multi_tag(
+                    attr["name"], attr["type"], times_da
+                )
+            else:
+                nix_multi_tag = parent_block.multi_tags[attr["name"]]
+
+            label_dim = nix_multi_tag.positions.append_set_dimension()
+            label_dim.labels = ev.labels.tolist()
+            parent_group.multi_tags.append(nix_multi_tag)
+            nix_multi_tag.definition = attr["definition"]
+            object_path = parent_path + "/events/" + nix_multi_tag.name
+            self._write_attr_annotations(nix_multi_tag, attr, object_path)
+
+            nix_multi_tag.references.extend(
+                self._get_contained_signals(parent_group)
+            )
+
+            self._object_hashes[obj_path] = new_hash
+        else:
+            nix_multi_tag = parent_block.multi_tags[attr["name"]]
         self._object_map[id(ev)] = nix_multi_tag
-        self._write_attr_annotations(nix_multi_tag, attr, object_path)
-
-        nix_multi_tag.references.extend(
-            self._get_contained_signals(parent_group)
-        )
 
     def write_spiketrain(self, sptr, parent_path=""):
         """
