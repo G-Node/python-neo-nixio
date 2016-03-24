@@ -688,30 +688,35 @@ class NixIO(BaseIO):
 
         if old_hash != new_hash:
             # times -> positions
+            times_da_name = attr["name"] + ".times"
             times = ep.times.magnitude
             time_units = self._get_units(ep.times)
 
-            times_da = parent_block.create_data_array(
-                attr["name"]+".times", attr["type"]+".times", data=times
-            )
-            times_da.unit = time_units
-
             # durations -> extents
+            dura_da_name = attr["name"] + ".durations"
             durations = ep.durations.magnitude
             duration_units = self._get_units(ep.durations)
 
+            if old_hash:
+                del parent_block.data_arrays[times_da_name]
+                del parent_block.data_arrays[dura_da_name]
+
+            times_da = parent_block.create_data_array(
+                times_da_name, attr["type"]+".times", data=times
+            )
             durations_da = parent_block.create_data_array(
                 attr["name"]+".durations",
                 attr["type"]+".durations",
                 data=durations
             )
             durations_da.unit = duration_units
+            times_da.unit = time_units
 
             if old_hash is None:
                 # ready to create MTag
-                nix_multi_tag = parent_block.create_multi_tag(attr["name"],
-                                                              attr["type"],
-                                                              times_da)
+                nix_multi_tag = parent_block.create_multi_tag(
+                    attr["name"], attr["type"], times_da
+                )
             else:
                 nix_multi_tag = parent_block.multi_tags[attr["name"]]
             label_dim = nix_multi_tag.positions.append_set_dimension()
