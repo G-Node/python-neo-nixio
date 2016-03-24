@@ -489,12 +489,10 @@ class NixIO(BaseIO):
                 chan_obj_path = obj_path + "/recordingchannels/" + nix_chan_name
                 chan_metadata = self._get_or_init_metadata(nix_chan,
                                                            chan_obj_path)
-                chan_metadata.create_property("index",
-                                              self._to_value(int(channel)))
+                chan_metadata["index"] = self._to_value(int(channel))
                 if "file_origin" in attr:
-                    chan_metadata.create_property(
-                        "file_origin", self._to_value(attr["file_origin"])
-                    )
+                    chan_metadata["file_origin"] =\
+                        self._to_value(attr["file_origin"])
 
                 if hasattr(rcg, "coordinates"):
                     chan_coords = rcg.coordinates[idx]
@@ -504,10 +502,8 @@ class NixIO(BaseIO):
                         self._to_value(c.rescale(coord_unit).magnitude.item())
                         for c in chan_coords
                     )
-                    chan_metadata.create_property("coordinates",
-                                                  nix_coord_values)
-                    chan_metadata.create_property("coordinates.units",
-                                                  nix_coord_unit)
+                    chan_metadata["coordinates"] = nix_coord_values
+                    chan_metadata["coordinates.units"] = nix_coord_unit
 
             # add signal references
             for nix_asigs in self._get_mapped_objects(rcg.analogsignals):
@@ -841,7 +837,7 @@ class NixIO(BaseIO):
                 mtag_metadata["t_start"] = self._to_value(t_start)
             # t_stop is not optional
             t_stop = sptr.t_stop.rescale(time_units).magnitude.item()
-            mtag_metadata.create_property["t_stop"] = self._to_value(t_stop)
+            mtag_metadata["t_stop"] = self._to_value(t_stop)
 
             # waveforms
             if sptr.waveforms is not None:
@@ -969,14 +965,11 @@ class NixIO(BaseIO):
             nix_object.force_created_at(calculate_timestamp(attr["created_at"]))
         if "file_datetime" in attr:
             metadata = self._get_or_init_metadata(nix_object, object_path)
-            metadata.create_property(
-                "file_datetime", self._to_value(attr["file_datetime"])
-            )
+            metadata["file_datetime"] = self._to_value(attr["file_datetime"])
         if "file_origin" in attr:
             metadata = self._get_or_init_metadata(nix_object, object_path)
-            metadata.create_property(
-                "file_origin", self._to_value(attr["file_origin"])
-            )
+            metadata["file_origin"] = self._to_value(attr["file_origin"])
+
         if "annotations" in attr:
             metadata = self._get_or_init_metadata(nix_object, object_path)
             self._add_annotations(attr["annotations"], metadata)
