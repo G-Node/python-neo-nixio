@@ -502,7 +502,10 @@ class NixIO(BaseIO):
                         self._to_value(c.rescale(coord_unit).magnitude.item())
                         for c in chan_coords
                     )
-                    chan_metadata["coordinates"] = nix_coord_values
+                    if "coordinates" in chan_metadata:
+                        del chan_metadata["coordinates"]
+                    chan_metadata.create_property("coordinates",
+                                                  nix_coord_values)
                     chan_metadata["coordinates.units"] = nix_coord_unit
 
             # add signal references
@@ -887,7 +890,7 @@ class NixIO(BaseIO):
         :return: The newly created NIX Source
         """
         parent_source = self._get_object_at(parent_path)
-        attr = self._neo_attr_to_nix(ut, parent_source.multi_tags)
+        attr = self._neo_attr_to_nix(ut, parent_source.sources)
         obj_path = parent_path + "/units/" + attr["name"]
         old_hash = self._object_hashes.get(obj_path)
         new_hash = self._hash_object(ut)
@@ -895,7 +898,7 @@ class NixIO(BaseIO):
             nix_source = parent_source.create_source(attr["name"], attr["type"])
         else:
             nix_source = parent_source.sources[attr["name"]]
-        if old_hash != new_hash
+        if old_hash != new_hash:
             nix_source.definition = attr["definition"]
             self._write_attr_annotations(nix_source, attr, obj_path)
             # Make contained spike trains refer to parent rcg and new unit
