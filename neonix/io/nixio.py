@@ -401,7 +401,7 @@ class NixIO(BaseIO):
         :param parent_path: Unused for blocks
         :return: The new NIX Block
         """
-        attr = self._neo_attr_to_nix(bl, self.nix_file.blocks)
+        attr = self._neo_attr_to_nix(bl)
         obj_path = "/" + attr["name"]
         old_hash = self._object_hashes.get(obj_path)
         new_hash = self._hash_object(bl)
@@ -429,7 +429,7 @@ class NixIO(BaseIO):
         :return: The newly created NIX Group
         """
         parent_block = self._get_object_at(parent_path)
-        attr = self._neo_attr_to_nix(seg, parent_block.groups)
+        attr = self._neo_attr_to_nix(seg)
         obj_path = parent_path + "/segments/" + attr["name"]
         old_hash = self._object_hashes.get(obj_path)
         new_hash = self._hash_object(seg)
@@ -463,7 +463,7 @@ class NixIO(BaseIO):
         :return: The newly created NIX Source
         """
         parent_block = self._get_object_at(parent_path)
-        attr = self._neo_attr_to_nix(rcg, parent_block.sources)
+        attr = self._neo_attr_to_nix(rcg)
         obj_path = parent_path + "/recordingchannelgroups/" + attr["name"]
         old_hash = self._object_hashes.get(obj_path)
         new_hash = self._hash_object(rcg)
@@ -538,7 +538,7 @@ class NixIO(BaseIO):
         parent_block = self._get_object_at(block_path)
         parent_group = self._get_object_at(parent_path)
         parent_metadata = self._get_or_init_metadata(parent_group, parent_path)
-        attr = self._neo_attr_to_nix(anasig, parent_block.data_arrays)
+        attr = self._neo_attr_to_nix(anasig)
         obj_path = parent_path + "/analogisgnals/" + attr["name"]
         old_hash = self._object_hashes.get(obj_path)
         new_hash = self._hash_object(anasig)
@@ -614,7 +614,7 @@ class NixIO(BaseIO):
         parent_block = self._get_object_at(block_path)
         parent_group = self._get_object_at(parent_path)
         parent_metadata = self._get_or_init_metadata(parent_group, parent_path)
-        attr = self._neo_attr_to_nix(irsig, parent_block.data_arrays)
+        attr = self._neo_attr_to_nix(irsig)
         obj_path = parent_path + "/irregularlysampledsignals/" + attr["name"]
         old_hash = self._object_hashes.get(obj_path)
         new_hash = self._hash_object(irsig)
@@ -680,7 +680,7 @@ class NixIO(BaseIO):
         block_path = "/" + parent_path.split("/")[1]
         parent_block = self._get_object_at(block_path)
         parent_group = self._get_object_at(parent_path)
-        attr = self._neo_attr_to_nix(ep, parent_block.multi_tags)
+        attr = self._neo_attr_to_nix(ep)
         obj_path = parent_path + "/epochs/" + attr["name"]
         old_hash = self._object_hashes.get(obj_path)
         new_hash = self._hash_object(ep)
@@ -747,11 +747,7 @@ class NixIO(BaseIO):
         block_path = "/" + parent_path.split("/")[1]
         parent_block = self._get_object_at(block_path)
         parent_group = self._get_object_at(parent_path)
-        attr = self._neo_attr_to_nix(ev, parent_block.multi_tags)
-        obj_path = parent_path + "/events/" + attr["name"]
-        old_hash = self._object_hashes.get(obj_path)
-        new_hash = self._hash_object(ev)
-
+        attr = self._neo_attr_to_nix(ev)
         if old_hash != new_hash:
             # times -> positions
             times_da_name = attr["name"] + ".times"
@@ -802,7 +798,7 @@ class NixIO(BaseIO):
         block_path = "/" + parent_path.split("/")[1]
         parent_block = self._get_object_at(block_path)
         parent_group = self._get_object_at(parent_path)
-        attr = self._neo_attr_to_nix(sptr, parent_block.multi_tags)
+        attr = self._neo_attr_to_nix(sptr)
         obj_path = parent_path + "/events/" + attr["name"]
         old_hash = self._object_hashes.get(obj_path)
         new_hash = self._hash_object(sptr)
@@ -890,7 +886,7 @@ class NixIO(BaseIO):
         :return: The newly created NIX Source
         """
         parent_source = self._get_object_at(parent_path)
-        attr = self._neo_attr_to_nix(ut, parent_source.sources)
+        attr = self._neo_attr_to_nix(ut)
         obj_path = parent_path + "/units/" + attr["name"]
         old_hash = self._object_hashes.get(obj_path)
         new_hash = self._hash_object(ut)
@@ -1007,26 +1003,35 @@ class NixIO(BaseIO):
             return None
 
     @staticmethod
-    def _neo_attr_to_nix(neo_obj, container):
-        nix_attrs = dict()
+    def resolve_name_conflicts(objects):
+        """
+        Given a list of neo objects, change their names such that no two objects
+        share the same name. Objects with no name are renamed based on their
+        type.
+
+        :param objects: List of Neo objects
+        """
+        names = [obj.name for obj in objects]
+        for idx, cn in enumerate(names):
+            if not cn:
+                cn = "neo.{}".format(objects[idx])
+            if cn not in names:
+                newname = cn
+            else:
+                suffix = 1
+                newname = "{}-{}".format(cn, suffix)
+                while newname in names:
+                    suffix += 1
+                    newname = "{}-{}".format(cn, suffix)
+            names[idx] = newname
+        for obj, n in zip(objects, names):
+            obj.name = n
+
+    @staticmethod
+    def _neo_attr_to_nix(neo_obj):
         neo_type = type(neo_obj).__name__
-        if neo_obj.name:
-            nix_basename = neo_obj.name
-        else:
-            nix_basename = "neo.{}".format(neo_type)
-        if neo_type in ["AnalogSignal", "IrregularlySampledSignal"]:
-            suffix = ".0"
-        else:
-            suffix = ""
-        if nix_basename+suffix not in container:
-            nix_name = nix_basename
-        else:
-            idx = 1
-            nix_name = "{}-{}".format(nix_basename, idx)
-            while nix_name+suffix in container:
-                idx += 1
-                nix_name = "{}-{}".format(nix_basename, idx)
-        nix_attrs["name"] = nix_name
+        nix_attrs = dict()
+        nix_attrs["name"] = neo_obj.name
         nix_attrs["type"] = "neo.{}".format(neo_type.lower())
         nix_attrs["definition"] = neo_obj.description
         if isinstance(neo_obj, (Block, Segment)):
