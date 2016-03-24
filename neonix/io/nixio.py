@@ -401,18 +401,19 @@ class NixIO(BaseIO):
         :param parent_path: Unused for blocks
         :return: The new NIX Block
         """
-        if not self._obj_modified(bl, parent_path):
-            return
         attr = self._neo_attr_to_nix(bl, self.nix_file.blocks)
-        nix_block = self.nix_file.create_block(attr["name"], attr["type"])
-        nix_block.definition = attr["definition"]
-        object_path = "/" + nix_block.name
+        obj_path = "/" + attr["name"]
+        nix_block = self._object_hashes.get(obj_path)
+        if nix_block is None:
+            nix_block = self.nix_file.create_block(attr["name"], attr["type"])
+        if self._obj_modified(bl, obj_path):
+            nix_block.definition = attr["definition"]
+            self._write_attr_annotations(nix_block, attr, obj_path)
         self._object_map[id(bl)] = nix_block
-        self._write_attr_annotations(nix_block, attr, object_path)
         for segment in bl.segments:
-            self.write_segment(segment, object_path)
+            self.write_segment(segment, obj_path)
         for rcg in bl.recordingchannelgroups:
-            self.write_recordingchannelgroup(rcg, object_path)
+            self.write_recordingchannelgroup(rcg, obj_path)
 
     def write_segment(self, seg, parent_path=""):
         """
@@ -423,25 +424,26 @@ class NixIO(BaseIO):
         :param parent_path: Path to the parent of the new seg
         :return: The newly created NIX Group
         """
-        if not self._obj_modified(seg, parent_path):
-            return
         parent_block = self._get_object_at(parent_path)
         attr = self._neo_attr_to_nix(seg, parent_block.groups)
-        nix_group = parent_block.create_group(attr["name"], attr["type"])
-        nix_group.definition = attr["definition"]
-        object_path = parent_path + "/segments/" + nix_group.name
+        obj_path = parent_path + "/segments/" + attr["name"]
+        nix_group = self._object_hashes.get(obj_path)
+        if nix_group is None:
+            nix_group = parent_block.create_group(attr["name"], attr["type"])
+        if self._obj_modified(seg, parent_path):
+            nix_group.definition = attr["definition"]
+            self._write_attr_annotations(nix_group, attr, obj_path)
         self._object_map[id(seg)] = nix_group
-        self._write_attr_annotations(nix_group, attr, object_path)
         for anasig in seg.analogsignals:
-            self.write_analogsignal(anasig, object_path)
+            self.write_analogsignal(anasig, obj_path)
         for irsig in seg.irregularlysampledsignals:
-            self.write_irregularlysampledsignal(irsig, object_path)
+            self.write_irregularlysampledsignal(irsig, obj_path)
         for ep in seg.epochs:
-            self.write_epoch(ep, object_path)
+            self.write_epoch(ep, obj_path)
         for ev in seg.events:
-            self.write_event(ev, object_path)
+            self.write_event(ev, obj_path)
         for sptr in seg.spiketrains:
-            self.write_spiketrain(sptr, object_path)
+            self.write_spiketrain(sptr, obj_path)
 
     def write_recordingchannelgroup(self, rcg, parent_path=""):
         """
@@ -833,9 +835,9 @@ class NixIO(BaseIO):
 
     def _get_object_at(self, path):
         """
-        Returns the object at the location defined by the path. ``path`` is a
-        '/' delimited string. Each part of the string alternates between an
-        object name and a container.
+        Returns the object at the location defined by the path.
+        ``path`` is a '/' delimited string. Each part of the string alternates
+        between an object name and a container.
 
         Example path: /block_1/segments/segment_a/events/event_a1
 
@@ -843,7 +845,7 @@ class NixIO(BaseIO):
         :return: The object at the location defined by the path
         """
         if path == "":
-            return self.nix_file.blocks
+            return self.nix_file
         parts = path.split("/")
         if parts[0]:
             ValueError("Invalid object path: {}".format(path))
@@ -908,16 +910,18 @@ class NixIO(BaseIO):
         else:
             return None
 
-    def _obj_modified(self, obj, parent_path):
+    def _obj_modified(self, obj, path):
         if not obj.name:
             # anonymous objects are always written as new
             return True
         cursum = self._hash_object(obj)
-        path = parent_path + "/" + obj.name
         oldsum = self._object_hashes.get(path)
         if cursum == oldsum:
             return False
         else:
+            # update hash
+            print("Updating {}".format(path))
+            self._object_hashes[path] = cursum
             return True
 
     @staticmethod
