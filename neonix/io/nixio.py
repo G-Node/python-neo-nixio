@@ -610,48 +610,61 @@ class NixIO(BaseIO):
         :param parent_path: Path to the parent of the new
         :return: The newly created NIX DataArray
         """
-        if not self._obj_modified(irsig, parent_path):
-            return
-        parent_group = self._get_object_at(parent_path)
         block_path = "/" + parent_path.split("/")[1]
         parent_block = self._get_object_at(block_path)
+        parent_group = self._get_object_at(parent_path)
         parent_metadata = self._get_or_init_metadata(parent_group, parent_path)
         attr = self._neo_attr_to_nix(irsig, parent_block.data_arrays)
-        irsig_group_segment = parent_metadata.create_section(
-            attr["name"], attr["type"]+".metadata"
-        )
-
-        if "file_origin" in attr:
-            irsig_group_segment.create_property(
-                "file_origin", self._to_value(attr["file_origin"])
+        obj_path = parent_path + "/irregularlysampledsignals/" + attr["name"]
+        old_hash = self._object_hashes.get(obj_path)
+        new_hash = self._hash_object(irsig)
+        if old_hash is None:
+            irsig_group_segment = parent_metadata.create_section(
+                attr["name"], attr["type"]+".metadata"
             )
-
-        if irsig.annotations:
-            self._add_annotations(irsig.annotations, irsig_group_segment)
-
-        # common properties
-        data_units = self._get_units(irsig)
-        time_units = self._get_units(irsig.times)
-        times = irsig.times.magnitude.tolist()
-
+            new = True
+        else:
+            irsig_group_segment = parent_metadata.sections[attr["name"]]
+            new = False
         nix_data_arrays = list()
-        for idx, sig in enumerate(irsig.transpose()):
-            nix_data_array = parent_block.create_data_array(
-                "{}.{}".format(attr["name"], idx),
-                attr["type"],
-                data=sig.magnitude
-            )
-            nix_data_array.definition = attr["definition"]
-            nix_data_array.unit = data_units
+        if old_hash != new_hash:
+            if "file_origin" in attr:
+                irsig_group_segment["file_origin"] =\
+                    self._to_value(attr["file_origin"])
+            if irsig.annotations:
+                self._add_annotations(irsig.annotations, irsig_group_segment)
 
-            timedim = nix_data_array.append_range_dimension(times)
-            timedim.unit = time_units
-            timedim.label = "time"
-            chandim = nix_data_array.append_set_dimension()
-            parent_group.data_arrays.append(nix_data_array)
-            # point metadata to common section
-            nix_data_array.metadata = irsig_group_segment
-            nix_data_arrays.append(nix_data_array)
+            # common properties
+            data_units = self._get_units(irsig)
+            time_units = self._get_units(irsig.times)
+            times = irsig.times.magnitude.tolist()
+
+            for idx, sig in enumerate(irsig.transpose()):
+                daname = "{}.{}".format(attr["name"], idx)
+                if new:
+                    nix_data_array = parent_block.create_data_array(
+                        daname,
+                        attr["type"],
+                        data=sig.magnitude
+                    )
+                else:
+                    nix_data_array = parent_block.data_arrays[daname]
+                nix_data_array.definition = attr["definition"]
+                nix_data_array.unit = data_units
+
+                timedim = nix_data_array.append_range_dimension(times)
+                timedim.unit = time_units
+                timedim.label = "time"
+                chandim = nix_data_array.append_set_dimension()
+                parent_group.data_arrays.append(nix_data_array)
+                # point metadata to common section
+                nix_data_array.metadata = irsig_group_segment
+                nix_data_arrays.append(nix_data_array)
+        else:
+            for idx, sig in enumerate(irsig.transpose()):
+                daname = "{}.{}".format(attr["name"], idx)
+                nix_data_array = parent_block.data_arrays[daname]
+                nix_data_arrays.append(nix_data_array)
         self._object_map[id(irsig)] = nix_data_arrays
 
     def write_epoch(self, ep, parent_path=""):
