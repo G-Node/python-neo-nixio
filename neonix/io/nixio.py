@@ -763,7 +763,7 @@ class NixIO(BaseIO):
                 del parent_block.data_arrays[times_da_name]
 
             times_da = parent_block.create_data_array(
-                attr["name"]+".times", attr["type"]+".times", data=times
+                times_da_name, attr["type"]+".times", data=times
             )
             times_da.unit = time_units
 
@@ -773,13 +773,14 @@ class NixIO(BaseIO):
                 )
             else:
                 nix_multi_tag = parent_block.multi_tags[attr["name"]]
+                nix_multi_tag.times = times_da
+            nix_multi_tag.definition = attr["definition"]
 
             label_dim = nix_multi_tag.positions.append_set_dimension()
             label_dim.labels = ev.labels.tolist()
+
             parent_group.multi_tags.append(nix_multi_tag)
-            nix_multi_tag.definition = attr["definition"]
-            object_path = parent_path + "/events/" + nix_multi_tag.name
-            self._write_attr_annotations(nix_multi_tag, attr, object_path)
+            self._write_attr_annotations(nix_multi_tag, attr, obj_path)
 
             nix_multi_tag.references.extend(
                 self._get_contained_signals(parent_group)
@@ -799,67 +800,86 @@ class NixIO(BaseIO):
         :param parent_path: Path to the parent of the new MultiTag
         :return: The newly created NIX MultiTag
         """
-        if not self._obj_modified(sptr, parent_path):
-            return
-        parent_group = self._get_object_at(parent_path)
         block_path = "/" + parent_path.split("/")[1]
         parent_block = self._get_object_at(block_path)
+        parent_group = self._get_object_at(parent_path)
         attr = self._neo_attr_to_nix(sptr, parent_block.multi_tags)
+        obj_path = parent_path + "/events/" + attr["name"]
+        old_hash = self._object_hashes.get(obj_path)
+        new_hash = self._hash_object(sptr)
 
-        # spike times
-        time_units = self._get_units(sptr.times)
-        times = sptr.times.magnitude
-        times_da = parent_block.create_data_array(
-            attr["name"]+".times", attr["type"]+".times", data=times
-        )
-        times_da.unit = time_units
+        if old_hash != new_hash:
+            # spike times
+            times_da_name = attr["name"] + ".times"
+            times = sptr.times.magnitude
+            time_units = self._get_units(sptr.times)
 
-        # ready to create MTag
-        nix_multi_tag = parent_block.create_multi_tag(
-            attr["name"], attr["type"], times_da
-        )
-        parent_group.multi_tags.append(nix_multi_tag)
+            if old_hash:
+                del parent_block.data_arrays[times_da_name]
 
-        nix_multi_tag.definition = attr["definition"]
-        object_path = parent_path + "/spiketrains/" + nix_multi_tag.name
-        self._object_map[id(sptr)] = nix_multi_tag
-
-        mtag_metadata = self._get_or_init_metadata(nix_multi_tag, object_path)
-        self._write_attr_annotations(nix_multi_tag, attr, object_path)
-        if sptr.t_start:
-            t_start = sptr.t_start.rescale(time_units).magnitude.item()
-            mtag_metadata.create_property("t_start",
-                                          self._to_value(t_start))
-        # t_stop is not optional
-        t_stop = sptr.t_stop.rescale(time_units).magnitude.item()
-        mtag_metadata.create_property("t_stop", self._to_value(t_stop))
-
-        # waveforms
-        if sptr.waveforms is not None:
-            wf_data = list(wf.magnitude for wf in
-                           list(wfgroup for wfgroup in sptr.waveforms))
-            waveforms_da = parent_block.create_data_array(
-                attr["name"]+".waveforms", "neo.waveforms", data=wf_data
+            times_da = parent_block.create_data_array(
+                times_da_name, attr["type"]+".times", data=times
             )
-            wf_unit = self._get_units(sptr.waveforms)
-            waveforms_da.unit = wf_unit
-            nix_multi_tag.create_feature(waveforms_da, nixio.LinkType.Indexed)
-            time_units = self._get_units(sptr.sampling_period, True)
-            sampling_interval = sptr.sampling_period.rescale(time_units).item()
-            wf_spikedim = waveforms_da.append_set_dimension()
-            wf_chandim = waveforms_da.append_set_dimension()
-            wf_timedim = waveforms_da.append_sampled_dimension(sampling_interval)
-            wf_timedim.unit = time_units
-            wf_timedim.label = "time"
-            wf_path = object_path + "/waveforms/" + waveforms_da.name
-            waveforms_da.metadata = self._get_or_init_metadata(waveforms_da,
-                                                               wf_path)
-            if sptr.left_sweep:
-                left_sweep = sptr.left_sweep.rescale(time_units).\
-                    magnitude.item()
-                waveforms_da.metadata.create_property(
-                    "left_sweep", self._to_value(left_sweep)
+            times_da.unit = time_units
+
+            if old_hash is None:
+                nix_multi_tag = parent_block.create_multi_tag(
+                    attr["name"], attr["type"], times_da
                 )
+            else:
+                nix_multi_tag = parent_block.multi_tags[attr["name"]]
+                nix_multi_tag.times = times_da
+            nix_multi_tag.definition = attr["definition"]
+
+            parent_group.multi_tags.append(nix_multi_tag)
+            self._write_attr_annotations(nix_multi_tag, attr, obj_path)
+
+            mtag_metadata = self._get_or_init_metadata(nix_multi_tag,
+                                                       obj_path)
+            if sptr.t_start:
+                t_start = sptr.t_start.rescale(time_units).magnitude.item()
+                mtag_metadata["t_start"] = self._to_value(t_start)
+            # t_stop is not optional
+            t_stop = sptr.t_stop.rescale(time_units).magnitude.item()
+            mtag_metadata.create_property["t_stop"] = self._to_value(t_stop)
+
+            # waveforms
+            if sptr.waveforms is not None:
+                wf_data = list(wf.magnitude for wf in
+                               list(wfgroup for wfgroup in sptr.waveforms))
+                wf_name = attr["name"] + ".waveforms"
+                if wf_name in parent_block.data_arrays:
+                    del parent_block.data_arrays[wf_name]
+                waveforms_da = parent_block.create_data_array(wf_name,
+                                                              "neo.waveforms",
+                                                              data=wf_data)
+                wf_unit = self._get_units(sptr.waveforms)
+                waveforms_da.unit = wf_unit
+                nix_multi_tag.create_feature(waveforms_da,
+                                             nixio.LinkType.Indexed)
+                time_units = self._get_units(sptr.sampling_period, True)
+                sampling_interval =\
+                    sptr.sampling_period.rescale(time_units).item()
+                wf_spikedim = waveforms_da.append_set_dimension()
+                wf_chandim = waveforms_da.append_set_dimension()
+                wf_timedim = waveforms_da.append_sampled_dimension(
+                    sampling_interval
+                )
+                wf_timedim.unit = time_units
+                wf_timedim.label = "time"
+                wf_path = obj_path + "/waveforms/" + waveforms_da.name
+                waveforms_da.metadata = self._get_or_init_metadata(waveforms_da,
+                                                                   wf_path)
+                if sptr.left_sweep:
+                    left_sweep = sptr.left_sweep.rescale(time_units).\
+                        magnitude.item()
+                    waveforms_da.metadata["left_sweep"] =\
+                        self._to_value(left_sweep)
+
+            self._object_hashes[obj_path] = new_hash
+        else:
+            nix_multi_tag = parent_block.multi_tags[attr["name"]]
+        self._object_map[id(sptr)] = nix_multi_tag
 
     def write_unit(self, ut, parent_path=""):
         """
