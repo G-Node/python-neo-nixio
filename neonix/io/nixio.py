@@ -403,12 +403,16 @@ class NixIO(BaseIO):
         """
         attr = self._neo_attr_to_nix(bl, self.nix_file.blocks)
         obj_path = "/" + attr["name"]
-        nix_block = self._object_hashes.get(obj_path)
-        if nix_block is None:
+        old_hash = self._object_hashes.get(obj_path)
+        new_hash = self._hash_object(bl)
+        if old_hash is None:
             nix_block = self.nix_file.create_block(attr["name"], attr["type"])
-        if self._obj_modified(bl, obj_path):
+        else:
+            nix_block = self._get_object_at(obj_path)
+        if old_hash != new_hash:
             nix_block.definition = attr["definition"]
             self._write_attr_annotations(nix_block, attr, obj_path)
+            self._object_hashes[obj_path] = new_hash
         self._object_map[id(bl)] = nix_block
         for segment in bl.segments:
             self.write_segment(segment, obj_path)
