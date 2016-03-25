@@ -1479,5 +1479,4 @@ class NixIOMockTest(NixIOTest):
         self.io.write_all_blocks(neo_blocks)
 
         nix_block = self.io.nix_file.blocks[0]
-        print(len(nix_block.data_arrays))
         self.assertEqual(len(nix_block.data_arrays), ndas)
