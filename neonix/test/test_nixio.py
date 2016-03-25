@@ -1434,7 +1434,7 @@ class NixIOHashTest(NixIOTest):
         self._hash_test(SpikeTrain, argfuncs)
 
 
-@unittest.skipIf(nomock, "mock not found - skipping tests")
+# @unittest.skipIf(nomock, "mock not found - skipping tests")
 class NixIOMockTest(NixIOTest):
 
     def setUp(self):
@@ -1471,7 +1471,7 @@ class NixIOMockTest(NixIOTest):
 
         self.io.write_all_blocks(neo_blocks)
         nix_block = self.io.nix_file.blocks[0]
-        print(len(nix_block.data_arrays))
+        ndas = nix_block.data_arrays
         # change signal
         asig = neo_blocks[0].segments[3].analogsignals[0]
         asig[:, 0] = self.rquant(100, pq.mV)
@@ -1479,4 +1479,4 @@ class NixIOMockTest(NixIOTest):
         self.io.write_all_blocks(neo_blocks)
 
         nix_block = self.io.nix_file.blocks[0]
-        print(len(nix_block.data_arrays))
+        self.assertEqual(len(nix_block.data_arrays), ndas)
