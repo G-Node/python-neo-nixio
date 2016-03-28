@@ -300,7 +300,8 @@ class NixIO(BaseIO):
                     eest.sampling_period = pq.Quantity(
                         wftime.sampling_interval, wftime.unit
                     )
-                    eest.left_sweep = wfda.metadata["left_sweep"]
+                    eest.left_sweep = pq.Quantity(wfda.metadata["left_sweep"],
+                                                  wftime.unit)
         else:
             return None
         self._object_map[nix_mtag.id] = eest
