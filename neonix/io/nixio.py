@@ -739,6 +739,7 @@ class NixIO(BaseIO):
                 parent_group.multi_tags.append(nix_multi_tag)
             else:
                 nix_multi_tag = parent_block.multi_tags[attr["name"]]
+                nix_multi_tag.positions = times_da
 
             label_dim = nix_multi_tag.positions.append_set_dimension()
             label_dim.labels = ep.labels.tolist()
