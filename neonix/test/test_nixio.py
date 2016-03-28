@@ -37,12 +37,6 @@ class NixIOTest(unittest.TestCase):
     filename = None
     io = None
 
-    def tearDown(self):
-        if self.io:
-            del self.io
-        if self.filename and os.path.exists(self.filename):
-            os.remove(self.filename)
-
     def compare_blocks(self, neoblocks, nixblocks):
         for neoblock, nixblock in zip(neoblocks, nixblocks):
             self.compare_attr(neoblock, nixblock)
@@ -595,6 +589,10 @@ class NixIOWriteTest(NixIOTest):
     def setUp(self):
         self.filename = "nixio_testfile_write.h5"
         self.io = NixIO(self.filename, "ow")
+
+    def tearDown(self):
+        del self.io
+        os.remove(self.filename)
 
     def test_block_write(self):
         """
@@ -1317,19 +1315,6 @@ class NixIOReadTest(NixIOTest):
     def tearDown(self):
         pass
 
-    def _test_block_read(self):
-        """
-        Read Block test
-
-        Simple Block with basic attributes.
-        """
-        nix_block = self.io.nix_file.create_block(self.rword(), "neo.block")
-        nix_block.definition = self.rsentence()
-        neo_blocks = self.io.read_all_blocks()
-        self.assertEqual(len(neo_blocks), 1)
-        self.compare_attr(neo_blocks[0], nix_block)
-        self.compare_blocks(neo_blocks, [nix_block])
-
     def test_all_read(self):
         """
         Read everything: Integration test with all features
@@ -1374,15 +1359,11 @@ class NixIOReadTest(NixIOTest):
         neo_blocks = self.io.read_all_blocks(cascade="lazy", lazy=False)
         self.compare_blocks(neo_blocks, self.nix_blocks)
 
-    def _test_nocascade(self):
+    def test_nocascade(self):
         """
         Read a Block without cascading
         """
-        nix_block = self.io.nix_file.create_block(self.rword(), "neo.block")
-        nix_block.definition = self.rsentence()
-        for idx in range(5):
-            group = nix_block.create_group(self.rword(), "neo.segment")
-            group.definition = self.rsentence()
+        nix_block = self.nix_blocks[0]
         blockpath = "/" + nix_block.name
         neo_block = self.io.read_block(blockpath, cascade=False, lazy=False)
         self.assertEqual(len(neo_block.segments), 0)
@@ -1487,3 +1468,25 @@ class NixIOHashTest(NixIOTest):
                     self.rword(): lambda: self.rquant((10, 10), pq.mV)}
         self._hash_test(SpikeTrain, argfuncs)
 
+
+@unittest.skipIf(nomock, "Requires mock module")
+class NixIOMockTest(NixIOTest):
+
+    def setUp(self):
+        self.filename = "nixio_testfile_write.h5"
+        self.io = NixIO(self.filename, "rw")
+        self._create_full_nix()
+
+    @mock.patch("nixio.Block.create_group")
+    def test_block_modification(self, create_group):
+        create_group.return_value(None)
+
+        # neo_blocks = self.io.read_all_blocks()
+        # neo_block = neo_blocks[0]
+        # neo_block.description = self.rword()
+
+        # self.io.write_block(neo_block, "/")
+
+    @mock.patch("nixio.Block.create_group")
+    def test_segment_modification(self, create_group):
+        create_group.return_value(None)
