@@ -834,7 +834,7 @@ class NixIO(BaseIO):
         parent_block = self._get_object_at(block_path)
         parent_group = self._get_object_at(parent_path)
         attr = self._neo_attr_to_nix(sptr)
-        obj_path = parent_path + "/events/" + attr["name"]
+        obj_path = parent_path + "/spiketrains/" + attr["name"]
         old_hash = self._object_hashes.get(obj_path)
         new_hash = self._hash_object(sptr)
 
