@@ -515,8 +515,11 @@ class NixIO(BaseIO):
                         nix_source.name, idx
                     )
                 nix_chan_type = "neo.recordingchannel"
-                nix_chan = nix_source.create_source(nix_chan_name,
-                                                    nix_chan_type)
+                if old_hash is None:
+                    nix_chan = nix_source.create_source(nix_chan_name,
+                                                        nix_chan_type)
+                else:
+                    nix_chan = nix_source.sources[nix_chan_name]
                 nix_chan.definition = nix_source.definition
                 chan_obj_path = obj_path + "/recordingchannels/" + nix_chan_name
                 chan_metadata = self._get_or_init_metadata(nix_chan,
