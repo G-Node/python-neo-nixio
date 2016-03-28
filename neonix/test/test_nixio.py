@@ -1472,21 +1472,41 @@ class NixIOHashTest(NixIOTest):
 @unittest.skipIf(nomock, "Requires mock module")
 class NixIOMockTest(NixIOTest):
 
-    def setUp(self):
-        self.filename = "nixio_testfile_write.h5"
-        self.io = NixIO(self.filename, "rw")
-        self._create_full_nix()
+    neo_blocks = None
 
-    @mock.patch("nixio.Block.create_group")
-    def test_block_modification(self, create_group):
+    @classmethod
+    def modify_objects(cls, objs, exclude=list()):
+        for obj in objs:
+            if obj not in exclude:
+                obj.description = cls.rsentence()
+            for container in getattr(obj, "_child_containers", []):
+                children = getattr(obj, container)
+                cls.modify_objects(children)
+
+    @classmethod
+    def setUpClass(cls):
+        cls.create_nix_file()
+        cls.neo_blocks = cls.io.read_all_blocks()
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.delete_nix_file()
+
+    def tearDown(self):
+        pass
+
+    @mock.patch("nixio.File.create_block")
+    def test_partial_noblock(self, create_group):
         create_group.return_value(None)
 
-        # neo_blocks = self.io.read_all_blocks()
-        # neo_block = neo_blocks[0]
-        # neo_block.description = self.rword()
+        neo_blocks = self.neo_blocks
+        self.modify_objects(neo_blocks, exclude=[Block])
 
-        # self.io.write_block(neo_block, "/")
+        self.io.write_all_blocks(neo_blocks)
 
     @mock.patch("nixio.Block.create_group")
     def test_segment_modification(self, create_group):
         create_group.return_value(None)
+        neo_blocks = self.neo_blocks
+
+
