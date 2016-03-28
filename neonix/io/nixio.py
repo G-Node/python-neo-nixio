@@ -879,8 +879,9 @@ class NixIO(BaseIO):
                 wf_data = list(wf.magnitude for wf in
                                list(wfgroup for wfgroup in sptr.waveforms))
                 wf_name = attr["name"] + ".waveforms"
-                if wf_name in parent_block.data_arrays:
+                if old_hash:
                     del parent_block.data_arrays[wf_name]
+
                 waveforms_da = parent_block.create_data_array(wf_name,
                                                               "neo.waveforms",
                                                               data=wf_data)
@@ -899,8 +900,12 @@ class NixIO(BaseIO):
                 wf_timedim.unit = time_units
                 wf_timedim.label = "time"
                 wf_path = obj_path + "/waveforms/" + waveforms_da.name
-                waveforms_da.metadata = self._get_or_init_metadata(waveforms_da,
-                                                                   wf_path)
+                if old_hash:
+                    waveforms_da.metadata = mtag_metadata.sections[wf_name]
+                else:
+                    waveforms_da.metadata = self._get_or_init_metadata(
+                        waveforms_da, wf_path
+                    )
                 if sptr.left_sweep:
                     left_sweep = sptr.left_sweep.rescale(time_units).\
                         magnitude.item()
