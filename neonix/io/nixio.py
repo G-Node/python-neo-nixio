@@ -560,7 +560,7 @@ class NixIO(BaseIO):
         parent_group = self._get_object_at(parent_path)
         parent_metadata = self._get_or_init_metadata(parent_group, parent_path)
         attr = self._neo_attr_to_nix(anasig)
-        obj_path = parent_path + "/analogisgnals/" + attr["name"]
+        obj_path = parent_path + "/analogsignals/" + attr["name"]
         old_hash = self._object_hashes.get(obj_path)
         new_hash = self._hash_object(anasig)
         if old_hash is None:
