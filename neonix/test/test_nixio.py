@@ -1497,6 +1497,9 @@ class NixIOMockTest(NixIOTest):
 
     @mock.patch("nixio.File.create_block")
     def test_partial_noblock(self, create_group):
+        """
+        Partial write: All except Blocks
+        """
         create_group.return_value(None)
 
         neo_blocks = self.neo_blocks
@@ -1506,6 +1509,9 @@ class NixIOMockTest(NixIOTest):
 
     @mock.patch("nixio.Block.create_group")
     def test_segment_modification(self, create_group):
+        """
+        Partial write: All except Segments
+        """
         create_group.return_value(None)
         neo_blocks = self.neo_blocks
 
