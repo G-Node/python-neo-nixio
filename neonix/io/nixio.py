@@ -742,7 +742,7 @@ class NixIO(BaseIO):
                 nix_multi_tag.positions = times_da
 
             label_dim = nix_multi_tag.positions.append_set_dimension()
-            label_dim.labels = ep.labels.tolist()
+            label_dim.labels = ep.labels
             nix_multi_tag.extents = durations_da
             nix_multi_tag.definition = attr["definition"]
             object_path = parent_path + "/epochs/" + nix_multi_tag.name
