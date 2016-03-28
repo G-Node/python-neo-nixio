@@ -748,9 +748,14 @@ class NixIO(BaseIO):
             object_path = parent_path + "/epochs/" + nix_multi_tag.name
             self._write_attr_annotations(nix_multi_tag, attr, object_path)
 
-            nix_multi_tag.references.extend(
-                self._get_contained_signals(parent_group)
-            )
+            group_signals = self._get_contained_signals(parent_group)
+            if old_hash is None:
+                nix_multi_tag.references.extend(group_signals)
+            else:
+                nix_multi_tag.references.extend(
+                    [sig for sig in group_signals
+                     if sig not in nix_multi_tag.references]
+                )
 
             self._object_hashes[obj_path] = new_hash
         else:
@@ -794,17 +799,22 @@ class NixIO(BaseIO):
                 parent_group.multi_tags.append(nix_multi_tag)
             else:
                 nix_multi_tag = parent_block.multi_tags[attr["name"]]
-                nix_multi_tag.times = times_da
+                nix_multi_tag.positions = times_da
             nix_multi_tag.definition = attr["definition"]
 
             label_dim = nix_multi_tag.positions.append_set_dimension()
-            label_dim.labels = ev.labels.tolist()
+            label_dim.labels = ev.labels
 
             self._write_attr_annotations(nix_multi_tag, attr, obj_path)
 
-            nix_multi_tag.references.extend(
-                self._get_contained_signals(parent_group)
-            )
+            group_signals = self._get_contained_signals(parent_group)
+            if old_hash is None:
+                nix_multi_tag.references.extend(group_signals)
+            else:
+                nix_multi_tag.references.extend(
+                    [sig for sig in group_signals
+                     if sig not in nix_multi_tag.references]
+                )
 
             self._object_hashes[obj_path] = new_hash
         else:
