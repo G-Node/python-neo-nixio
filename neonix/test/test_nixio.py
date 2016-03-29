@@ -1490,7 +1490,7 @@ class NixIOMockTest(NixIOTest):
 
         nix_block_a.create_group(cls.rword(), "neo.segment")
         cls.neo_blocks = cls.io.read_all_blocks()
-        cls.write_attr_original = NixIO._write_attr_annotations
+        cls.write_attr_original = cls.io._write_attr_annotations
 
     @classmethod
     def tearDownClass(cls):
