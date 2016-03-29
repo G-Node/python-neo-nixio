@@ -15,6 +15,7 @@ from datetime import datetime
 from collections import Iterable
 import itertools
 from six import string_types
+from hashlib import md5
 import warnings
 
 import quantities as pq
@@ -86,6 +87,7 @@ class NixIO(BaseIO):
         self.nix_file = nixio.File.open(self.filename, filemode)
         self._object_map = dict()
         self._lazy_loaded = list()
+        self._object_hashes = dict()
 
     def __del__(self):
         self.nix_file.close()
@@ -102,7 +104,7 @@ class NixIO(BaseIO):
         neo_block.path = path
         if cascade:
             self._read_cascade(nix_block, path, cascade, lazy)
-        self._update_lazy_loaded(neo_block, lazy)
+        self._update_maps(neo_block, lazy)
         return neo_block
 
     def read_segment(self, path, cascade=True, lazy=False):
@@ -111,7 +113,7 @@ class NixIO(BaseIO):
         neo_segment.path = path
         if cascade:
             self._read_cascade(nix_group, path, cascade, lazy)
-        self._update_lazy_loaded(neo_segment, lazy)
+        self._update_maps(neo_segment, lazy)
         return neo_segment
 
     def read_recordingchannelgroup(self, path, cascade, lazy):
@@ -120,7 +122,7 @@ class NixIO(BaseIO):
         neo_rcg.path = path
         if cascade:
             self._read_cascade(nix_source, path, cascade, lazy)
-        self._update_lazy_loaded(neo_rcg, lazy)
+        self._update_maps(neo_rcg, lazy)
         return neo_rcg
 
     def read_signal(self, path, lazy=False):
@@ -143,7 +145,7 @@ class NixIO(BaseIO):
                 )
         neo_signal = self._signal_da_to_neo(nix_data_arrays, lazy)
         neo_signal.path = path
-        self._update_lazy_loaded(neo_signal, lazy)
+        self._update_maps(neo_signal, lazy)
         return neo_signal
 
     def read_analogsignal(self, path, cascade, lazy=False):
@@ -156,7 +158,7 @@ class NixIO(BaseIO):
         nix_mtag = self._get_object_at(path)
         neo_eest = self._mtag_eest_to_neo(nix_mtag, lazy)
         neo_eest.path = path
-        self._update_lazy_loaded(neo_eest, lazy)
+        self._update_maps(neo_eest, lazy)
         return neo_eest
 
     def read_epoch(self, path, cascade, lazy=False):
@@ -174,7 +176,7 @@ class NixIO(BaseIO):
         neo_unit.path = path
         if cascade:
             self._read_cascade(nix_source, path, cascade, lazy)
-        self._update_lazy_loaded(neo_unit, lazy)
+        self._update_maps(neo_unit, lazy)
         return neo_unit
 
     def _block_to_neo(self, nix_block):
@@ -380,26 +382,6 @@ class NixIO(BaseIO):
         neoobj = self.get(path, cascade=True, lazy=lazy)
         return neoobj
 
-    def write_block(self, bl, parent_path=None):
-        """
-        Convert ``bl`` to the NIX equivalent and write it to the file.
-
-        :param bl: Neo block to be written
-        :param parent_path: Unused for blocks
-        :return: The new NIX Block
-        """
-        attr = self._neo_attr_to_nix(bl, self.nix_file.blocks)
-        nix_block = self.nix_file.create_block(attr["name"], attr["type"])
-        nix_block.definition = attr["definition"]
-        object_path = "/" + nix_block.name
-        self._object_map[id(bl)] = nix_block
-        self._write_attr_annotations(nix_block, attr, object_path)
-        for segment in bl.segments:
-            self.write_segment(segment, object_path)
-        for rcg in bl.recordingchannelgroups:
-            self.write_recordingchannelgroup(rcg, object_path)
-        return nix_block
-
     def write_all_blocks(self, neo_blocks):
         """
         Convert all ``neo_blocks`` to the NIX equivalent and write them to the
@@ -408,102 +390,160 @@ class NixIO(BaseIO):
         :param neo_blocks: List (or iterable) containing Neo blocks
         :return: A list containing the new NIX Blocks
         """
-        nix_blocks = list(map(self.write_block, neo_blocks))
-        return nix_blocks
+        self.resolve_name_conflicts(neo_blocks)
+        for bl in neo_blocks:
+            self.write_block(bl)
 
-    def write_segment(self, seg, parent_path=None):
+    def write_block(self, bl, parent_path=""):
+        """
+        Convert ``bl`` to the NIX equivalent and write it to the file.
+
+        :param bl: Neo block to be written
+        :param parent_path: Unused for blocks
+        :return: The new NIX Block
+        """
+        if not bl.name:
+            self.resolve_name_conflicts([bl])
+        self.resolve_name_conflicts(bl.segments)
+        self.resolve_name_conflicts(bl.recordingchannelgroups)
+
+        allsignals = list()
+        alleests = list()
+        for s in bl.segments:
+            allsignals.extend(s.analogsignals)
+            allsignals.extend(s.irregularlysampledsignals)
+            alleests.extend(s.events)
+            alleests.extend(s.epochs)
+            alleests.extend(s.spiketrains)
+        self.resolve_name_conflicts(allsignals)
+        self.resolve_name_conflicts(alleests)
+
+        attr = self._neo_attr_to_nix(bl)
+        obj_path = "/" + attr["name"]
+        old_hash = self._object_hashes.get(obj_path)
+        new_hash = self._hash_object(bl)
+        if old_hash is None:
+            nix_block = self.nix_file.create_block(attr["name"], attr["type"])
+        else:
+            nix_block = self._get_object_at(obj_path)
+        if old_hash != new_hash:
+            nix_block.definition = attr["definition"]
+            self._write_attr_annotations(nix_block, attr, obj_path)
+            self._object_hashes[obj_path] = new_hash
+        self._object_map[id(bl)] = nix_block
+        for segment in bl.segments:
+            self.write_segment(segment, obj_path)
+        for rcg in bl.recordingchannelgroups:
+            self.write_recordingchannelgroup(rcg, obj_path)
+
+    def write_segment(self, seg, parent_path=""):
         """
         Convert the provided ``seg`` to a NIX Group and write it to the NIX
         file at the location defined by ``parent_path``.
 
         :param seg: Neo seg to be written
-        :param parent_path: Path to the parent of the new seg
+        :param parent_path: Path to the parent of the new Segment
         :return: The newly created NIX Group
         """
         parent_block = self._get_object_at(parent_path)
-        attr = self._neo_attr_to_nix(seg, parent_block.groups)
-        nix_group = parent_block.create_group(attr["name"], attr["type"])
-        nix_group.definition = attr["definition"]
-        object_path = parent_path + "/segments/" + nix_group.name
+        attr = self._neo_attr_to_nix(seg)
+        obj_path = parent_path + "/segments/" + attr["name"]
+        old_hash = self._object_hashes.get(obj_path)
+        new_hash = self._hash_object(seg)
+        if old_hash is None:
+            nix_group = parent_block.create_group(attr["name"], attr["type"])
+        else:
+            nix_group = self._get_object_at(obj_path)
+        if old_hash != new_hash:
+            nix_group.definition = attr["definition"]
+            self._write_attr_annotations(nix_group, attr, obj_path)
+            self._object_hashes[obj_path] = new_hash
         self._object_map[id(seg)] = nix_group
-        self._write_attr_annotations(nix_group, attr, object_path)
         for anasig in seg.analogsignals:
-            self.write_analogsignal(anasig, object_path)
+            self.write_analogsignal(anasig, obj_path)
         for irsig in seg.irregularlysampledsignals:
-            self.write_irregularlysampledsignal(irsig, object_path)
+            self.write_irregularlysampledsignal(irsig, obj_path)
         for ep in seg.epochs:
-            self.write_epoch(ep, object_path)
+            self.write_epoch(ep, obj_path)
         for ev in seg.events:
-            self.write_event(ev, object_path)
+            self.write_event(ev, obj_path)
         for sptr in seg.spiketrains:
-            self.write_spiketrain(sptr, object_path)
+            self.write_spiketrain(sptr, obj_path)
 
-        return nix_group
-
-    def write_recordingchannelgroup(self, rcg, parent_path=None):
+    def write_recordingchannelgroup(self, rcg, parent_path=""):
         """
         Convert the provided ``rcg`` (RecordingChannelGroup) to a NIX Source
         and write it to the NIX file at the location defined by ``parent_path``.
 
         :param rcg: The Neo RecordingChannelGroup to be written
-        :param parent_path: Path to the parent of the new segment
+        :param parent_path: Path to the parent of the new RCG
         :return: The newly created NIX Source
         """
+        self.resolve_name_conflicts(rcg.units)
+
         parent_block = self._get_object_at(parent_path)
-        attr = self._neo_attr_to_nix(rcg, parent_block.sources)
-        nix_source = parent_block.create_source(attr["name"], attr["type"])
-        nix_source.definition = attr["definition"]
-        object_path = parent_path + "/recordingchannelgroups/" + nix_source.name
+        attr = self._neo_attr_to_nix(rcg)
+        obj_path = parent_path + "/recordingchannelgroups/" + attr["name"]
+        old_hash = self._object_hashes.get(obj_path)
+        new_hash = self._hash_object(rcg)
+        if old_hash is None:
+            nix_source = parent_block.create_source(attr["name"], attr["type"])
+
+            # add signal references
+            for nix_asigs in self._get_mapped_objects(rcg.analogsignals):
+                # One AnalogSignal maps to list of DataArrays
+                for da in nix_asigs:
+                    da.sources.append(nix_source)
+            for nix_isigs in self._get_mapped_objects(
+                    rcg.irregularlysampledsignals
+            ):
+                # One IrregularlySampledSignal maps to list of DataArrays
+                for da in nix_isigs:
+                    da.sources.append(nix_source)
+        else:
+            nix_source = self._get_object_at(obj_path)
+        if old_hash != new_hash:
+            nix_source.definition = attr["definition"]
+            self._write_attr_annotations(nix_source, attr, obj_path)
+            for idx, channel in enumerate(rcg.channel_indexes):
+                # create child source objects to represent each channel
+                if len(rcg.channel_names):
+                    nix_chan_name = rcg.channel_names[idx]
+                else:
+                    nix_chan_name = "{}.RecordingChannel{}".format(
+                        nix_source.name, idx
+                    )
+                nix_chan_type = "neo.recordingchannel"
+                nix_chan = nix_source.create_source(nix_chan_name,
+                                                    nix_chan_type)
+                nix_chan.definition = nix_source.definition
+                chan_obj_path = obj_path + "/recordingchannels/" + nix_chan_name
+                chan_metadata = self._get_or_init_metadata(nix_chan,
+                                                           chan_obj_path)
+                chan_metadata["index"] = self._to_value(int(channel))
+                if "file_origin" in attr:
+                    chan_metadata["file_origin"] =\
+                        self._to_value(attr["file_origin"])
+
+                if hasattr(rcg, "coordinates"):
+                    chan_coords = rcg.coordinates[idx]
+                    coord_unit = str(chan_coords[0].dimensionality)
+                    nix_coord_unit = self._to_value(coord_unit)
+                    nix_coord_values = tuple(
+                        self._to_value(c.rescale(coord_unit).magnitude.item())
+                        for c in chan_coords
+                    )
+                    if "coordinates" in chan_metadata:
+                        del chan_metadata["coordinates"]
+                    chan_metadata.create_property("coordinates",
+                                                  nix_coord_values)
+                    chan_metadata["coordinates.units"] = nix_coord_unit
+            self._object_hashes[obj_path] = new_hash
         self._object_map[id(rcg)] = nix_source
-        self._write_attr_annotations(nix_source, attr, object_path)
-        for idx, channel in enumerate(rcg.channel_indexes):
-            # create a child source object to represent the individual channel
-            if len(rcg.channel_names):
-                nix_chan_name = rcg.channel_names[idx]
-            else:
-                nix_chan_name = "{}.RecordingChannel{}".format(
-                    parent_block.name, idx
-                )
-            nix_chan_type = "neo.recordingchannel"
-            nix_chan = nix_source.create_source(nix_chan_name, nix_chan_type)
-            nix_chan.definition = nix_source.definition
-            chan_obj_path = object_path + "/recordingchannels/" + nix_chan_name
-            chan_metadata = self._get_or_init_metadata(nix_chan,
-                                                       chan_obj_path)
-            chan_metadata.create_property("index", self._to_value(int(channel)))
-            if "file_origin" in attr:
-                chan_metadata.create_property(
-                    "file_origin", self._to_value(attr["file_origin"])
-                )
-
-            if hasattr(rcg, "coordinates"):
-                chan_coords = rcg.coordinates[idx]
-                coord_unit = str(chan_coords[0].dimensionality)
-                nix_coord_unit = self._to_value(coord_unit)
-                nix_coord_values = tuple(
-                    self._to_value(c.rescale(coord_unit).magnitude.item())
-                    for c in chan_coords
-                )
-                chan_metadata.create_property("coordinates",
-                                              nix_coord_values)
-                chan_metadata.create_property("coordinates.units",
-                                              nix_coord_unit)
         for unit in rcg.units:
-            self.write_unit(unit, object_path)
+            self.write_unit(unit, obj_path)
 
-        # add signal references
-        for nix_asigs in self._get_mapped_objects(rcg.analogsignals):
-            # One AnalogSignal maps to list of DataArrays
-            for da in nix_asigs:
-                da.sources.append(nix_source)
-        for nix_isigs in self._get_mapped_objects(rcg.irregularlysampledsignals):
-            # One IrregularlySampledSignal maps to list of DataArrays
-            for da in nix_isigs:
-                da.sources.append(nix_source)
-
-        return nix_source
-
-    def write_analogsignal(self, anasig, parent_path=None):
+    def write_analogsignal(self, anasig, parent_path=""):
         """
         Convert the provided ``anasig`` (AnalogSignal) to a list of NIX
         DataArray objects and write them to the NIX file at the location defined
@@ -511,56 +551,75 @@ class NixIO(BaseIO):
         AnalogSignal have their metadata section point to the same object.
 
         :param anasig: The Neo AnalogSignal to be written
-        :param parent_path: Path to the parent of the new segment
+        :param parent_path: Path to the parent of the new AnalogSignal
         :return: A list containing the newly created NIX DataArrays
         """
-        parent_group = self._get_object_at(parent_path)
+
         block_path = "/" + parent_path.split("/")[1]
         parent_block = self._get_object_at(block_path)
+        parent_group = self._get_object_at(parent_path)
         parent_metadata = self._get_or_init_metadata(parent_group, parent_path)
-        attr = self._neo_attr_to_nix(anasig, parent_block.data_arrays)
-        anasig_group_segment = parent_metadata.create_section(
-            attr["name"], attr["type"]+".metadata"
-        )
-
-        if "file_origin" in attr:
-            anasig_group_segment.create_property(
-                "file_origin", self._to_value(attr["file_origin"])
+        attr = self._neo_attr_to_nix(anasig)
+        obj_path = parent_path + "/analogisgnals/" + attr["name"]
+        old_hash = self._object_hashes.get(obj_path)
+        new_hash = self._hash_object(anasig)
+        if old_hash is None:
+            anasig_group_segment = parent_metadata.create_section(
+                attr["name"], attr["type"]+".metadata"
             )
-        if anasig.annotations:
-            self._add_annotations(anasig.annotations, anasig_group_segment)
-
-        # common properties
-        data_units = self._get_units(anasig)
-        # often sampling period is in 1/Hz or 1/kHz - simplifying to s
-        time_units = self._get_units(anasig.sampling_period, True)
-        # rescale after simplification
-        offset = anasig.t_start.rescale(time_units).item()
-        sampling_interval = anasig.sampling_period.rescale(time_units).item()
-
+            new = True
+        else:
+            anasig_group_segment = parent_metadata.sections[attr["name"]]
+            new = False
         nix_data_arrays = list()
-        for idx, sig in enumerate(anasig.transpose()):
-            nix_data_array = parent_block.create_data_array(
-                "{}.{}".format(attr["name"], idx),
-                attr["type"],
-                data=sig.magnitude
-            )
-            nix_data_array.definition = attr["definition"]
-            nix_data_array.unit = data_units
+        if old_hash != new_hash:
+            if "file_origin" in attr:
+                anasig_group_segment["file_origin"] =\
+                    self._to_value(attr["file_origin"])
+            if anasig.annotations:
+                self._add_annotations(anasig.annotations, anasig_group_segment)
 
-            timedim = nix_data_array.append_sampled_dimension(sampling_interval)
-            timedim.unit = time_units
-            timedim.label = "time"
-            timedim.offset = offset
-            chandim = nix_data_array.append_set_dimension()
-            parent_group.data_arrays.append(nix_data_array)
-            # point metadata to common section
-            nix_data_array.metadata = anasig_group_segment
-            nix_data_arrays.append(nix_data_array)
+            # common properties
+            data_units = self._get_units(anasig)
+            # often sampling period is in 1/Hz or 1/kHz - simplifying to s
+            time_units = self._get_units(anasig.sampling_period, True)
+            # rescale after simplification
+            offset = anasig.t_start.rescale(time_units).item()
+            sampling_interval = anasig.sampling_period.rescale(time_units).item()
+
+            for idx, sig in enumerate(anasig.transpose()):
+                daname = "{}.{}".format(attr["name"], idx)
+                if new:
+                    nix_data_array = parent_block.create_data_array(
+                        daname,
+                        attr["type"],
+                        data=sig.magnitude
+                    )
+                    parent_group.data_arrays.append(nix_data_array)
+                else:
+                    nix_data_array = parent_block.data_arrays[daname]
+                nix_data_array.definition = attr["definition"]
+                nix_data_array.unit = data_units
+
+                timedim = nix_data_array.append_sampled_dimension(
+                    sampling_interval
+                )
+                timedim.unit = time_units
+                timedim.label = "time"
+                timedim.offset = offset
+                chandim = nix_data_array.append_set_dimension()
+                # point metadata to common section
+                nix_data_array.metadata = anasig_group_segment
+                nix_data_arrays.append(nix_data_array)
+                self._object_hashes[obj_path] = new_hash
+        else:
+            for idx, sig in enumerate(anasig.transpose()):
+                daname = "{}.{}".format(attr["name"], idx)
+                nix_data_array = parent_block.data_arrays[daname]
+                nix_data_arrays.append(nix_data_array)
         self._object_map[id(anasig)] = nix_data_arrays
-        return nix_data_arrays
 
-    def write_irregularlysampledsignal(self, irsig, parent_path=None):
+    def write_irregularlysampledsignal(self, irsig, parent_path=""):
         """
         Convert the provided ``irsig`` (IrregularlySampledSignal) to a list of
         NIX DataArray objects and write them to the NIX file at the location
@@ -572,50 +631,65 @@ class NixIO(BaseIO):
         :param parent_path: Path to the parent of the new
         :return: The newly created NIX DataArray
         """
-        parent_group = self._get_object_at(parent_path)
         block_path = "/" + parent_path.split("/")[1]
         parent_block = self._get_object_at(block_path)
+        parent_group = self._get_object_at(parent_path)
         parent_metadata = self._get_or_init_metadata(parent_group, parent_path)
-        attr = self._neo_attr_to_nix(irsig, parent_block.data_arrays)
-        irsig_group_segment = parent_metadata.create_section(
-            attr["name"], attr["type"]+".metadata"
-        )
-
-        if "file_origin" in attr:
-            irsig_group_segment.create_property(
-                "file_origin", self._to_value(attr["file_origin"])
+        attr = self._neo_attr_to_nix(irsig)
+        obj_path = parent_path + "/irregularlysampledsignals/" + attr["name"]
+        old_hash = self._object_hashes.get(obj_path)
+        new_hash = self._hash_object(irsig)
+        if old_hash is None:
+            irsig_group_segment = parent_metadata.create_section(
+                attr["name"], attr["type"]+".metadata"
             )
-
-        if irsig.annotations:
-            self._add_annotations(irsig.annotations, irsig_group_segment)
-
-        # common properties
-        data_units = self._get_units(irsig)
-        time_units = self._get_units(irsig.times)
-        times = irsig.times.magnitude.tolist()
-
+            new = True
+        else:
+            irsig_group_segment = parent_metadata.sections[attr["name"]]
+            new = False
         nix_data_arrays = list()
-        for idx, sig in enumerate(irsig.transpose()):
-            nix_data_array = parent_block.create_data_array(
-                "{}.{}".format(attr["name"], idx),
-                attr["type"],
-                data=sig.magnitude
-            )
-            nix_data_array.definition = attr["definition"]
-            nix_data_array.unit = data_units
+        if old_hash != new_hash:
+            if "file_origin" in attr:
+                irsig_group_segment["file_origin"] =\
+                    self._to_value(attr["file_origin"])
+            if irsig.annotations:
+                self._add_annotations(irsig.annotations, irsig_group_segment)
 
-            timedim = nix_data_array.append_range_dimension(times)
-            timedim.unit = time_units
-            timedim.label = "time"
-            chandim = nix_data_array.append_set_dimension()
-            parent_group.data_arrays.append(nix_data_array)
-            # point metadata to common section
-            nix_data_array.metadata = irsig_group_segment
-            nix_data_arrays.append(nix_data_array)
+            # common properties
+            data_units = self._get_units(irsig)
+            time_units = self._get_units(irsig.times)
+            times = irsig.times.magnitude.tolist()
+
+            for idx, sig in enumerate(irsig.transpose()):
+                daname = "{}.{}".format(attr["name"], idx)
+                if new:
+                    nix_data_array = parent_block.create_data_array(
+                        daname,
+                        attr["type"],
+                        data=sig.magnitude
+                    )
+                    parent_group.data_arrays.append(nix_data_array)
+                else:
+                    nix_data_array = parent_block.data_arrays[daname]
+                nix_data_array.definition = attr["definition"]
+                nix_data_array.unit = data_units
+
+                timedim = nix_data_array.append_range_dimension(times)
+                timedim.unit = time_units
+                timedim.label = "time"
+                chandim = nix_data_array.append_set_dimension()
+                # point metadata to common section
+                nix_data_array.metadata = irsig_group_segment
+                nix_data_arrays.append(nix_data_array)
+            self._object_hashes[obj_path] = new_hash
+        else:
+            for idx, sig in enumerate(irsig.transpose()):
+                daname = "{}.{}".format(attr["name"], idx)
+                nix_data_array = parent_block.data_arrays[daname]
+                nix_data_arrays.append(nix_data_array)
         self._object_map[id(irsig)] = nix_data_arrays
-        return nix_data_arrays
 
-    def write_epoch(self, ep, parent_path=None):
+    def write_epoch(self, ep, parent_path=""):
         """
         Convert the provided ``ep`` (Epoch) to a NIX MultiTag and write it to
         the NIX file at the location defined by ``parent_path``.
@@ -624,49 +698,65 @@ class NixIO(BaseIO):
         :param parent_path: Path to the parent of the new MultiTag
         :return: The newly created NIX MultiTag
         """
-        parent_group = self._get_object_at(parent_path)
         block_path = "/" + parent_path.split("/")[1]
         parent_block = self._get_object_at(block_path)
-        attr = self._neo_attr_to_nix(ep, parent_block.multi_tags)
+        parent_group = self._get_object_at(parent_path)
+        attr = self._neo_attr_to_nix(ep)
+        obj_path = parent_path + "/epochs/" + attr["name"]
+        old_hash = self._object_hashes.get(obj_path)
+        new_hash = self._hash_object(ep)
 
-        # times -> positions
-        times = ep.times.magnitude
-        time_units = self._get_units(ep.times)
+        if old_hash != new_hash:
+            # times -> positions
+            times_da_name = attr["name"] + ".times"
+            times = ep.times.magnitude
+            time_units = self._get_units(ep.times)
 
-        times_da = parent_block.create_data_array(
-            attr["name"]+".times", attr["type"]+".times", data=times
-        )
-        times_da.unit = time_units
+            # durations -> extents
+            dura_da_name = attr["name"] + ".durations"
+            durations = ep.durations.magnitude
+            duration_units = self._get_units(ep.durations)
 
-        # durations -> extents
-        durations = ep.durations.magnitude
-        duration_units = self._get_units(ep.durations)
+            if old_hash:
+                del parent_block.data_arrays[times_da_name]
+                del parent_block.data_arrays[dura_da_name]
 
-        durations_da = parent_block.create_data_array(
-            attr["name"]+".durations",
-            attr["type"]+".durations",
-            data=durations
-        )
-        durations_da.unit = duration_units
+            times_da = parent_block.create_data_array(
+                times_da_name, attr["type"]+".times", data=times
+            )
+            times_da.unit = time_units
+            durations_da = parent_block.create_data_array(
+                attr["name"]+".durations",
+                attr["type"]+".durations",
+                data=durations
+            )
+            durations_da.unit = duration_units
 
-        # ready to create MTag
-        nix_multi_tag = parent_block.create_multi_tag(
-            attr["name"], attr["type"], times_da)
-        label_dim = nix_multi_tag.positions.append_set_dimension()
-        label_dim.labels = ep.labels.tolist()
-        nix_multi_tag.extents = durations_da
-        parent_group.multi_tags.append(nix_multi_tag)
-        nix_multi_tag.definition = attr["definition"]
-        object_path = parent_path + "/epochs/" + nix_multi_tag.name
+            if old_hash is None:
+                nix_multi_tag = parent_block.create_multi_tag(
+                    attr["name"], attr["type"], times_da
+                )
+                parent_group.multi_tags.append(nix_multi_tag)
+            else:
+                nix_multi_tag = parent_block.multi_tags[attr["name"]]
+
+            label_dim = nix_multi_tag.positions.append_set_dimension()
+            label_dim.labels = ep.labels.tolist()
+            nix_multi_tag.extents = durations_da
+            nix_multi_tag.definition = attr["definition"]
+            object_path = parent_path + "/epochs/" + nix_multi_tag.name
+            self._write_attr_annotations(nix_multi_tag, attr, object_path)
+
+            nix_multi_tag.references.extend(
+                self._get_contained_signals(parent_group)
+            )
+
+            self._object_hashes[obj_path] = new_hash
+        else:
+            nix_multi_tag = parent_block.multi_tags[attr["name"]]
         self._object_map[id(ep)] = nix_multi_tag
-        self._write_attr_annotations(nix_multi_tag, attr, object_path)
 
-        nix_multi_tag.references.extend(
-            self._get_contained_signals(parent_group)
-        )
-        return nix_multi_tag
-
-    def write_event(self, ev, parent_path=None):
+    def write_event(self, ev, parent_path=""):
         """
         Convert the provided ``ev`` (Event) to a NIX MultiTag and write it to
         the NIX file at the location defined by ``parent_path``.
@@ -675,38 +765,52 @@ class NixIO(BaseIO):
         :param parent_path: Path to the parent of the new MultiTag
         :return: The newly created NIX MultiTag
         """
-        parent_group = self._get_object_at(parent_path)
         block_path = "/" + parent_path.split("/")[1]
         parent_block = self._get_object_at(block_path)
-        attr = self._neo_attr_to_nix(ev, parent_block.multi_tags)
+        parent_group = self._get_object_at(parent_path)
+        attr = self._neo_attr_to_nix(ev)
+        obj_path = parent_path + "/events/" + attr["name"]
+        old_hash = self._object_hashes.get(obj_path)
+        new_hash = self._hash_object(ev)
+        if old_hash != new_hash:
+            # times -> positions
+            times_da_name = attr["name"] + ".times"
+            times = ev.times.magnitude
+            time_units = self._get_units(ev.times)
 
-        # times -> positions
-        times = ev.times.magnitude
-        time_units = self._get_units(ev.times)
+            if old_hash:
+                del parent_block.data_arrays[times_da_name]
 
-        times_da = parent_block.create_data_array(
-            attr["name"]+".times", attr["type"]+".times", data=times
-        )
-        times_da.unit = time_units
+            times_da = parent_block.create_data_array(
+                times_da_name, attr["type"]+".times", data=times
+            )
+            times_da.unit = time_units
 
-        # ready to create MTag
-        nix_multi_tag = parent_block.create_multi_tag(
-            attr["name"], attr["type"], times_da
-        )
-        label_dim = nix_multi_tag.positions.append_set_dimension()
-        label_dim.labels = ev.labels.tolist()
-        parent_group.multi_tags.append(nix_multi_tag)
-        nix_multi_tag.definition = attr["definition"]
-        object_path = parent_path + "/events/" + nix_multi_tag.name
+            if old_hash is None:
+                nix_multi_tag = parent_block.create_multi_tag(
+                    attr["name"], attr["type"], times_da
+                )
+                parent_group.multi_tags.append(nix_multi_tag)
+            else:
+                nix_multi_tag = parent_block.multi_tags[attr["name"]]
+                nix_multi_tag.times = times_da
+            nix_multi_tag.definition = attr["definition"]
+
+            label_dim = nix_multi_tag.positions.append_set_dimension()
+            label_dim.labels = ev.labels.tolist()
+
+            self._write_attr_annotations(nix_multi_tag, attr, obj_path)
+
+            nix_multi_tag.references.extend(
+                self._get_contained_signals(parent_group)
+            )
+
+            self._object_hashes[obj_path] = new_hash
+        else:
+            nix_multi_tag = parent_block.multi_tags[attr["name"]]
         self._object_map[id(ev)] = nix_multi_tag
-        self._write_attr_annotations(nix_multi_tag, attr, object_path)
 
-        nix_multi_tag.references.extend(
-            self._get_contained_signals(parent_group)
-        )
-        return nix_multi_tag
-
-    def write_spiketrain(self, sptr, parent_path=None):
+    def write_spiketrain(self, sptr, parent_path=""):
         """
         Convert the provided ``sptr`` (SpikeTrain) to a NIX MultiTag and write
         it to the NIX file at the location defined by ``parent_path``.
@@ -715,69 +819,88 @@ class NixIO(BaseIO):
         :param parent_path: Path to the parent of the new MultiTag
         :return: The newly created NIX MultiTag
         """
-        parent_group = self._get_object_at(parent_path)
         block_path = "/" + parent_path.split("/")[1]
         parent_block = self._get_object_at(block_path)
-        attr = self._neo_attr_to_nix(sptr, parent_block.multi_tags)
+        parent_group = self._get_object_at(parent_path)
+        attr = self._neo_attr_to_nix(sptr)
+        obj_path = parent_path + "/events/" + attr["name"]
+        old_hash = self._object_hashes.get(obj_path)
+        new_hash = self._hash_object(sptr)
 
-        # spike times
-        time_units = self._get_units(sptr.times)
-        times = sptr.times.magnitude
-        times_da = parent_block.create_data_array(
-            attr["name"]+".times", attr["type"]+".times", data=times
-        )
-        times_da.unit = time_units
+        if old_hash != new_hash:
+            # spike times
+            times_da_name = attr["name"] + ".times"
+            times = sptr.times.magnitude
+            time_units = self._get_units(sptr.times)
 
-        # ready to create MTag
-        nix_multi_tag = parent_block.create_multi_tag(
-            attr["name"], attr["type"], times_da
-        )
-        parent_group.multi_tags.append(nix_multi_tag)
+            if old_hash:
+                del parent_block.data_arrays[times_da_name]
 
-        nix_multi_tag.definition = attr["definition"]
-        object_path = parent_path + "/spiketrains/" + nix_multi_tag.name
+            times_da = parent_block.create_data_array(
+                times_da_name, attr["type"]+".times", data=times
+            )
+            times_da.unit = time_units
+
+            if old_hash is None:
+                nix_multi_tag = parent_block.create_multi_tag(
+                    attr["name"], attr["type"], times_da
+                )
+                parent_group.multi_tags.append(nix_multi_tag)
+            else:
+                nix_multi_tag = parent_block.multi_tags[attr["name"]]
+                nix_multi_tag.times = times_da
+            nix_multi_tag.definition = attr["definition"]
+
+            self._write_attr_annotations(nix_multi_tag, attr, obj_path)
+
+            mtag_metadata = self._get_or_init_metadata(nix_multi_tag,
+                                                       obj_path)
+            if sptr.t_start:
+                t_start = sptr.t_start.rescale(time_units).magnitude.item()
+                mtag_metadata["t_start"] = self._to_value(t_start)
+            # t_stop is not optional
+            t_stop = sptr.t_stop.rescale(time_units).magnitude.item()
+            mtag_metadata["t_stop"] = self._to_value(t_stop)
+
+            # waveforms
+            if sptr.waveforms is not None:
+                wf_data = list(wf.magnitude for wf in
+                               list(wfgroup for wfgroup in sptr.waveforms))
+                wf_name = attr["name"] + ".waveforms"
+                if wf_name in parent_block.data_arrays:
+                    del parent_block.data_arrays[wf_name]
+                waveforms_da = parent_block.create_data_array(wf_name,
+                                                              "neo.waveforms",
+                                                              data=wf_data)
+                wf_unit = self._get_units(sptr.waveforms)
+                waveforms_da.unit = wf_unit
+                nix_multi_tag.create_feature(waveforms_da,
+                                             nixio.LinkType.Indexed)
+                time_units = self._get_units(sptr.sampling_period, True)
+                sampling_interval =\
+                    sptr.sampling_period.rescale(time_units).item()
+                wf_spikedim = waveforms_da.append_set_dimension()
+                wf_chandim = waveforms_da.append_set_dimension()
+                wf_timedim = waveforms_da.append_sampled_dimension(
+                    sampling_interval
+                )
+                wf_timedim.unit = time_units
+                wf_timedim.label = "time"
+                wf_path = obj_path + "/waveforms/" + waveforms_da.name
+                waveforms_da.metadata = self._get_or_init_metadata(waveforms_da,
+                                                                   wf_path)
+                if sptr.left_sweep:
+                    left_sweep = sptr.left_sweep.rescale(time_units).\
+                        magnitude.item()
+                    waveforms_da.metadata["left_sweep"] =\
+                        self._to_value(left_sweep)
+
+            self._object_hashes[obj_path] = new_hash
+        else:
+            nix_multi_tag = parent_block.multi_tags[attr["name"]]
         self._object_map[id(sptr)] = nix_multi_tag
 
-        mtag_metadata = self._get_or_init_metadata(nix_multi_tag, object_path)
-        self._write_attr_annotations(nix_multi_tag, attr, object_path)
-        if sptr.t_start:
-            t_start = sptr.t_start.rescale(time_units).magnitude.item()
-            mtag_metadata.create_property("t_start",
-                                          self._to_value(t_start))
-        # t_stop is not optional
-        t_stop = sptr.t_stop.rescale(time_units).magnitude.item()
-        mtag_metadata.create_property("t_stop", self._to_value(t_stop))
-
-        # waveforms
-        if sptr.waveforms is not None:
-            wf_data = list(wf.magnitude for wf in
-                           list(wfgroup for wfgroup in sptr.waveforms))
-            waveforms_da = parent_block.create_data_array(
-                attr["name"]+".waveforms", "neo.waveforms", data=wf_data
-            )
-            wf_unit = self._get_units(sptr.waveforms)
-            waveforms_da.unit = wf_unit
-            nix_multi_tag.create_feature(waveforms_da, nixio.LinkType.Indexed)
-            time_units = self._get_units(sptr.sampling_period, True)
-            sampling_interval = sptr.sampling_period.rescale(time_units).item()
-            wf_spikedim = waveforms_da.append_set_dimension()
-            wf_chandim = waveforms_da.append_set_dimension()
-            wf_timedim = waveforms_da.append_sampled_dimension(sampling_interval)
-            wf_timedim.unit = time_units
-            wf_timedim.label = "time"
-            wf_path = object_path + "/waveforms/" + waveforms_da.name
-            waveforms_da.metadata = self._get_or_init_metadata(waveforms_da,
-                                                               wf_path)
-            if sptr.left_sweep:
-                left_sweep = sptr.left_sweep.rescale(time_units).\
-                    magnitude.item()
-                waveforms_da.metadata.create_property(
-                    "left_sweep", self._to_value(left_sweep)
-                )
-
-        return nix_multi_tag
-
-    def write_unit(self, ut, parent_path=None):
+    def write_unit(self, ut, parent_path=""):
         """
         Convert the provided ``ut`` (Unit) to a NIX Source and write it to the
         NIX file at the parent RCG.
@@ -787,19 +910,24 @@ class NixIO(BaseIO):
         :return: The newly created NIX Source
         """
         parent_source = self._get_object_at(parent_path)
-        attr = self._neo_attr_to_nix(ut, parent_source.sources)
-        nix_source = parent_source.create_source(attr["name"], attr["type"])
-        nix_source.definition = attr["definition"]
-        # Units are children of the Block
-        object_path = parent_path + "/units/" + nix_source.name
-        self._object_map[id(ut)] = nix_source
-        self._write_attr_annotations(nix_source, attr, object_path)
-        # Make contained spike trains refer to parent rcg and new unit
-        for nix_st in self._get_mapped_objects(ut.spiketrains):
-            nix_st.sources.append(parent_source)
-            nix_st.sources.append(nix_source)
+        attr = self._neo_attr_to_nix(ut)
+        obj_path = parent_path + "/units/" + attr["name"]
+        old_hash = self._object_hashes.get(obj_path)
+        new_hash = self._hash_object(ut)
+        if old_hash is None:
+            nix_source = parent_source.create_source(attr["name"], attr["type"])
+            for nix_st in self._get_mapped_objects(ut.spiketrains):
+                nix_st.sources.append(parent_source)
+                nix_st.sources.append(nix_source)
+        else:
+            nix_source = parent_source.sources[attr["name"]]
+        if old_hash != new_hash:
+            nix_source.definition = attr["definition"]
+            self._write_attr_annotations(nix_source, attr, obj_path)
+            # Make contained spike trains refer to parent rcg and new unit
+            self._object_hashes[obj_path] = new_hash
 
-        return nix_source
+        self._object_map[id(ut)] = nix_source
 
     def _get_or_init_metadata(self, nix_obj, path):
         """
@@ -826,15 +954,17 @@ class NixIO(BaseIO):
 
     def _get_object_at(self, path):
         """
-        Returns the object at the location defined by the path. ``path`` is a
-        '/' delimited string. Each part of the string alternates between an
-        object name and a container.
+        Returns the object at the location defined by the path.
+        ``path`` is a '/' delimited string. Each part of the string alternates
+        between an object name and a container.
 
         Example path: /block_1/segments/segment_a/events/event_a1
 
         :param path: Path string
         :return: The object at the location defined by the path
         """
+        if path == "":
+            return self.nix_file
         parts = path.split("/")
         if parts[0]:
             ValueError("Invalid object path: {}".format(path))
@@ -863,24 +993,23 @@ class NixIO(BaseIO):
             nix_object.force_created_at(calculate_timestamp(attr["created_at"]))
         if "file_datetime" in attr:
             metadata = self._get_or_init_metadata(nix_object, object_path)
-            metadata.create_property(
-                "file_datetime", self._to_value(attr["file_datetime"])
-            )
+            metadata["file_datetime"] = self._to_value(attr["file_datetime"])
         if "file_origin" in attr:
             metadata = self._get_or_init_metadata(nix_object, object_path)
-            metadata.create_property(
-                "file_origin", self._to_value(attr["file_origin"])
-            )
+            metadata["file_origin"] = self._to_value(attr["file_origin"])
+
         if "annotations" in attr:
             metadata = self._get_or_init_metadata(nix_object, object_path)
             self._add_annotations(attr["annotations"], metadata)
 
-    def _update_lazy_loaded(self, obj, lazy):
+    def _update_maps(self, obj, lazy):
         objidx = self._find_lazy_loaded(obj)
         if lazy and objidx is None:
             self._lazy_loaded.append(obj)
         elif not lazy and objidx is not None:
             self._lazy_loaded.pop(objidx)
+        if not lazy:
+            self._object_hashes[obj.path] = self._hash_object(obj)
 
     def _find_lazy_loaded(self, obj):
         """
@@ -898,26 +1027,40 @@ class NixIO(BaseIO):
             return None
 
     @staticmethod
-    def _neo_attr_to_nix(neo_obj, container):
-        nix_attrs = dict()
+    def resolve_name_conflicts(objects):
+        """
+        Given a list of neo objects, change their names such that no two objects
+        share the same name. Objects with no name are renamed based on their
+        type.
+
+        :param objects: List of Neo objects
+        """
+        if not len(objects):
+            return
+        names = [obj.name for obj in objects]
+        for idx, cn in enumerate(names):
+            if not cn:
+                neo_type = type(objects[idx]).__name__
+                cn = "neo.{}".format(neo_type)
+            else:
+                names[idx] = ""
+            if cn not in names:
+                newname = cn
+            else:
+                suffix = 1
+                newname = "{}-{}".format(cn, suffix)
+                while newname in names:
+                    suffix += 1
+                    newname = "{}-{}".format(cn, suffix)
+            names[idx] = newname
+        for obj, n in zip(objects, names):
+            obj.name = n
+
+    @staticmethod
+    def _neo_attr_to_nix(neo_obj):
         neo_type = type(neo_obj).__name__
-        if neo_obj.name:
-            nix_basename = neo_obj.name
-        else:
-            nix_basename = "neo.{}".format(neo_type)
-        if neo_type in ["AnalogSignal", "IrregularlySampledSignal"]:
-            suffix = ".0"
-        else:
-            suffix = ""
-        if nix_basename+suffix not in container:
-            nix_name = nix_basename
-        else:
-            idx = 1
-            nix_name = "{}-{}".format(nix_basename, idx)
-            while nix_name+suffix in container:
-                idx += 1
-                nix_name = "{}-{}".format(nix_basename, idx)
-        nix_attrs["name"] = nix_name
+        nix_attrs = dict()
+        nix_attrs["name"] = neo_obj.name
         nix_attrs["type"] = "neo.{}".format(neo_type.lower())
         nix_attrs["definition"] = neo_obj.description
         if isinstance(neo_obj, (Block, Segment)):
@@ -935,7 +1078,7 @@ class NixIO(BaseIO):
     def _add_annotations(cls, annotations, metadata):
         for k, v in annotations.items():
             v = cls._to_value(v)
-            metadata.create_property(k, v)
+            metadata[k] = v
 
     @staticmethod
     def _to_value(v):
@@ -1055,3 +1198,79 @@ class NixIO(BaseIO):
                 return dim
         return None
 
+    @staticmethod
+    def _hash_object(obj):
+        """
+        Computes an MD5 hash of a Neo object based on its attribute values and
+        data objects. Child objects are not counted.
+
+        :param obj: A Neo object
+        :return: MD5 sum
+        """
+        objhash = md5()
+
+        def strupdate(a):
+            objhash.update(str(a).encode())
+
+        def dupdate(d):
+            if isinstance(d, np.ndarray) and not d.flags["C_CONTIGUOUS"]:
+                d = d.copy(order="C")
+            objhash.update(d)
+
+        # attributes
+        strupdate(obj.name)
+        strupdate(obj.description)
+        strupdate(obj.file_origin)
+
+        # annotations
+        for k, v in sorted(obj.annotations.items()):
+            strupdate(k)
+            strupdate(v)
+
+        # data objects and type-specific attributes
+        if isinstance(obj, (Block, Segment)):
+            strupdate(obj.rec_datetime)
+            strupdate(obj.file_datetime)
+        elif isinstance(obj, RecordingChannelGroup):
+            for idx in obj.channel_indexes:
+                strupdate(idx)
+            for n in obj.channel_names:
+                strupdate(n)
+            if hasattr(obj, "coordinates"):
+                for coord in obj.coordinates:
+                    for c in coord:
+                        strupdate(c)
+        elif isinstance(obj, AnalogSignal):
+            dupdate(obj)
+            dupdate(obj.units)
+            dupdate(obj.t_start)
+            dupdate(obj.sampling_rate)
+            dupdate(obj.t_stop)
+        elif isinstance(obj, IrregularlySampledSignal):
+            dupdate(obj)
+            dupdate(obj.times)
+            dupdate(obj.units)
+        elif isinstance(obj, Event):
+            dupdate(obj.times)
+            for l in obj.labels:
+                strupdate(l)
+        elif isinstance(obj, Epoch):
+            dupdate(obj.times)
+            dupdate(obj.durations)
+            for l in obj.labels:
+                strupdate(l)
+        elif isinstance(obj, SpikeTrain):
+            dupdate(obj.times)
+            dupdate(obj.units)
+            dupdate(obj.t_stop)
+            dupdate(obj.t_start)
+            if obj.waveforms is not None:
+                dupdate(obj.waveforms)
+            dupdate(obj.sampling_rate)
+            if obj.left_sweep:
+                strupdate(obj.left_sweep)
+
+        # type
+        strupdate(type(obj).__name__)
+
+        return objhash.hexdigest()
