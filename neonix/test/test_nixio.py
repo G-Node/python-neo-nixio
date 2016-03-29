@@ -1499,15 +1499,7 @@ class NixIOMockTest(NixIOTest):
     def tearDown(self):
         self.io._write_attr_annotations = self.write_attr_original
 
-    def check_obj_type(self, typestring):
-        neq = self.assertNotEqual
-
-        def func(*args, **kwargs):
-            obj = kwargs.get("nix_object", args[0])
-            neq(obj.type, typestring)
-        return func
-
-    def _test_partial(self, objclass):
+    def _mock_write_attr(self, objclass):
         typestr = str(objclass.__name__).lower()
         self.io._write_attr_annotations = mock.Mock(
             wraps=self.io._write_attr_annotations,
@@ -1516,6 +1508,14 @@ class NixIOMockTest(NixIOTest):
         neo_blocks = self.neo_blocks
         self.modify_objects(neo_blocks, excludes=[objclass])
         self.io.write_all_blocks(neo_blocks)
+
+    def check_obj_type(self, typestring):
+        neq = self.assertNotEqual
+
+        def side_effect_func(*args, **kwargs):
+            objclass = kwargs.get("nix_object", args[0])
+            neq(objclass.type, typestring)
+        return side_effect_func
 
     @classmethod
     def modify_objects(cls, objs, excludes=()):
@@ -1531,22 +1531,55 @@ class NixIOMockTest(NixIOTest):
         """
         Partial write: All except Blocks
         """
-        self._test_partial(Block)
+        self._mock_write_attr(Block)
 
     def test_partial_noseg(self):
         """
         Partial write: All except Segments
         """
-        self._test_partial(Segment)
+        self._mock_write_attr(Segment)
 
     def test_partial_norcg(self):
         """
         Partial write: All except RCG
         """
-        self._test_partial(RecordingChannelGroup)
+        self._mock_write_attr(RecordingChannelGroup)
 
     def test_partial_noasig(self):
         """
         Partial write: All except AnalogSignal
         """
-        self._test_partial(AnalogSignal)
+        self._mock_write_attr(AnalogSignal)
+
+    def test_partial_noisig(self):
+        """
+        Partial write: All except IrregularlySampledSignal
+        """
+        self._mock_write_attr(IrregularlySampledSignal)
+
+    def test_partial_noepoch(self):
+        """
+        Partial write: All except Epoch
+        """
+        self._mock_write_attr(Epoch)
+
+    def test_partial_noevent(self):
+        """
+        Partial write: All except Event
+        """
+        self._mock_write_attr(Event)
+
+    def test_partial_nost(self):
+        """
+        Partial write: All except SpikeTrain
+        """
+        self._mock_write_attr(SpikeTrain)
+
+    def test_partial_nounit(self):
+        """
+        Partial write: All except Unit
+        """
+        self._mock_write_attr(Unit)
+
+
+
