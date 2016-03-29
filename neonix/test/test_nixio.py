@@ -21,6 +21,7 @@ except ImportError:
         nomock = True
 import string
 import itertools
+from hashlib import md5
 
 import numpy as np
 import quantities as pq
@@ -1495,5 +1496,20 @@ class NixIOMockTest(NixIOTest):
         for obj in NixIO.supported_objects:
             self._mock_write_attr(obj)
 
+    def test_no_modifications(self):
+        """
+        Test that no writes are made when nothing is modified
+        """
+        def nixfile_hash():
+            with open(self.io.filename, "rb") as nixfile:
+                filehash = md5(nixfile.read()).hexdigest()
+            return filehash
 
+        self.io._write_attr_annotations = mock.Mock()
+
+        hash_pre = nixfile_hash()
+        self.io.write_all_blocks(self.neo_blocks)
+        hash_post = nixfile_hash()
+        self.assertEqual(hash_pre, hash_post)
+        self.io._write_attr_annotations.assert_not_called()
 
