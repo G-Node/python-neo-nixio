@@ -1475,44 +1475,78 @@ class NixIOMockTest(NixIOTest):
     neo_blocks = None
 
     @classmethod
-    def modify_objects(cls, objs, exclude=list()):
-        for obj in objs:
-            if obj not in exclude:
-                obj.description = cls.rsentence()
-            for container in getattr(obj, "_child_containers", []):
-                children = getattr(obj, container)
-                cls.modify_objects(children)
-
-    @classmethod
     def setUpClass(cls):
-        cls.create_nix_file()
+        # cls.create_nix_file()
+        cls.filename = "nixio_testfile.h5"
+        nixfile = NixIO(cls.filename, "rw")
+        cls.io = nixfile
+
+        nix_block_a = nixfile.nix_file.create_block(cls.rword(10), "neo.block")
+        nix_block_a.definition = cls.rsentence(5, 10)
+
+        nix_block_a.metadata = nixfile.nix_file.create_section(
+            nix_block_a.name, nix_block_a.name+".metadata"
+        )
+
+        nix_block_a.create_group(cls.rword(), "neo.segment")
         cls.neo_blocks = cls.io.read_all_blocks()
+        cls.write_attr_original = NixIO._write_attr_annotations
 
     @classmethod
     def tearDownClass(cls):
         cls.delete_nix_file()
 
     def tearDown(self):
-        pass
+        self.io._write_attr_annotations = self.write_attr_original
 
-    @mock.patch("nixio.File.create_block")
-    def test_partial_noblock(self, create_group):
+    def check_obj_type(self, typestring):
+        neq = self.assertNotEqual
+
+        def func(*args, **kwargs):
+            obj = kwargs.get("nix_object", args[0])
+            neq(obj.type, typestring)
+        return func
+
+    def _test_partial(self, objclass):
+        typestr = str(objclass.__name__).lower()
+        self.io._write_attr_annotations = mock.Mock(
+            wraps=self.io._write_attr_annotations,
+            side_effect=self.check_obj_type("neo.{}".format(typestr))
+        )
+        neo_blocks = self.neo_blocks
+        self.modify_objects(neo_blocks, excludes=[objclass])
+        self.io.write_all_blocks(neo_blocks)
+
+    @classmethod
+    def modify_objects(cls, objs, excludes=()):
+        excludes = tuple(excludes)
+        for obj in objs:
+            if not (excludes and isinstance(obj, excludes)):
+                obj.description = cls.rsentence()
+            for container in getattr(obj, "_child_containers", []):
+                children = getattr(obj, container)
+                cls.modify_objects(children, excludes)
+
+    def test_partial_noblock(self):
         """
         Partial write: All except Blocks
         """
-        create_group.return_value(None)
+        self._test_partial(Block)
 
-        neo_blocks = self.neo_blocks
-        self.modify_objects(neo_blocks, exclude=[Block])
-
-        self.io.write_all_blocks(neo_blocks)
-
-    @mock.patch("nixio.Block.create_group")
-    def test_segment_modification(self, create_group):
+    def test_partial_noseg(self):
         """
         Partial write: All except Segments
         """
-        create_group.return_value(None)
-        neo_blocks = self.neo_blocks
+        self._test_partial(Segment)
 
+    def test_partial_norcg(self):
+        """
+        Partial write: All except RCG
+        """
+        self._test_partial(RecordingChannelGroup)
 
+    def test_partial_noasig(self):
+        """
+        Partial write: All except AnalogSignal
+        """
+        self._test_partial(AnalogSignal)
