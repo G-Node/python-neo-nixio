@@ -1437,19 +1437,7 @@ class NixIOMockTest(NixIOTest):
 
     @classmethod
     def setUpClass(cls):
-        # cls.create_nix_file()
-        cls.filename = "nixio_testfile.h5"
-        nixfile = NixIO(cls.filename, "rw")
-        cls.io = nixfile
-
-        nix_block_a = nixfile.nix_file.create_block(cls.rword(10), "neo.block")
-        nix_block_a.definition = cls.rsentence(5, 10)
-
-        nix_block_a.metadata = nixfile.nix_file.create_section(
-            nix_block_a.name, nix_block_a.name+".metadata"
-        )
-
-        nix_block_a.create_group(cls.rword(), "neo.segment")
+        cls.create_nix_file()
         cls.neo_blocks = cls.io.read_all_blocks()
         cls.write_attr_original = cls.io._write_attr_annotations
 
