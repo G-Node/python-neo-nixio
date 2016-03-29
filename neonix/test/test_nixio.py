@@ -1259,46 +1259,6 @@ class NixIOWriteTest(NixIOTest):
         for nix_label, neo_label in zip(nix_epc_labels, neo_epc_labels):
             self.assertEqual(nix_label, neo_label.decode())
 
-    def test_partial_write(self):
-        neo_block_a = Block(name=self.rword(),
-                            description=self.rsentence())
-
-        neo_block_b = Block(name=self.rword(),
-                            description=self.rsentence())
-        neo_blocks = [neo_block_a, neo_block_b]
-
-        for blk in neo_blocks:
-            for ind in range(5):
-                seg = Segment(name="segment_{}".format(ind),
-                              description="{} segment {}".format(blk.name, ind))
-                blk.segments.append(seg)
-                asig_data = self.rquant((100, 3), pq.mV)
-                asignal = AnalogSignal(asig_data,
-                                       name="some_sort_of_signal_{}".format(ind),
-                                       t_start=0*pq.s,
-                                       sampling_rate=10*pq.kHz)
-                seg.analogsignals.append(asignal)
-
-                isig_times = self.rquant(50, pq.ms, True)
-                isig_data = self.rquant((50, 10), pq.nA)
-                isignal = IrregularlySampledSignal(
-                    isig_times, isig_data,
-                    name="an_irregular_signal_{}".format(ind)
-                )
-                seg.irregularlysampledsignals.append(isignal)
-
-        self.io.write_all_blocks(neo_blocks)
-        nix_block = self.io.nix_file.blocks[0]
-        ndas = len(nix_block.data_arrays)
-        # change signal
-        asig = neo_blocks[0].segments[3].analogsignals[0]
-        asig[:, 0] = self.rquant(100, pq.mV)
-
-        self.io.write_all_blocks(neo_blocks)
-
-        nix_block = self.io.nix_file.blocks[0]
-        self.assertEqual(len(nix_block.data_arrays), ndas)
-
 
 class NixIOReadTest(NixIOTest):
 
