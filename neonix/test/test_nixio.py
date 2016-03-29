@@ -1515,6 +1515,14 @@ class NixIOPartialWriteTest(NixIOTest):
             neq(objclass.type, typestring)
         return side_effect_func
 
+    def check_obj_type(self, typestring):
+        neq = self.assertNotEqual
+
+        def side_effect_func(*args, **kwargs):
+            objclass = kwargs.get("nix_object", args[0])
+            neq(objclass.type, typestring)
+        return side_effect_func
+
     @classmethod
     def modify_objects(cls, objs, excludes=()):
         excludes = tuple(excludes)
