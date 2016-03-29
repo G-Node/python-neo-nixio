@@ -1508,6 +1508,7 @@ class NixIOMockTest(NixIOTest):
         neo_blocks = self.neo_blocks
         self.modify_objects(neo_blocks, excludes=[objclass])
         self.io.write_all_blocks(neo_blocks)
+        self.io._write_attr_annotations = self.write_attr_original
 
     def check_obj_type(self, typestring):
         neq = self.assertNotEqual
@@ -1527,59 +1528,12 @@ class NixIOMockTest(NixIOTest):
                 children = getattr(obj, container)
                 cls.modify_objects(children, excludes)
 
-    def test_partial_noblock(self):
+    def test_partial(self):
         """
-        Partial write: All except Blocks
+        Partial write: All except specific type
         """
-        self._mock_write_attr(Block)
-
-    def test_partial_noseg(self):
-        """
-        Partial write: All except Segments
-        """
-        self._mock_write_attr(Segment)
-
-    def test_partial_norcg(self):
-        """
-        Partial write: All except RCG
-        """
-        self._mock_write_attr(RecordingChannelGroup)
-
-    def test_partial_noasig(self):
-        """
-        Partial write: All except AnalogSignal
-        """
-        self._mock_write_attr(AnalogSignal)
-
-    def test_partial_noisig(self):
-        """
-        Partial write: All except IrregularlySampledSignal
-        """
-        self._mock_write_attr(IrregularlySampledSignal)
-
-    def test_partial_noepoch(self):
-        """
-        Partial write: All except Epoch
-        """
-        self._mock_write_attr(Epoch)
-
-    def test_partial_noevent(self):
-        """
-        Partial write: All except Event
-        """
-        self._mock_write_attr(Event)
-
-    def test_partial_nost(self):
-        """
-        Partial write: All except SpikeTrain
-        """
-        self._mock_write_attr(SpikeTrain)
-
-    def test_partial_nounit(self):
-        """
-        Partial write: All except Unit
-        """
-        self._mock_write_attr(Unit)
+        for obj in NixIO.supported_objects:
+            self._mock_write_attr(obj)
 
 
 
