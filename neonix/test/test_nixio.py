@@ -12,13 +12,8 @@ from datetime import datetime
 import unittest
 try:
     from unittest import mock
-    nomock = False
 except ImportError:
-    try:
-        import mock
-        nomock = False
-    except ImportError:
-        nomock = True
+    import mock
 import string
 import itertools
 from hashlib import md5
