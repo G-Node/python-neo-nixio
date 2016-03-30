@@ -1264,14 +1264,24 @@ class NixIOWriteTest(NixIOTest):
 class NixIOReadTest(NixIOTest):
 
     nix_blocks = None
+    original_methods = dict()
 
     @classmethod
     def setUpClass(cls):
         cls.nix_blocks = cls.create_nix_file()
+        cls.original_methods["_read_cascade"] = cls.io._read_cascade
+        cls.original_methods["_update_maps"] = cls.io._update_maps
 
     @classmethod
     def tearDownClass(cls):
         cls.delete_nix_file()
+
+    def tearDown(self):
+        self.restore_methods()
+
+    def restore_methods(self):
+        for name, method in self.original_methods.items():
+            setattr(self.io, name, self.original_methods[name])
 
     def test_all_read(self):
         """
@@ -1310,22 +1320,30 @@ class NixIOReadTest(NixIOTest):
         neo_blocks = self.io.read_all_blocks(cascade="lazy", lazy=True)
         self.compare_blocks(neo_blocks, self.nix_blocks)
 
-    def test_fullload_lazycascade_read(self):
+    def test_lazycascade_read(self):
         """
         Read everything with lazy cascade
         """
+        from neonix.io.nixio import LazyList
+        # self.io._read_cascade = mock.Mock()
         neo_blocks = self.io.read_all_blocks(cascade="lazy", lazy=False)
-        self.compare_blocks(neo_blocks, self.nix_blocks)
+        nix_blocks = self.io.nix_file.blocks
+        # self.compare_blocks(neo_blocks, nix_blocks)
+        for block in neo_blocks:
+            self.assertIsInstance(block.segments, LazyList)
+            self.assertIsInstance(block.recordingchannelgroups, LazyList)
 
-    def test_nocascade(self):
+    def test_nocascade_read(self):
         """
-        Read a Block without cascading
+        Read the root Blocks without cascading
         """
-        nix_block = self.nix_blocks[0]
-        blockpath = "/" + nix_block.name
-        neo_block = self.io.read_block(blockpath, cascade=False, lazy=False)
-        self.assertEqual(len(neo_block.segments), 0)
-        self.compare_attr(neo_block, nix_block)
+        self.io._read_cascade = mock.Mock()
+        neo_blocks = self.io.read_all_blocks(cascade=False)
+        self.io._read_cascade.assert_not_called()
+        for block in neo_blocks:
+            self.assertEqual(len(block.segments), 0)
+            nix_block = self.io.nix_file.blocks[block.name]
+            self.compare_attr(block, nix_block)
 
 
 class NixIOHashTest(NixIOTest):
@@ -1427,23 +1445,28 @@ class NixIOHashTest(NixIOTest):
         self._hash_test(SpikeTrain, argfuncs)
 
 
-@unittest.skipIf(nomock, "Requires mock module")
-class NixIOMockTest(NixIOTest):
+class NixIOPartialWriteTest(NixIOTest):
 
     neo_blocks = None
+    original_methods = dict()
 
     @classmethod
     def setUpClass(cls):
         cls.create_nix_file()
         cls.neo_blocks = cls.io.read_all_blocks()
-        cls.write_attr_original = cls.io._write_attr_annotations
+        cls.original_methods["_write_attr_annotations"] =\
+            cls.io._write_attr_annotations
 
     @classmethod
     def tearDownClass(cls):
         cls.delete_nix_file()
 
     def tearDown(self):
-        self.io._write_attr_annotations = self.write_attr_original
+        self.restore_methods()
+
+    def restore_methods(self):
+        for name, method in self.original_methods.items():
+            setattr(self.io, name, self.original_methods[name])
 
     def _mock_write_attr(self, objclass):
         typestr = str(objclass.__name__).lower()
@@ -1454,7 +1477,7 @@ class NixIOMockTest(NixIOTest):
         neo_blocks = self.neo_blocks
         self.modify_objects(neo_blocks, excludes=[objclass])
         self.io.write_all_blocks(neo_blocks)
-        self.io._write_attr_annotations = self.write_attr_original
+        self.restore_methods()
 
     def check_obj_type(self, typestring):
         neq = self.assertNotEqual
@@ -1497,4 +1520,3 @@ class NixIOMockTest(NixIOTest):
         hash_post = nixfile_hash()
         self.assertEqual(hash_pre, hash_post)
         self.io._write_attr_annotations.assert_not_called()
-
