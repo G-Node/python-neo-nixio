@@ -1499,6 +1499,7 @@ class NixIOPartialWriteTest(NixIOTest):
         """
         for obj in NixIO.supported_objects:
             self._mock_write_attr(obj)
+            self.compare_blocks(self.neo_blocks, self.io.nix_file.blocks)
 
     def test_no_modifications(self):
         """
