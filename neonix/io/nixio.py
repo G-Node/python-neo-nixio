@@ -863,7 +863,7 @@ class NixIO(BaseIO):
                 parent_group.multi_tags.append(nix_multi_tag)
             else:
                 nix_multi_tag = parent_block.multi_tags[attr["name"]]
-                nix_multi_tag.times = times_da
+                nix_multi_tag.positions = times_da
             nix_multi_tag.definition = attr["definition"]
 
             self._write_attr_annotations(nix_multi_tag, attr, obj_path)
@@ -884,6 +884,7 @@ class NixIO(BaseIO):
                 wf_name = attr["name"] + ".waveforms"
                 if old_hash:
                     del parent_block.data_arrays[wf_name]
+                    del nix_multi_tag.features[0]
 
                 waveforms_da = parent_block.create_data_array(wf_name,
                                                               "neo.waveforms",
