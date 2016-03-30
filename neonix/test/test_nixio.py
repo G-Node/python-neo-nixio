@@ -1273,9 +1273,6 @@ class NixIOReadTest(NixIOTest):
     def tearDownClass(cls):
         cls.delete_nix_file()
 
-    def tearDown(self):
-        pass
-
     def test_all_read(self):
         """
         Read everything: Integration test with all features
