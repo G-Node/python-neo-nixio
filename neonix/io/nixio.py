@@ -852,7 +852,7 @@ class NixIO(BaseIO):
                 del parent_block.data_arrays[times_da_name]
 
             times_da = parent_block.create_data_array(
-                times_da_name, attr["type"]+".times", data=times
+                times_da_name, attr["type"] + ".times", data=times
             )
             times_da.unit = time_units
 
