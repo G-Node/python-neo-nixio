@@ -1517,3 +1517,13 @@ class NixIOPartialWriteTest(NixIOTest):
         hash_post = nixfile_hash()
         self.assertEqual(hash_pre, hash_post)
         self.io._write_attr_annotations.assert_not_called()
+        self.compare_blocks(self.neo_blocks, self.io.nix_file.blocks)
+
+        # change hashes to force write
+        for k, v in self.io._object_hashes.items():
+            self.io._object_hashes[k] = "a"
+        self.io.write_all_blocks(self.neo_blocks)
+        hash_post = nixfile_hash()
+        self.assertNotEqual(hash_pre, hash_post)
+
+        self.compare_blocks(self.neo_blocks, self.io.nix_file.blocks)
