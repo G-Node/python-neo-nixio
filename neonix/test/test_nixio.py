@@ -857,6 +857,7 @@ class NixIOWriteTest(NixIOTest):
         nix_wf = nix_spkt.features[0].data
         self.assertAlmostEqual(nix_wf.metadata["left_sweep"], 0.005)
         np.testing.assert_almost_equal(nix_wf, wf_array.magnitude)
+        self.compare_blocks([blk], [nix_block])
 
     def test_basic_attr_write(self):
         """
