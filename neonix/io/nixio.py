@@ -361,7 +361,7 @@ class NixIO(BaseIO):
 
     def get(self, path, cascade, lazy):
         parts = path.split("/")
-        if parts[-1]:
+        if len(parts) > 2:
             neotype = parts[-2][:-1]
         else:
             neotype = "block"
