@@ -17,6 +17,7 @@ except ImportError:
 import string
 import itertools
 from hashlib import md5
+from six import string_types
 
 import numpy as np
 import quantities as pq
@@ -1320,14 +1321,37 @@ class NixIOReadTest(NixIOTest):
         """
         Read everything with lazy cascade
         """
+        def getitem(self, index):
+            return self._data.__getitem__(index)
         from neonix.io.nixio import LazyList
-        # self.io._read_cascade = mock.Mock()
+        getitem_original = LazyList.__getitem__
+        LazyList.__getitem__ = getitem
         neo_blocks = self.io.read_all_blocks(cascade="lazy", lazy=False)
-        nix_blocks = self.io.nix_file.blocks
-        # self.compare_blocks(neo_blocks, nix_blocks)
         for block in neo_blocks:
             self.assertIsInstance(block.segments, LazyList)
             self.assertIsInstance(block.recordingchannelgroups, LazyList)
+            for seg in block.segments:
+                self.assertIsInstance(seg, string_types)
+            for rcg in block.recordingchannelgroups:
+                self.assertIsInstance(rcg, string_types)
+        LazyList.__getitem__ = getitem_original
+
+    def test_load_lazy_cascade(self):
+        from neonix.io.nixio import LazyList
+        neo_blocks = self.io.read_all_blocks(cascade="lazy", lazy=False)
+        for block in neo_blocks:
+            self.assertIsInstance(block.segments, LazyList)
+            self.assertIsInstance(block.recordingchannelgroups, LazyList)
+            name = block.name
+            block = self.io.load_lazy_cascade("/" + name, lazy=False)
+            self.assertIsInstance(block.segments, list)
+            self.assertIsInstance(block.recordingchannelgroups, list)
+            for seg in block.segments:
+                self.assertIsInstance(seg.analogsignals, list)
+                self.assertIsInstance(seg.irregularlysampledsignals, list)
+                self.assertIsInstance(seg.epochs, list)
+                self.assertIsInstance(seg.events, list)
+                self.assertIsInstance(seg.spiketrains, list)
 
     def test_nocascade_read(self):
         """
