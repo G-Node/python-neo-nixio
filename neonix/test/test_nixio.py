@@ -274,8 +274,14 @@ class NixIOTest(unittest.TestCase):
                 self.assertEqual(nixmd[k], v)
 
     @classmethod
-    def create_nix_file(cls):
-        cls.filename = "nixio_testfile.h5"
+    def create_nix_file(cls, filename=None):
+        if filename:
+            dirloc = os.path.dirname(filename)
+            if not os.path.exists(dirloc):
+                os.makedirs(dirloc)
+        else:
+            filename = "nixio_testfile.h5"
+        cls.filename = filename
         nixfile = NixIO(cls.filename, "rw")
         cls.io = nixfile
 
