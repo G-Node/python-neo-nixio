@@ -388,7 +388,9 @@ class NixIO(BaseIO):
             parent_block = self._get_object_at(parent_block_path)
             ref_mtags = self._get_referers(nix_obj, parent_block.multi_tags)
             ref_sts = self._get_mapped_objects(ref_mtags)
-            neo_obj.spiketrains.extend(ref_sts)
+            for st in ref_sts:
+                neo_obj.spiketrains.append(st)
+                st.unit = neo_obj
 
     def get(self, path, cascade, lazy):
         parts = path.split("/")
