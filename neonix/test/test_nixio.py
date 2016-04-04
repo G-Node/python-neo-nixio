@@ -62,7 +62,8 @@ class NixIOTest(unittest.TestCase):
                 self.fail("Channel indexes do not match.")
             if len(neorcg.channel_names):
                 neochanname = neorcg.channel_names[neochanpos]
-                if isinstance(neochanname, bytes):
+                if ((not isinstance(neochanname, str)) and
+                         isinstance(neochanname, bytes)):
                     neochanname = neochanname.decode()
                 nixchanname = nixchan.name
                 self.assertEqual(neochanname, nixchanname)

@@ -543,7 +543,8 @@ class NixIO(BaseIO):
                 # create child source objects to represent each channel
                 if len(rcg.channel_names):
                     nix_chan_name = rcg.channel_names[idx]
-                    if isinstance(nix_chan_name, bytes):
+                    if ((not isinstance(nix_chan_name, str)) and
+                            isinstance(nix_chan_name, bytes)):
                         nix_chan_name = nix_chan_name.decode()
                 else:
                     nix_chan_name = "{}.RecordingChannel{}".format(
