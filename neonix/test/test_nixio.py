@@ -62,6 +62,8 @@ class NixIOTest(unittest.TestCase):
                 self.fail("Channel indexes do not match.")
             if len(neorcg.channel_names):
                 neochanname = neorcg.channel_names[neochanpos]
+                if isinstance(neochanname, bytes):
+                    neochanname = neochanname.decode()
                 nixchanname = nixchan.name
                 self.assertEqual(neochanname, nixchanname)
         nix_units = list(src for src in nixsrc.sources
@@ -98,7 +100,6 @@ class NixIOTest(unittest.TestCase):
                                 if da.type == "neo.irregularlysampledsignal" and
                                 nixrcg in da.sources))
             self.assertEqual(len(neoisigs), len(nixisigs))
-
             # SpikeTrains referencing RCG and Units
             for sidx, neounit in enumerate(neorcg.units):
                 if neounit.name:
