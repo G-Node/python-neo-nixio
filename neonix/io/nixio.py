@@ -465,10 +465,7 @@ class NixIO(BaseIO):
             self._write_attr_annotations(nix_block, attr, obj_path)
             self._object_hashes[obj_path] = new_hash
         self._object_map[id(bl)] = nix_block
-        for segment in bl.segments:
-            self.write_segment(segment, obj_path)
-        for rcg in bl.recordingchannelgroups:
-            self.write_recordingchannelgroup(rcg, obj_path)
+        self._write_cascade(bl, obj_path)
         self._create_references(bl)
 
     def write_segment(self, seg, parent_path=""):
