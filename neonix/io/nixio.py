@@ -514,18 +514,6 @@ class NixIO(BaseIO):
         new_hash = self._hash_object(rcg)
         if old_hash is None:
             nix_source = parent_block.create_source(attr["name"], attr["type"])
-
-            # add signal references
-            for nix_asigs in self._get_mapped_objects(rcg.analogsignals):
-                # One AnalogSignal maps to list of DataArrays
-                for da in nix_asigs:
-                    da.sources.append(nix_source)
-            for nix_isigs in self._get_mapped_objects(
-                    rcg.irregularlysampledsignals
-            ):
-                # One IrregularlySampledSignal maps to list of DataArrays
-                for da in nix_isigs:
-                    da.sources.append(nix_source)
         else:
             nix_source = self._get_object_at(obj_path)
         if old_hash != new_hash:
@@ -779,16 +767,6 @@ class NixIO(BaseIO):
             nix_multi_tag.definition = attr["definition"]
             object_path = parent_path + "/epochs/" + nix_multi_tag.name
             self._write_attr_annotations(nix_multi_tag, attr, object_path)
-
-            group_signals = self._get_contained_signals(parent_group)
-            if old_hash is None:
-                nix_multi_tag.references.extend(group_signals)
-            else:
-                nix_multi_tag.references.extend(
-                    [sig for sig in group_signals
-                     if sig not in nix_multi_tag.references]
-                )
-
             self._object_hashes[obj_path] = new_hash
         else:
             nix_multi_tag = parent_block.multi_tags[attr["name"]]
@@ -838,16 +816,6 @@ class NixIO(BaseIO):
             label_dim.labels = ev.labels
 
             self._write_attr_annotations(nix_multi_tag, attr, obj_path)
-
-            group_signals = self._get_contained_signals(parent_group)
-            if old_hash is None:
-                nix_multi_tag.references.extend(group_signals)
-            else:
-                nix_multi_tag.references.extend(
-                    [sig for sig in group_signals
-                     if sig not in nix_multi_tag.references]
-                )
-
             self._object_hashes[obj_path] = new_hash
         else:
             nix_multi_tag = parent_block.multi_tags[attr["name"]]
@@ -965,9 +933,6 @@ class NixIO(BaseIO):
         new_hash = self._hash_object(ut)
         if old_hash is None:
             nix_source = parent_source.create_source(attr["name"], attr["type"])
-            for nix_st in self._get_mapped_objects(ut.spiketrains):
-                nix_st.sources.append(parent_source)
-                nix_st.sources.append(nix_source)
         else:
             nix_source = parent_source.sources[attr["name"]]
         if old_hash != new_hash:
@@ -979,9 +944,7 @@ class NixIO(BaseIO):
         self._object_map[id(ut)] = nix_source
 
     def _write_cascade(self, neo_obj, path=""):
-        print(path)
         for neocontainer in getattr(neo_obj, "_child_containers", []):
-            print("\t"+neocontainer)
             neotype = neocontainer[:-1]
             children = getattr(neo_obj, neocontainer)
             write_func = getattr(self, "write_" + neotype)
@@ -1001,6 +964,30 @@ class NixIO(BaseIO):
         :param block: A Neo Block that has already been converted and mapped to
          NIX objects.
         """
+        for seg in block.segments:
+            group = self._get_mapped_object(seg)
+            group_signals = self._get_contained_signals(group)
+            for mtag in group.multi_tags:
+                if mtag.type in ("neo.epoch", "neo.event"):
+                    mtag.references.extend([sig for sig in group_signals
+                                            if sig not in mtag.references])
+        for rcg in block.recordingchannelgroups:
+            rcgsource = self._get_mapped_object(rcg)
+            das = self._get_mapped_objects(rcg.analogsignals +
+                                           rcg.irregularlysampledsignals)
+            # flatten nested lists
+            das = [da for dalist in das for da in dalist]
+            for da in das:
+                if rcgsource not in da.sources:
+                    da.sources.append(rcgsource)
+            for unit in rcg.units:
+                unitsource = self._get_mapped_object(unit)
+                for st in unit.spiketrains:
+                    stmtag = self._get_mapped_object(st)
+                    if rcgsource not in stmtag.sources:
+                        stmtag.sources.append(rcgsource)
+                    if unitsource not in stmtag.sources:
+                        stmtag.sources.append(unitsource)
 
     def _get_or_init_metadata(self, nix_obj, path):
         """
