@@ -469,6 +469,7 @@ class NixIO(BaseIO):
             self.write_segment(segment, obj_path)
         for rcg in bl.recordingchannelgroups:
             self.write_recordingchannelgroup(rcg, obj_path)
+        self._create_references(bl)
 
     def write_segment(self, seg, parent_path=""):
         """
@@ -986,6 +987,20 @@ class NixIO(BaseIO):
             write_func = getattr(self, "write_" + neotype)
             for ch in children:
                 write_func(ch, path)
+
+    def _create_references(self, block):
+        """
+        Create references between NIX objects according to the supplied Neo
+        Block.
+        MultiTags reference DataArrays of the same Group.
+        DataArrays reference RecordingChannelGroups as sources, based on Neo
+         RCG -> Signal relationships.
+        MultiTags (SpikeTrains) reference RecordingChannelGroups and Units as
+         sources, based on Neo RCG -> Unit -> SpikeTrain relationships.
+
+        :param block: A Neo Block that has already been converted and mapped to
+         NIX objects.
+        """
 
     def _get_or_init_metadata(self, nix_obj, path):
         """
