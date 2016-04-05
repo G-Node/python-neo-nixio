@@ -493,16 +493,7 @@ class NixIO(BaseIO):
             self._write_attr_annotations(nix_group, attr, obj_path)
             self._object_hashes[obj_path] = new_hash
         self._object_map[id(seg)] = nix_group
-        for anasig in seg.analogsignals:
-            self.write_analogsignal(anasig, obj_path)
-        for irsig in seg.irregularlysampledsignals:
-            self.write_irregularlysampledsignal(irsig, obj_path)
-        for ep in seg.epochs:
-            self.write_epoch(ep, obj_path)
-        for ev in seg.events:
-            self.write_event(ev, obj_path)
-        for sptr in seg.spiketrains:
-            self.write_spiketrain(sptr, obj_path)
+        self._write_cascade(seg, obj_path)
 
     def write_recordingchannelgroup(self, rcg, parent_path=""):
         """
@@ -985,6 +976,16 @@ class NixIO(BaseIO):
             self._object_hashes[obj_path] = new_hash
 
         self._object_map[id(ut)] = nix_source
+
+    def _write_cascade(self, neo_obj, path=""):
+        print(path)
+        for neocontainer in getattr(neo_obj, "_child_containers", []):
+            print("\t"+neocontainer)
+            neotype = neocontainer[:-1]
+            children = getattr(neo_obj, neocontainer)
+            write_func = getattr(self, "write_" + neotype)
+            for ch in children:
+                write_func(ch, path)
 
     def _get_or_init_metadata(self, nix_obj, path):
         """
