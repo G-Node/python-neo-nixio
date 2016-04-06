@@ -436,22 +436,7 @@ class NixIO(BaseIO):
         :param parent_path: Unused for blocks
         :return: The new NIX Block
         """
-        if not bl.name:
-            self.resolve_name_conflicts([bl])
-        self.resolve_name_conflicts(bl.segments)
-        self.resolve_name_conflicts(bl.recordingchannelgroups)
-
-        allsignals = list()
-        alleests = list()
-        for s in bl.segments:
-            allsignals.extend(s.analogsignals)
-            allsignals.extend(s.irregularlysampledsignals)
-            alleests.extend(s.events)
-            alleests.extend(s.epochs)
-            alleests.extend(s.spiketrains)
-        self.resolve_name_conflicts(allsignals)
-        self.resolve_name_conflicts(alleests)
-
+        self.resolve_name_conflicts(bl)
         attr = self._neo_attr_to_nix(bl)
         obj_path = "/" + attr["name"]
         old_hash = self._object_hashes.get(obj_path)
@@ -477,6 +462,7 @@ class NixIO(BaseIO):
         :param parent_path: Path to the parent of the new Segment
         :return: The newly created NIX Group
         """
+        self.resolve_name_conflicts(seg)
         parent_block = self._get_object_at(parent_path)
         attr = self._neo_attr_to_nix(seg)
         obj_path = parent_path + "/segments/" + attr["name"]
@@ -502,8 +488,7 @@ class NixIO(BaseIO):
         :param parent_path: Path to the parent of the new RCG
         :return: The newly created NIX Source
         """
-        self.resolve_name_conflicts(rcg.units)
-
+        self.resolve_name_conflicts(rcg)
         parent_block = self._get_object_at(parent_path)
         attr = self._neo_attr_to_nix(rcg)
         obj_path = parent_path + "/recordingchannelgroups/" + attr["name"]
@@ -941,6 +926,7 @@ class NixIO(BaseIO):
         self._object_map[id(ut)] = nix_source
 
     def _write_cascade(self, neo_obj, path=""):
+        self.resolve_name_conflicts(neo_obj)
         for neocontainer in getattr(neo_obj, "_child_containers", []):
             neotype = neocontainer[:-1]
             children = getattr(neo_obj, neocontainer)
@@ -1090,35 +1076,69 @@ class NixIO(BaseIO):
         else:
             return None
 
-    @staticmethod
-    def resolve_name_conflicts(objects):
+    @classmethod
+    def resolve_name_conflicts(cls, objects):
         """
         Given a list of neo objects, change their names such that no two objects
         share the same name. Objects with no name are renamed based on their
         type.
+        If a container object is supplied (Block, Segment, or RCG), conflicts
+        are resolved for the child objects.
 
-        :param objects: List of Neo objects
+        :param objects: List of Neo objects or Neo container object
         """
-        if not len(objects):
-            return
-        names = [obj.name for obj in objects]
-        for idx, cn in enumerate(names):
-            if not cn:
-                neo_type = type(objects[idx]).__name__
-                cn = "neo.{}".format(neo_type)
-            else:
-                names[idx] = ""
-            if cn not in names:
-                newname = cn
-            else:
-                suffix = 1
-                newname = "{}-{}".format(cn, suffix)
-                while newname in names:
-                    suffix += 1
+        if isinstance(objects, list):
+            if not len(objects):
+                return
+            names = [obj.name for obj in objects]
+            for idx, cn in enumerate(names):
+                if not cn:
+                    cn = cls._generate_name(objects[idx])
+                else:
+                    names[idx] = ""
+                if cn not in names:
+                    newname = cn
+                else:
+                    suffix = 1
                     newname = "{}-{}".format(cn, suffix)
-            names[idx] = newname
-        for obj, n in zip(objects, names):
-            obj.name = n
+                    while newname in names:
+                        suffix += 1
+                        newname = "{}-{}".format(cn, suffix)
+                names[idx] = newname
+            for obj, n in zip(objects, names):
+                obj.name = n
+            return
+        if not objects.name:
+            objects.name = cls._generate_name(objects)
+        if isinstance(objects, Block):
+            block = objects
+            cls.resolve_name_conflicts(block.segments)
+            cls.resolve_name_conflicts(block.recordingchannelgroups)
+            signals = list()
+            eests = list()
+            for seg in block.segments:
+                signals.extend(seg.analogsignals +
+                               seg.irregularlysampledsignals)
+                eests.extend(seg.events +
+                             seg.epochs +
+                             seg.spiketrains)
+            cls.resolve_name_conflicts(signals)
+            cls.resolve_name_conflicts(eests)
+        elif isinstance(objects, Segment):
+            seg = objects
+            cls.resolve_name_conflicts(seg.analogsignals +
+                                       seg.irregularlysampledsignals)
+            cls.resolve_name_conflicts(seg.events +
+                                       seg.epochs +
+                                       seg.spiketrains)
+        elif isinstance(objects, RecordingChannelGroup):
+            rcg = objects
+            cls.resolve_name_conflicts(rcg.units)
+
+    @staticmethod
+    def _generate_name(neo_obj):
+        neo_type = type(neo_obj).__name__
+        return "neo.{}".format(neo_type)
 
     @staticmethod
     def _neo_attr_to_nix(neo_obj):
