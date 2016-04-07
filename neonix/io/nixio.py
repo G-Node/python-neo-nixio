@@ -42,7 +42,7 @@ class NixIO(BaseIO):
     Class for reading and writing NIX files.
     """
 
-    is_readable = False  # for now
+    is_readable = True
     is_writable = True
 
     supported_objects = [Block, Segment, RecordingChannelGroup,
