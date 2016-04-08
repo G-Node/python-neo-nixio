@@ -429,29 +429,29 @@ class NixIO(BaseIO):
             self.write_block(bl)
 
     def _write_object(self, obj, loc=""):
-        self.resolve_name_conflicts(obj)
-        attr = self._neo_attr_to_nix(obj)
-        if attr["type"] != "block":
-            containerstr = "/" + attr["type"] + "s/"
+        if isinstance(obj, Block):
+            containerstr = "/" + type(obj).__name__.lower() + "s/"
         else:
             containerstr = "/"
-        objpath = loc + containerstr + attr["name"]
+        self.resolve_name_conflicts(obj)
+        objpath = loc + containerstr + obj.name
         oldhash = self._object_hashes.get(objpath)
         newhash = self._hash_object(obj)
-        if oldhash is None:
-            nixobj = self._create_nix_object(attr, loc)
-        else:
-            nixobj = self._get_object_at(objpath)
         if oldhash != newhash:
+            attr = self._neo_attr_to_nix(obj)
+            if isinstance(obj, pq.Quantity):
+                data = self._neo_data_to_nix(obj)
+            if oldhash is None:
+                # TODO: Create object
+                nixobj = None
+            else:
+                nixobj = self._get_object_at(objpath)
             nixobj.definition = attr["definition"]
             self._write_attr_annotations(nixobj, attr, objpath)
-        self._object_map[id(obj)] = nixobj
+            self._write_data(nixobj, data, objpath)
+            # TODO: Create links
+            self._object_map[id(obj)] = nixobj
         self._write_cascade(obj, objpath)
-
-    def _create_nix_object(self, attr, loc):
-        # branch off to individual write methods
-        self._get_object_at(loc)
-        return None
 
     def write_block(self, bl, parent_path=""):
         """
