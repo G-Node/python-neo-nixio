@@ -1161,28 +1161,28 @@ class NixIO(BaseIO):
             cls.resolve_name_conflicts(rcg.units)
 
     @staticmethod
-    def _generate_name(neo_obj):
-        neo_type = type(neo_obj).__name__
-        return "neo.{}".format(neo_type)
+    def _generate_name(neoobj):
+        neotype = type(neoobj).__name__
+        return "neo.{}".format(neotype)
 
     @staticmethod
-    def _neo_attr_to_nix(neo_obj):
-        neo_type = type(neo_obj).__name__
-        nix_attrs = dict()
-        nix_attrs["name"] = neo_obj.name
-        nix_attrs["type"] = neo_type.lower()
-        nix_attrs["definition"] = neo_obj.description
-        if isinstance(neo_obj, (Block, Segment)):
-            nix_attrs["rec_datetime"] = neo_obj.rec_datetime
-            if neo_obj.rec_datetime:
-                nix_attrs["created_at"] = neo_obj.rec_datetime
-            if neo_obj.file_datetime:
-                nix_attrs["file_datetime"] = neo_obj.file_datetime
-        if neo_obj.file_origin:
-            nix_attrs["file_origin"] = neo_obj.file_origin
-        if neo_obj.annotations:
-            nix_attrs["annotations"] = neo_obj.annotations
-        return nix_attrs
+    def _neo_attr_to_nix(neoobj):
+        neotype = type(neoobj).__name__
+        attrs = dict()
+        attrs["name"] = neoobj.name
+        attrs["type"] = neotype.lower()
+        attrs["definition"] = neoobj.description
+        if isinstance(neoobj, (Block, Segment)):
+            attrs["rec_datetime"] = neoobj.rec_datetime
+            if neoobj.rec_datetime:
+                attrs["created_at"] = neoobj.rec_datetime
+            if neoobj.file_datetime:
+                attrs["file_datetime"] = neoobj.file_datetime
+        if neoobj.file_origin:
+            attrs["file_origin"] = neoobj.file_origin
+        if neoobj.annotations:
+            attrs["annotations"] = neoobj.annotations
+        return attrs
 
     @classmethod
     def _add_annotations(cls, annotations, metadata):
