@@ -448,7 +448,8 @@ class NixIO(BaseIO):
                 nixobj = self._get_object_at(objpath)
             nixobj.definition = attr["definition"]
             self._write_attr_annotations(nixobj, attr, objpath)
-            self._write_data(nixobj, data, objpath)
+            if isinstance(obj, pq.Quantity):
+                self._write_data(nixobj, data, objpath)
             # TODO: Create links
             self._object_map[id(obj)] = nixobj
         self._write_cascade(obj, objpath)
@@ -1183,6 +1184,23 @@ class NixIO(BaseIO):
         if neoobj.annotations:
             attrs["annotations"] = neoobj.annotations
         return attrs
+
+    @classmethod
+    def _neo_data_to_nix(cls, neoobj):
+        data = dict()
+        data["data"] = np.transpose(neoobj.magnitude)
+        data["dataunits"] = cls._get_units(neoobj)
+        data["positions"] = neoobj.times
+        data["timeunits"] = cls._get_units(neoobj.times)
+        data["t_start"] = neoobj.t_start
+        data["t_stop"] = neoobj.t_stop
+        if hasattr(neoobj, "sampling_period"):
+            data["sampling_interval"] = neoobj.sampling_period
+        if hasattr(neoobj, "durations"):
+            data["extents"] = neoobj.durations
+        if hasattr(neoobj, "labels"):
+            data["labels"] = neoobj.labels.tolist()
+        return data
 
     @classmethod
     def _add_annotations(cls, annotations, metadata):
