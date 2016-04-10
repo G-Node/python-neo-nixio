@@ -490,107 +490,99 @@ class NixIO(BaseIO):
             raise ValueError("Unable to create NIX object. Invalid type.")
         return nixobj
 
-    def write_block(self, bl, parent_path=""):
+    def write_block(self, bl, loc=""):
         """
         Convert ``bl`` to the NIX equivalent and write it to the file.
 
         :param bl: Neo block to be written
-        :param parent_path: Unused for blocks
-        :return: The new NIX Block
+        :param loc: Unused for blocks
         """
-        self._write_object(bl, parent_path)
+        self._write_object(bl, loc)
         self._create_references(bl)
 
-    def write_segment(self, seg, parent_path=""):
+    def write_segment(self, seg, loc=""):
         """
         Convert the provided ``seg`` to a NIX Group and write it to the NIX
-        file at the location defined by ``parent_path``.
+        file at the location defined by ``loc``.
 
         :param seg: Neo seg to be written
-        :param parent_path: Path to the parent of the new Segment
-        :return: The newly created NIX Group
+        :param loc: Path to the parent of the new Segment
         """
-        self._write_object(seg, parent_path)
+        self._write_object(seg, loc)
 
-    def write_recordingchannelgroup(self, rcg, parent_path=""):
+    def write_recordingchannelgroup(self, rcg, loc=""):
         """
         Convert the provided ``rcg`` (RecordingChannelGroup) to a NIX Source
-        and write it to the NIX file at the location defined by ``parent_path``.
+        and write it to the NIX file at the location defined by ``loc``.
 
         :param rcg: The Neo RecordingChannelGroup to be written
-        :param parent_path: Path to the parent of the new RCG
-        :return: The newly created NIX Source
+        :param loc: Path to the parent of the new RCG
         """
-        self._write_object(rcg, parent_path)
+        self._write_object(rcg, loc)
 
-    def write_analogsignal(self, anasig, parent_path=""):
+    def write_analogsignal(self, anasig, loc=""):
         """
         Convert the provided ``anasig`` (AnalogSignal) to a list of NIX
         DataArray objects and write them to the NIX file at the location defined
-        by ``parent_path``. All DataArray objects created from the same
+        by ``loc``. All DataArray objects created from the same
         AnalogSignal have their metadata section point to the same object.
 
         :param anasig: The Neo AnalogSignal to be written
-        :param parent_path: Path to the parent of the new AnalogSignal
-        :return: A list containing the newly created NIX DataArrays
+        :param loc: Path to the parent of the new AnalogSignal
         """
-        self._write_object(anasig, parent_path)
+        self._write_object(anasig, loc)
 
-    def write_irregularlysampledsignal(self, irsig, parent_path=""):
+    def write_irregularlysampledsignal(self, irsig, loc=""):
         """
         Convert the provided ``irsig`` (IrregularlySampledSignal) to a list of
         NIX DataArray objects and write them to the NIX file at the location
-        defined by ``parent_path``. All DataArray objects created from the same
+        defined by ``loc``. All DataArray objects created from the same
         IrregularlySampledSignal have their metadata section point to the same
         object.
 
         :param irsig: The Neo IrregularlySampledSignal to be written
-        :param parent_path: Path to the parent of the new
+        :param loc: Path to the parent of the new
         :return: The newly created NIX DataArray
         """
-        self._write_object(irsig, parent_path)
+        self._write_object(irsig, loc)
 
-    def write_epoch(self, ep, parent_path=""):
+    def write_epoch(self, ep, loc=""):
         """
         Convert the provided ``ep`` (Epoch) to a NIX MultiTag and write it to
-        the NIX file at the location defined by ``parent_path``.
+        the NIX file at the location defined by ``loc``.
 
         :param ep: The Neo Epoch to be written
-        :param parent_path: Path to the parent of the new MultiTag
-        :return: The newly created NIX MultiTag
+        :param loc: Path to the parent of the new MultiTag
         """
-        self._write_object(ep, parent_path)
+        self._write_object(ep, loc)
 
-    def write_event(self, ev, parent_path=""):
+    def write_event(self, ev, loc=""):
         """
         Convert the provided ``ev`` (Event) to a NIX MultiTag and write it to
-        the NIX file at the location defined by ``parent_path``.
+        the NIX file at the location defined by ``loc``.
 
         :param ev: The Neo Event to be written
-        :param parent_path: Path to the parent of the new MultiTag
-        :return: The newly created NIX MultiTag
+        :param loc: Path to the parent of the new MultiTag
         """
-        self._write_object(ev, parent_path)
+        self._write_object(ev, loc)
 
-    def write_spiketrain(self, sptr, parent_path=""):
+    def write_spiketrain(self, sptr, loc=""):
         """
         Convert the provided ``sptr`` (SpikeTrain) to a NIX MultiTag and write
-        it to the NIX file at the location defined by ``parent_path``.
+        it to the NIX file at the location defined by ``loc``.
 
         :param sptr: The Neo SpikeTrain to be written
-        :param parent_path: Path to the parent of the new MultiTag
-        :return: The newly created NIX MultiTag
+        :param loc: Path to the parent of the new MultiTag
         """
-        self._write_object(sptr, parent_path)
+        self._write_object(sptr, loc)
 
-    def write_unit(self, ut, parent_path=""):
+    def write_unit(self, ut, loc=""):
         """
         Convert the provided ``ut`` (Unit) to a NIX Source and write it to the
         NIX file at the parent RCG.
 
         :param ut: The Neo Unit to be written
-        :param parent_path: Path to the parent of the new Source
-        :return: The newly created NIX Source
+        :param loc: Path to the parent of the new Source
         """
         self._write_object(ut, parent_path)
 
