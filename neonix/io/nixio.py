@@ -804,9 +804,13 @@ class NixIO(BaseIO):
             blockpath = "/" + path.split("/")[1]
             parentblock = self._get_object_at(blockpath)
             if "extents" in attr:
+                extname = nixobj.name + ".durations"
+                exttype = nixobj.type + ".durations"
+                if extname in parentblock.data_arrays:
+                    del parentblock.data_arrays[extname]
                 extents = parentblock.create_data_array(
-                    nixobj.name+".durations",
-                    nixobj.type+".durations",
+                    extname,
+                    exttype,
                     data=attr["extents"]
                 )
                 extents.unit = attr["extentunits"]
@@ -821,6 +825,9 @@ class NixIO(BaseIO):
                 metadata["t_stop"] = self._to_value(attr["t_stop"])
             if "waveforms" in attr:
                 wfname = nixobj.name + ".waveforms"
+                if wfname in parentblock.data_arrays:
+                    del parentblock.data_arrays[wfname]
+                    del nixobj.features[0]
                 wfda = parentblock.create_data_array(
                     wfname, "neo.waveforms",
                     data=attr["waveforms"]
@@ -835,7 +842,7 @@ class NixIO(BaseIO):
                 wftime.unit = attr["timeunits"]
                 wftime.label = "time"
                 if wfname in metadata.sections:
-                    wfda.metadata = nixobj.sections[wfname]
+                    wfda.metadata = metadata.sections[wfname]
                 else:
                     wfpath = path + "/waveforms/" + wfname
                     wfda.metadata = self._get_or_init_metadata(wfda, wfpath)
