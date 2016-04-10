@@ -1120,6 +1120,63 @@ class NixIO(BaseIO):
             metadata = self._get_or_init_metadata(nixobj, path)
             self._add_annotations(attr["annotations"], metadata)
 
+    def _write_data(self, nixobj, attr, path):
+        if isinstance(nixobj, list):
+            for obj in nixobj:
+                obj.unit = attr["dataunits"]
+                if attr["type"] == "analogsignal":
+                    timedim = obj.append_sampled_dimension(
+                        attr["sampling_interval"]
+                    )
+                elif attr["type"] == "irregularlysampledsignal":
+                    timedim = obj.append_range_dimension(attr["times"])
+                timedim.unit = attr["timeunits"]
+                timedim.label = "time"
+                timedim.offset = attr["t_start"]
+                obj.append_set_dimension()
+        else:
+            nixobj.positions.unit = attr["timeunits"]
+            blockpath = "/" + path.split("/")[1]
+            parentblock = self._get_object_at(blockpath)
+            if "extents" in attr:
+                extents = parentblock.create_data_array(
+                    nixobj.name+".durations",
+                    nixobj.type+".durations",
+                    data=attr["durations"]
+                )
+                extents.unit = attr["timeunits"]
+                nixobj.extents = extents
+            if "labels" in attr:
+                labeldim = nixobj.positions.append_set_dimension()
+                labeldim.labels = attr["labels"]
+            metadata = self._get_or_init_metadata(nixobj, path)
+            metadata["t_start"] = self._to_value(attr["t_start"])
+            metadata["t_stop"] = self._to_value(attr["t_stop"])
+            if "waveforms" in attr:
+                wfname = nixobj.name + ".waveforms"
+                wfda = parentblock.create_data_array(
+                    wfname, "neo.waveforms",
+                    data=attr["waveforms"]
+                )
+                wfda.unit = attr["waveformunits"]
+                nixobj.create_feature(wfda, nixio.LinkType.Indexed)
+                wfda.append_set_dimension()
+                wfda.append_set_dimension()
+                wftime = wfda.append_sampled_dimension(
+                    attr["sampling_interval"]
+                )
+                wftime.unit = attr["timeunits"]
+                wftime.label = "time"
+                if wfname in metadata.sections:
+                    wfda.metadata = nixobj.sections[wfname]
+                else:
+                    wfpath = path + "/waveforms/" + wfname
+                    wfda.metadata = self._get_or_init_metadata(wfda, wfpath)
+                if "left_sweep" in attr:
+                    wfda.metadata["left_sweep"] = self._to_value(
+                        attr["left_sweep"]
+                    )
+
     def _update_maps(self, obj, lazy):
         objidx = self._find_lazy_loaded(obj)
         if lazy and objidx is None:
@@ -1234,7 +1291,7 @@ class NixIO(BaseIO):
         attr["dataunits"] = cls._get_units(neoobj)
         if isinstance(neoobj, IrregularlySampledSignal):
             attr["times"] = neoobj.times
-            attr["timeunits"] = cls._get_units(neoobj.times)
+        attr["timeunits"] = cls._get_units(neoobj.times)
         attr["t_start"] =\
             neoobj.t_start.rescale(attr["timeunits"]).magnitude.item()
         attr["t_stop"] =\
@@ -1245,6 +1302,13 @@ class NixIO(BaseIO):
             attr["extents"] = neoobj.durations
         if hasattr(neoobj, "labels"):
             attr["labels"] = neoobj.labels.tolist()
+        if hasattr(neoobj, "waveforms"):
+            attr["waveforms"] = list(wf.magnitude for wf in
+                                     list(wfgroup for wfgroup in
+                                          neoobj.waveforms))
+            attr["waveformunits"] = cls._get_units(neoobj.waveforms)
+        if hasattr(neoobj, "left_sweep"):
+            attr["left_sweep"] = neoobj.left_sweep.magnitude.item()
         return attr
 
     @classmethod
