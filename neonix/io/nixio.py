@@ -956,7 +956,8 @@ class NixIO(BaseIO):
                                           neoobj.waveforms))
             attr["waveformunits"] = cls._get_units(neoobj.waveforms)
         if hasattr(neoobj, "left_sweep") and neoobj.left_sweep is not None:
-            attr["left_sweep"] = neoobj.left_sweep.magnitude.item()
+            attr["left_sweep"] = neoobj.left_sweep.\
+                rescale(attr["timeunits"]).magnitude.item()
         return attr
 
     @classmethod
