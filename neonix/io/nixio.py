@@ -710,6 +710,10 @@ class NixIO(BaseIO):
         ``path`` is a '/' delimited string. Each part of the string alternates
         between an object name and a container.
 
+        If the requested object is an AnalogSignal or IrregularlySampledSignal,
+        identified by the second-to-last part of the path string, a list of
+        (DataArray) objects is returned.
+
         Example path: /block_1/segments/segment_a/events/event_a1
 
         :param path: Path string
@@ -723,8 +727,20 @@ class NixIO(BaseIO):
         if len(parts) == 2:  # root block
             return self.nix_file.blocks[parts[1]]
         parent_obj = self._get_parent(path)
-        parent_container = getattr(parent_obj, self._container_map[parts[-2]])
-        return parent_container[parts[-1]]
+        container_name = self._container_map[parts[-2]]
+        parent_container = getattr(parent_obj, container_name)
+        objname = parts[-1]
+        if parts[-2] in ["analogsignals", "irregularlysampledsignals"]:
+            obj = list()
+            for idx in itertools.count():
+                name = "{}.{}".format(objname, idx)
+                if name in parent_container:
+                    obj.append(parent_container[name])
+                else:
+                    break
+        else:
+            obj = parent_container[objname]
+        return obj
 
     def _get_parent(self, path):
         parts = path.split("/")
