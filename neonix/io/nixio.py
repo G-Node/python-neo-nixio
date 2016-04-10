@@ -595,14 +595,16 @@ class NixIO(BaseIO):
         """
         self._write_object(ut, parent_path)
 
-    def _write_cascade(self, neo_obj, path=""):
-        if isinstance(neo_obj, RecordingChannelGroup):
+    def _write_cascade(self, neoobj, path=""):
+        if isinstance(neoobj, RecordingChannelGroup):
             containers = ["units"]
+        elif isinstance(neoobj, Unit):
+            containers = []
         else:
-            containers = getattr(neo_obj, "_child_containers", [])
+            containers = getattr(neoobj, "_child_containers", [])
         for neocontainer in containers:
             neotype = neocontainer[:-1]
-            children = getattr(neo_obj, neocontainer)
+            children = getattr(neoobj, neocontainer)
             write_func = getattr(self, "write_" + neotype)
             for ch in children:
                 write_func(ch, path)
