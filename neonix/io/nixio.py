@@ -601,12 +601,16 @@ class NixIO(BaseIO):
         nixsource = self._get_mapped_object(rcg)
         for idx, channel in enumerate(rcg.channel_indexes):
             if len(rcg.channel_names):
-                channame = rcg.channel_names[idx]
+                channame = rcg.channel_names[idx].decode()
             else:
                 channame = "{}.RecordingChannel{}".format(
                     rcg.name, idx
                 )
-            nixchan = nixsource.create_source(channame, "neo.recordingchannel")
+            if channame in nixsource.sources:
+                nixchan = nixsource.sources[channame]
+            else:
+                nixchan = nixsource.create_source(channame,
+                                                  "neo.recordingchannel")
             nixchan.definition = nixsource.definition
             chanpath = loc + "/recordingchannels/" + channame
             chanmd = self._get_or_init_metadata(nixchan, chanpath)
