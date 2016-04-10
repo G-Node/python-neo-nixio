@@ -448,7 +448,10 @@ class NixIO(BaseIO):
             self._write_attr_annotations(nixobj, attr, objpath)
             if isinstance(obj, pq.Quantity):
                 self._write_data(nixobj, attr, objpath)
-            self._object_map[id(obj)] = nixobj
+        else:
+            nixobj = self._get_object_at(objpath)
+        self._object_map[id(obj)] = nixobj
+        self._object_hashes[objpath] = newhash
         self._write_cascade(obj, objpath)
 
     def _create_nix_obj(self, loc, attr):
