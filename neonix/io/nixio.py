@@ -448,7 +448,6 @@ class NixIO(BaseIO):
             self._write_attr_annotations(nixobj, attr, objpath)
             if isinstance(obj, pq.Quantity):
                 self._write_data(nixobj, attr, objpath)
-            # TODO: Create links
             self._object_map[id(obj)] = nixobj
         self._write_cascade(obj, objpath)
 
