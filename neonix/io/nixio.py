@@ -440,19 +440,52 @@ class NixIO(BaseIO):
         if oldhash != newhash:
             attr = self._neo_attr_to_nix(obj)
             if isinstance(obj, pq.Quantity):
-                data = self._neo_data_to_nix(obj)
+                attr.update(self._neo_data_to_nix(obj))
             if oldhash is None:
                 # TODO: Create object
-                nixobj = None
+                nixobj = self._create_nix_obj(loc, attr)
             else:
                 nixobj = self._get_object_at(objpath)
             nixobj.definition = attr["definition"]
             self._write_attr_annotations(nixobj, attr, objpath)
             if isinstance(obj, pq.Quantity):
-                self._write_data(nixobj, data, objpath)
+                self._write_data(nixobj, attr, objpath)
             # TODO: Create links
             self._object_map[id(obj)] = nixobj
         self._write_cascade(obj, objpath)
+
+    def _create_nix_obj(self, loc, attr):
+        parentobj = self._get_object_at(loc)
+        blockpath = "/" + loc.split("/")[1]
+        parentblock = self._get_object_at(blockpath)
+        if attr["type"] == "block":
+            nixobj = parentblock.create_block(attr["name"], "neo.block")
+        elif attr["type"] == "segment":
+            nixobj = parentblock.create_group(attr["name"], "neo.segment")
+        elif attr["type"] == "recordingchannelgroup":
+            nixobj = parentblock.create_source(attr["name"],
+                                               "neo.recordingchannelgroup")
+        elif attr["type"] in ("analogsignal", "irregularlysampledsignal"):
+            nixobj = list()
+            for datarow in attr["data"]:
+                nixobj.append(parentblock.create_data_array(
+                    attr["name"], "neo."+attr["type"], data=datarow
+                ))
+            parentobj.data_arrays.extend(nixobj)
+        elif attr["type"] in ("epoch", "event", "spiketrain"):
+            timesda = parentblock.create_data_array(
+                attr["name"]+".times", "neo."+attr["type"]+".times",
+                data=attr["data"]
+            )
+            nixobj = parentobj.create_multi_tag(
+                attr["name"], "neo."+attr["type"], data=timesda
+            )
+            parentobj.multi_tags.append(nixobj)
+        elif attr["type"] == "unit":
+            nixobj = parentobj.create_source(attr["name"], "neo.unit")
+        else:
+            raise ValueError("Unable to create NIX object. Invalid type.")
+        return nixobj
 
     def write_block(self, bl, parent_path=""):
         """
