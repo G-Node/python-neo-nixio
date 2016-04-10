@@ -1519,8 +1519,12 @@ class NixIOPartialWriteTest(NixIOTest):
         neq = self.assertNotEqual
 
         def side_effect_func(*args, **kwargs):
-            objclass = kwargs.get("nix_object", args[0])
-            neq(objclass.type, typestring)
+            obj = kwargs.get("nixobj", args[0])
+            if isinstance(obj, list):
+                for sig in obj:
+                    neq(sig.type, typestring)
+            else:
+                neq(obj.type, typestring)
         return side_effect_func
 
     @classmethod
@@ -1537,8 +1541,8 @@ class NixIOPartialWriteTest(NixIOTest):
         """
         Partial write: All except specific type
         """
-        for obj in NixIO.supported_objects:
-            self._mock_write_attr(obj)
+        for objclass in NixIO.supported_objects:
+            self._mock_write_attr(objclass)
             self.compare_blocks(self.neo_blocks, self.io.nix_file.blocks)
 
     def test_no_modifications(self):
