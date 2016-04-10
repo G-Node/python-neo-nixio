@@ -442,11 +442,9 @@ class NixIO(BaseIO):
             if isinstance(obj, pq.Quantity):
                 attr.update(self._neo_data_to_nix(obj))
             if oldhash is None:
-                # TODO: Create object
                 nixobj = self._create_nix_obj(loc, attr)
             else:
                 nixobj = self._get_object_at(objpath)
-            nixobj.definition = attr["definition"]
             self._write_attr_annotations(nixobj, attr, objpath)
             if isinstance(obj, pq.Quantity):
                 self._write_data(nixobj, attr, objpath)
@@ -467,10 +465,14 @@ class NixIO(BaseIO):
                                                "neo.recordingchannelgroup")
         elif attr["type"] in ("analogsignal", "irregularlysampledsignal"):
             nixobj = list()
-            for datarow in attr["data"]:
-                nixobj.append(parentblock.create_data_array(
-                    attr["name"], "neo."+attr["type"], data=datarow
-                ))
+            typestr = "neo." + attr["type"]
+            parentmd = self._get_or_init_metadata(parentobj, loc)
+            sigmd = parentmd.create_section(attr["name"], typestr+".metadata")
+            for idx, datarow in enumerate(attr["data"]):
+                name = "{}.{}".format(attr["name"], idx)
+                da = parentblock.create_data_array(name, typestr, data=datarow)
+                da.metadata = sigmd
+                nixobj.append(da)
             parentobj.data_arrays.extend(nixobj)
         elif attr["type"] in ("epoch", "event", "spiketrain"):
             timesda = parentblock.create_data_array(
@@ -1096,19 +1098,26 @@ class NixIO(BaseIO):
             raise KeyError("Failed to find mapped object for {}. "
                            "Object not yet converted.".format(obj))
 
-    def _write_attr_annotations(self, nix_object, attr, object_path):
+    def _write_attr_annotations(self, nixobj, attr, path):
+        if isinstance(nixobj, list):
+            for obj in nixobj:
+                obj.definition = attr["definition"]
+            self._write_attr_annotations(nixobj[0], attr, path)
+        else:
+            nixobj.definition = attr["definition"]
         if "created_at" in attr:
-            nix_object.force_created_at(calculate_timestamp(attr["created_at"]))
+            nixobj.force_created_at(calculate_timestamp(attr["created_at"]))
         if "file_datetime" in attr:
-            metadata = self._get_or_init_metadata(nix_object, object_path)
+            metadata = self._get_or_init_metadata(nixobj, path)
             metadata["file_datetime"] = self._to_value(attr["file_datetime"])
         if "file_origin" in attr:
-            metadata = self._get_or_init_metadata(nix_object, object_path)
+            metadata = self._get_or_init_metadata(nixobj, path)
             metadata["file_origin"] = self._to_value(attr["file_origin"])
         if "rec_datetime" in attr and attr["rec_datetime"]:
+            metadata = self._get_or_init_metadata(nixobj, path)
             metadata["rec_datetime"] = self._to_value(attr["rec_datetime"])
         if "annotations" in attr:
-            metadata = self._get_or_init_metadata(nix_object, object_path)
+            metadata = self._get_or_init_metadata(nixobj, path)
             self._add_annotations(attr["annotations"], metadata)
 
     def _update_maps(self, obj, lazy):
