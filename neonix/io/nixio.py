@@ -584,11 +584,47 @@ class NixIO(BaseIO):
         :param ut: The Neo Unit to be written
         :param loc: Path to the parent of the new Source
         """
-        self._write_object(ut, parent_path)
+        self._write_object(ut, loc)
+
+    def write_recordingchannels(self, rcg, loc):
+        """
+        Create NIX Source objects to represent recording channels based on the
+        provided ``rcg`` (RecordingChannelGroup) write them to the NIX file at
+        the parent RCG.
+
+        :param rcg: The Neo RecordingChannelGroup
+        :param loc: Path to the RCG
+        """
+        nixsource = self._get_mapped_object(rcg)
+        for idx, channel in enumerate(rcg.channel_indexes):
+            if len(rcg.channel_names):
+                channame = rcg.channel_names[idx]
+            else:
+                channame = "{}.RecordingChannel{}".format(
+                    rcg.name, idx
+                )
+            nixchan = nixsource.create_source(channame, "neo.recordingchannel")
+            nixchan.definition = nixsource.definition
+            chanpath = loc + "/recordingchannels/" + channame
+            chanmd = self._get_or_init_metadata(nixchan, chanpath)
+            chanmd["index"] = self._to_value(int(channel))
+            if hasattr(rcg, "coordinates"):
+                coords = rcg.coordinates[idx]
+                coordunits = str(coords[0].dimensionality)
+                nixcoordunits = self._to_value(coordunits)
+                nixcoords = tuple(
+                    self._to_value(c.rescale(coordunits).magnitude.item())
+                    for c in coords
+                )
+                if "coordinates" in chanmd:
+                    del chanmd["coordinates"]
+                chanmd.create_property("coordinates", nixcoords)
+                chanmd["coordinates.units"] = nixcoordunits
 
     def _write_cascade(self, neoobj, path=""):
         if isinstance(neoobj, RecordingChannelGroup):
             containers = ["units"]
+            self.write_recordingchannels(neoobj, path)
         elif isinstance(neoobj, Unit):
             containers = []
         else:
