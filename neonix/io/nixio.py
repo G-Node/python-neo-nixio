@@ -852,23 +852,21 @@ class NixIO(BaseIO):
             objects.name = cls._generate_name(objects)
         if isinstance(objects, Block):
             block = objects
-            cls.resolve_name_conflicts(block.segments)
-            cls.resolve_name_conflicts(block.recordingchannelgroups)
-            signals = list()
-            eests = list()
+            allchildren = block.segments + block.recordingchannelgroups
+            cls.resolve_name_conflicts(allchildren)
+            allchildren = list()
             for seg in block.segments:
-                signals.extend(seg.analogsignals +
-                               seg.irregularlysampledsignals)
-                eests.extend(seg.events +
-                             seg.epochs +
-                             seg.spiketrains)
-            cls.resolve_name_conflicts(signals)
-            cls.resolve_name_conflicts(eests)
+                allchildren.extend(seg.analogsignals +
+                                   seg.irregularlysampledsignals +
+                                   seg.events +
+                                   seg.epochs +
+                                   seg.spiketrains)
+            cls.resolve_name_conflicts(allchildren)
         elif isinstance(objects, Segment):
             seg = objects
             cls.resolve_name_conflicts(seg.analogsignals +
-                                       seg.irregularlysampledsignals)
-            cls.resolve_name_conflicts(seg.events +
+                                       seg.irregularlysampledsignals +
+                                       seg.events +
                                        seg.epochs +
                                        seg.spiketrains)
         elif isinstance(objects, RecordingChannelGroup):
