@@ -1220,20 +1220,23 @@ class NixIO(BaseIO):
 
     @classmethod
     def _neo_data_to_nix(cls, neoobj):
-        data = dict()
-        data["data"] = np.transpose(neoobj.magnitude)
-        data["dataunits"] = cls._get_units(neoobj)
-        data["positions"] = neoobj.times
-        data["timeunits"] = cls._get_units(neoobj.times)
-        data["t_start"] = neoobj.t_start
-        data["t_stop"] = neoobj.t_stop
+        attr = dict()
+        attr["data"] = np.transpose(neoobj.magnitude)
+        attr["dataunits"] = cls._get_units(neoobj)
+        if isinstance(neoobj, IrregularlySampledSignal):
+            attr["times"] = neoobj.times
+            attr["timeunits"] = cls._get_units(neoobj.times)
+        attr["t_start"] =\
+            neoobj.t_start.rescale(attr["timeunits"]).magnitude.item()
+        attr["t_stop"] =\
+            neoobj.t_stop.rescale(attr["timeunits"]).magnitude.item()
         if hasattr(neoobj, "sampling_period"):
-            data["sampling_interval"] = neoobj.sampling_period
+            attr["sampling_interval"] = neoobj.sampling_period
         if hasattr(neoobj, "durations"):
-            data["extents"] = neoobj.durations
+            attr["extents"] = neoobj.durations
         if hasattr(neoobj, "labels"):
-            data["labels"] = neoobj.labels.tolist()
-        return data
+            attr["labels"] = neoobj.labels.tolist()
+        return attr
 
     @classmethod
     def _add_annotations(cls, annotations, metadata):
