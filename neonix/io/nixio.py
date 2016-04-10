@@ -430,9 +430,9 @@ class NixIO(BaseIO):
 
     def _write_object(self, obj, loc=""):
         if isinstance(obj, Block):
-            containerstr = "/" + type(obj).__name__.lower() + "s/"
-        else:
             containerstr = "/"
+        else:
+            containerstr = "/" + type(obj).__name__.lower() + "s/"
         self.resolve_name_conflicts(obj)
         objpath = loc + containerstr + obj.name
         oldhash = self._object_hashes.get(objpath)
@@ -454,16 +454,16 @@ class NixIO(BaseIO):
 
     def _create_nix_obj(self, loc, attr):
         parentobj = self._get_object_at(loc)
-        blockpath = "/" + loc.split("/")[1]
-        parentblock = self._get_object_at(blockpath)
         if attr["type"] == "block":
-            nixobj = parentblock.create_block(attr["name"], "neo.block")
+            nixobj = parentobj.create_block(attr["name"], "neo.block")
         elif attr["type"] == "segment":
-            nixobj = parentblock.create_group(attr["name"], "neo.segment")
+            nixobj = parentobj.create_group(attr["name"], "neo.segment")
         elif attr["type"] == "recordingchannelgroup":
-            nixobj = parentblock.create_source(attr["name"],
+            nixobj = parentobj.create_source(attr["name"],
                                                "neo.recordingchannelgroup")
         elif attr["type"] in ("analogsignal", "irregularlysampledsignal"):
+            blockpath = "/" + loc.split("/")[1]
+            parentblock = self._get_object_at(blockpath)
             nixobj = list()
             typestr = "neo." + attr["type"]
             parentmd = self._get_or_init_metadata(parentobj, loc)
@@ -475,12 +475,14 @@ class NixIO(BaseIO):
                 nixobj.append(da)
             parentobj.data_arrays.extend(nixobj)
         elif attr["type"] in ("epoch", "event", "spiketrain"):
+            blockpath = "/" + loc.split("/")[1]
+            parentblock = self._get_object_at(blockpath)
             timesda = parentblock.create_data_array(
                 attr["name"]+".times", "neo."+attr["type"]+".times",
                 data=attr["data"]
             )
-            nixobj = parentobj.create_multi_tag(
-                attr["name"], "neo."+attr["type"], data=timesda
+            nixobj = parentblock.create_multi_tag(
+                attr["name"], "neo."+attr["type"], timesda
             )
             parentobj.multi_tags.append(nixobj)
         elif attr["type"] == "unit":
@@ -753,7 +755,7 @@ class NixIO(BaseIO):
                 extents = parentblock.create_data_array(
                     nixobj.name+".durations",
                     nixobj.type+".durations",
-                    data=attr["durations"]
+                    data=attr["extents"]
                 )
                 extents.unit = attr["timeunits"]
                 nixobj.extents = extents
@@ -761,8 +763,10 @@ class NixIO(BaseIO):
                 labeldim = nixobj.positions.append_set_dimension()
                 labeldim.labels = attr["labels"]
             metadata = self._get_or_init_metadata(nixobj, path)
-            metadata["t_start"] = self._to_value(attr["t_start"])
-            metadata["t_stop"] = self._to_value(attr["t_stop"])
+            if "t_start" in attr:
+                metadata["t_start"] = self._to_value(attr["t_start"])
+            if "t_stop" in attr:
+                metadata["t_stop"] = self._to_value(attr["t_stop"])
             if "waveforms" in attr:
                 wfname = nixobj.name + ".waveforms"
                 wfda = parentblock.create_data_array(
@@ -901,24 +905,26 @@ class NixIO(BaseIO):
         attr["data"] = np.transpose(neoobj.magnitude)
         attr["dataunits"] = cls._get_units(neoobj)
         if isinstance(neoobj, IrregularlySampledSignal):
-            attr["times"] = neoobj.times
+            attr["times"] = neoobj.times.magnitude
         attr["timeunits"] = cls._get_units(neoobj.times)
-        attr["t_start"] =\
-            neoobj.t_start.rescale(attr["timeunits"]).magnitude.item()
-        attr["t_stop"] =\
-            neoobj.t_stop.rescale(attr["timeunits"]).magnitude.item()
+        if hasattr(neoobj, "t_start"):
+            attr["t_start"] =\
+                neoobj.t_start.rescale(attr["timeunits"]).magnitude.item()
+        if hasattr(neoobj, "t_stop"):
+            attr["t_stop"] =\
+                neoobj.t_stop.rescale(attr["timeunits"]).magnitude.item()
         if hasattr(neoobj, "sampling_period"):
-            attr["sampling_interval"] = neoobj.sampling_period
+            attr["sampling_interval"] = neoobj.sampling_period.magnitude.item()
         if hasattr(neoobj, "durations"):
             attr["extents"] = neoobj.durations
         if hasattr(neoobj, "labels"):
             attr["labels"] = neoobj.labels.tolist()
-        if hasattr(neoobj, "waveforms"):
+        if hasattr(neoobj, "waveforms") and neoobj.waveforms is not None:
             attr["waveforms"] = list(wf.magnitude for wf in
                                      list(wfgroup for wfgroup in
                                           neoobj.waveforms))
             attr["waveformunits"] = cls._get_units(neoobj.waveforms)
-        if hasattr(neoobj, "left_sweep"):
+        if hasattr(neoobj, "left_sweep") and neoobj.left_sweep is not None:
             attr["left_sweep"] = neoobj.left_sweep.magnitude.item()
         return attr
 
