@@ -759,7 +759,7 @@ class NixIO(BaseIO):
                     nixobj.type+".durations",
                     data=attr["extents"]
                 )
-                extents.unit = attr["timeunits"]
+                extents.unit = attr["extentunits"]
                 nixobj.extents = extents
             if "labels" in attr:
                 labeldim = nixobj.positions.append_set_dimension()
@@ -906,17 +906,21 @@ class NixIO(BaseIO):
         attr["dataunits"] = cls._get_units(neoobj)
         if isinstance(neoobj, IrregularlySampledSignal):
             attr["times"] = neoobj.times.magnitude
-        attr["timeunits"] = cls._get_units(neoobj.times)
+            attr["timeunits"] = cls._get_units(neoobj.times)
+        else:
+            attr["timeunits"] = cls._get_units(neoobj.times, True)
         if hasattr(neoobj, "t_start"):
             attr["t_start"] =\
-                neoobj.t_start.rescale(attr["timeunits"]).magnitude.item()
+                neoobj.t_start.rescale(attr["timeunits"]).item()
         if hasattr(neoobj, "t_stop"):
             attr["t_stop"] =\
-                neoobj.t_stop.rescale(attr["timeunits"]).magnitude.item()
+                neoobj.t_stop.rescale(attr["timeunits"]).item()
         if hasattr(neoobj, "sampling_period"):
-            attr["sampling_interval"] = neoobj.sampling_period.magnitude.item()
+            attr["sampling_interval"] =\
+                neoobj.sampling_period.rescale(attr["timeunits"]).item()
         if hasattr(neoobj, "durations"):
             attr["extents"] = neoobj.durations
+            attr["extentunits"] = cls._get_units(neoobj.durations)
         if hasattr(neoobj, "labels"):
             attr["labels"] = neoobj.labels.tolist()
         if hasattr(neoobj, "waveforms") and neoobj.waveforms is not None:
