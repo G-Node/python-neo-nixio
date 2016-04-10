@@ -601,7 +601,10 @@ class NixIO(BaseIO):
         nixsource = self._get_mapped_object(rcg)
         for idx, channel in enumerate(rcg.channel_indexes):
             if len(rcg.channel_names):
-                channame = rcg.channel_names[idx].decode()
+                channame = rcg.channel_names[idx]
+                if ((not isinstance(channame, str)) and
+                        isinstance(channame, bytes)):
+                    channame = channame.decode()
             else:
                 channame = "{}.RecordingChannel{}".format(
                     rcg.name, idx
