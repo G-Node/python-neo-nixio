@@ -266,9 +266,6 @@ class NixIOTest(unittest.TestCase):
             self.assertEqual(neoobj.file_datetime,
                              datetime.fromtimestamp(
                                  nixobj.metadata["file_datetime"]))
-        if neoobj.file_origin:
-            self.assertEqual(neoobj.file_origin,
-                             nixobj.metadata["file_origin"])
         if neoobj.annotations:
             nixmd = nixobj.metadata
             for k, v, in neoobj.annotations.items():
@@ -673,7 +670,6 @@ class NixIOWriteTest(NixIOTest):
                           description=self.rsentence(5))
         neo_block.rec_datetime = self.rdate()
         neo_block.file_datetime = self.rdate()
-        neo_block.file_origin = "test_file_origin"
         self.io.write_block(neo_block)
         nix_block = self.io.nix_file.blocks[0]
         self.compare_attr(neo_block, nix_block)
@@ -875,43 +871,36 @@ class NixIOWriteTest(NixIOTest):
         times = self.rquant(1, pq.s)
         signal = self.rquant(1, pq.V)
         blk = Block(name=self.rword(5), description=self.rsentence(2))
-        blk.file_origin = "/home/user/data/blockfile"
         self.populate_dates(blk)
 
         seg = Segment(name=self.rword(4),
                       description=self.rsentence(5))
         self.populate_dates(seg)
-        seg.file_origin = "/home/user/data/segfile"
         blk.segments.append(seg)
 
         asig = AnalogSignal(name=self.rword(9),
                             description=self.rsentence(4),
                             signal=signal, sampling_rate=pq.Hz)
-        asig.file_origin = "/home/user/data/asigfile"
         seg.analogsignals.append(asig)
 
         isig = IrregularlySampledSignal(name=self.rword(30),
                                         description=self.rsentence(5, 7),
                                         times=times, signal=signal,
                                         time_units=pq.s)
-        isig.file_origin = "/home/user/data/isigfile"
         seg.irregularlysampledsignals.append(isig)
 
         epoch = Epoch(name=self.rword(14), description=self.rsentence(40, 10),
                       times=times, durations=times)
-        epoch.file_origin = "/home/user/data/epochfile"
         seg.epochs.append(epoch)
 
         event = Event(name=self.rword(),
                       description=self.rsentence(50, 3),
                       times=times)
-        event.file_origin = "/home/user/data/eventfile"
         seg.events.append(event)
 
         spiketrain = SpikeTrain(name=self.rword(20),
                                 description=self.rsentence(70, 5),
                                 times=times, t_stop=pq.s, units=pq.s)
-        spiketrain.file_origin = "/home/user/data/spiketrainfile"
         seg.spiketrains.append(spiketrain)
 
         rcg = RecordingChannelGroup(
@@ -919,12 +908,10 @@ class NixIOWriteTest(NixIOTest):
             description=self.rsentence(10, 8),
             channel_indexes=[1, 2]
         )
-        rcg.file_origin = "/home/user/data/rcgfile"
         blk.recordingchannelgroups.append(rcg)
 
         unit = Unit(name=self.rword(40),
                     description=self.rsentence(30))
-        unit.file_origin = "/home/user/data/unitfile"
         rcg.units.append(unit)
 
         self.io.write_block(blk)

@@ -9,7 +9,7 @@
 
 from __future__ import absolute_import, print_function
 
-import sys
+import os
 import time
 from datetime import datetime
 from collections import Iterable
@@ -778,9 +778,6 @@ class NixIO(BaseIO):
         if "file_datetime" in attr:
             metadata = self._get_or_init_metadata(nixobj, path)
             metadata["file_datetime"] = self._to_value(attr["file_datetime"])
-        if "file_origin" in attr:
-            metadata = self._get_or_init_metadata(nixobj, path)
-            metadata["file_origin"] = self._to_value(attr["file_origin"])
         if "rec_datetime" in attr and attr["rec_datetime"]:
             metadata = self._get_or_init_metadata(nixobj, path)
             metadata["rec_datetime"] = self._to_value(attr["rec_datetime"])
@@ -953,8 +950,6 @@ class NixIO(BaseIO):
                 attrs["created_at"] = neoobj.rec_datetime
             if neoobj.file_datetime:
                 attrs["file_datetime"] = neoobj.file_datetime
-        if neoobj.file_origin:
-            attrs["file_origin"] = neoobj.file_origin
         if neoobj.annotations:
             attrs["annotations"] = neoobj.annotations
         return attrs
@@ -1066,8 +1061,7 @@ class NixIO(BaseIO):
             units = None
         return units
 
-    @staticmethod
-    def _nix_attr_to_neo(nix_obj):
+    def _nix_attr_to_neo(self, nix_obj):
         neo_attrs = dict()
         neo_attrs["name"] = nix_obj.name
 
@@ -1090,6 +1084,7 @@ class NixIO(BaseIO):
             neo_attrs["file_datetime"] = datetime.fromtimestamp(
                 neo_attrs["file_datetime"]
             )
+        neo_attrs["file_origin"] = os.path.basename(self.filename)
         return neo_attrs
 
     @staticmethod
@@ -1142,7 +1137,6 @@ class NixIO(BaseIO):
         # attributes
         strupdate(obj.name)
         strupdate(obj.description)
-        strupdate(obj.file_origin)
 
         # annotations
         for k, v in sorted(obj.annotations.items()):
