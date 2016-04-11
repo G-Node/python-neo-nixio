@@ -1252,6 +1252,58 @@ class NixIOWriteTest(NixIOTest):
         for nix_label, neo_label in zip(nix_epc_labels, neo_epc_labels):
             self.assertEqual(nix_label, neo_label.decode())
 
+    def test_to_value(self):
+        section = self.io.nix_file.create_section("Metadata value test", "Test")
+        tovalue = self.io._to_value
+
+        # quantity
+        qvalue = pq.Quantity(10, "mV")
+        section["qvalue"] = tovalue(qvalue)
+        self.assertEqual(section["qvalue"], 10)
+
+        # datetime
+        dt = self.rdate()
+        section["dt"] = tovalue(dt)
+        self.assertEqual(datetime.fromtimestamp(section["dt"]), dt)
+
+        # string
+        randstr = self.rsentence()
+        section["randstr"] = tovalue(randstr)
+        self.assertEqual(section["randstr"], randstr)
+
+        # bytes
+        bytestring = b"bytestring"
+        section["randbytes"] = tovalue(bytestring)
+        self.assertEqual(section["randbytes"], bytestring.decode())
+
+        # iteratbles
+        mdlist = [[1, 2, 3], [4, 5, 6]]
+        self.assertIs(tovalue(mdlist), None)
+
+        mdarray = np.random.random((10, 3))
+        self.assertIs(tovalue(mdarray), None)
+
+        randlist = np.random.random(10).tolist()
+        section["randlist"] = tovalue(randlist)
+        self.assertEqual(randlist, section["randlist"])
+
+        randarray = np.random.random(10)
+        section["randarray"] = tovalue(randarray)
+        np.testing.assert_almost_equal(randarray, section["randarray"])
+
+        empty = []
+        self.assertIs(tovalue(empty), None)
+
+        # numpy item
+        npval = np.float64(2398)
+        section["npval"] = tovalue(npval)
+        self.assertEqual(npval, section["npval"])
+
+        # number
+        val = 42
+        section["val"] = tovalue(val)
+        self.assertEqual(val, section["val"])
+
 
 class NixIOReadTest(NixIOTest):
 

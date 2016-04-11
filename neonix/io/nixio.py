@@ -1006,8 +1006,8 @@ class NixIO(BaseIO):
         if isinstance(v, pq.Quantity):
             # v = nixio.Value((v.magnitude.item(), str(v.dimensionality)))
             warnings.warn("Quantities in annotations are not currently "
-                          "supported when writing to NIX.")
-            return None
+                          "supported when writing to NIX. Units are dropped.")
+            v = nixio.Value(v.magnitude.item())
         elif isinstance(v, datetime):
             v = nixio.Value(calculate_timestamp(v))
         elif isinstance(v, string_types):
@@ -1017,7 +1017,7 @@ class NixIO(BaseIO):
         elif isinstance(v, Iterable):
             vv = list()
             for item in v:
-                if isinstance(v, Iterable):
+                if isinstance(item, Iterable):
                     warnings.warn("Multidimensional arrays and nested "
                                   "containers are not currently supported "
                                   "when writing to NIX.")
