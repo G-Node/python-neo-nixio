@@ -12,15 +12,12 @@ from datetime import datetime
 import unittest
 try:
     from unittest import mock
-    nomock = False
 except ImportError:
-    try:
-        import mock
-        nomock = False
-    except ImportError:
-        nomock = True
+    import mock
 import string
 import itertools
+from hashlib import md5
+from six import string_types
 
 import numpy as np
 import quantities as pq
@@ -36,12 +33,6 @@ class NixIOTest(unittest.TestCase):
 
     filename = None
     io = None
-
-    def tearDown(self):
-        if self.io:
-            del self.io
-        if self.filename and os.path.exists(self.filename):
-            os.remove(self.filename)
 
     def compare_blocks(self, neoblocks, nixblocks):
         for neoblock, nixblock in zip(neoblocks, nixblocks):
@@ -71,6 +62,9 @@ class NixIOTest(unittest.TestCase):
                 self.fail("Channel indexes do not match.")
             if len(neorcg.channel_names):
                 neochanname = neorcg.channel_names[neochanpos]
+                if ((not isinstance(neochanname, str)) and
+                         isinstance(neochanname, bytes)):
+                    neochanname = neochanname.decode()
                 nixchanname = nixchan.name
                 self.assertEqual(neochanname, nixchanname)
         nix_units = list(src for src in nixsrc.sources
@@ -107,7 +101,6 @@ class NixIOTest(unittest.TestCase):
                                 if da.type == "neo.irregularlysampledsignal" and
                                 nixrcg in da.sources))
             self.assertEqual(len(neoisigs), len(nixisigs))
-
             # SpikeTrains referencing RCG and Units
             for sidx, neounit in enumerate(neorcg.units):
                 if neounit.name:
@@ -281,6 +274,233 @@ class NixIOTest(unittest.TestCase):
             for k, v, in neoobj.annotations.items():
                 self.assertEqual(nixmd[k], v)
 
+    @classmethod
+    def create_nix_file(cls, filename=None):
+        if filename:
+            dirloc = os.path.dirname(filename)
+            if not os.path.exists(dirloc):
+                os.makedirs(dirloc)
+        else:
+            filename = "nixio_testfile.h5"
+        cls.filename = filename
+        nixfile = NixIO(cls.filename, "rw")
+        cls.io = nixfile
+
+        nix_block_a = nixfile.nix_file.create_block(cls.rword(10), "neo.block")
+        nix_block_a.definition = cls.rsentence(5, 10)
+        nix_block_b = nixfile.nix_file.create_block(cls.rword(10), "neo.block")
+        nix_block_b.definition = cls.rsentence(3, 3)
+
+        nix_block_a.metadata = nixfile.nix_file.create_section(
+            nix_block_a.name, nix_block_a.name+".metadata"
+        )
+
+        nix_block_b.metadata = nixfile.nix_file.create_section(
+            nix_block_b.name, nix_block_b.name+".metadata"
+        )
+
+        nix_blocks = [nix_block_a, nix_block_b]
+
+        for blk in nix_blocks:
+            allspiketrains = list()
+            allsignalgroups = list()
+            for ind in range(2):
+                group = blk.create_group(cls.rword(), "neo.segment")
+                group.definition = cls.rsentence(10, 15)
+
+                group_md = blk.metadata.create_section(group.name,
+                                                       group.name+".metadata")
+                group.metadata = group_md
+
+                for n in range(3):
+                    siggroup = list()
+                    asig_name = "{}_asig{}".format(cls.rword(10), n)
+                    asig_definition = cls.rsentence(5, 5)
+                    asig_md = group_md.create_section(asig_name,
+                                                      asig_name+".metadata")
+                    for idx in range(3):
+                        da_asig = blk.create_data_array(
+                            "{}.{}".format(asig_name, idx),
+                            "neo.analogsignal",
+                            data=cls.rquant(100, 1)
+                        )
+                        da_asig.definition = asig_definition
+                        da_asig.unit = "mV"
+
+                        da_asig.metadata = asig_md
+
+                        timedim = da_asig.append_sampled_dimension(0.01)
+                        timedim.unit = "ms"
+                        timedim.label = "time"
+                        timedim.offset = 10
+                        chandim = da_asig.append_set_dimension()
+                        group.data_arrays.append(da_asig)
+                        siggroup.append(da_asig)
+                    allsignalgroups.append(siggroup)
+
+                for n in range(2):
+                    siggroup = list()
+                    isig_name = "{}_isig{}".format(cls.rword(10), n)
+                    isig_definition = cls.rsentence(12, 12)
+                    isig_md = group_md.create_section(isig_name,
+                                                      isig_name+".metadata")
+                    isig_times = cls.rquant(200, 1, True)
+                    for idx in range(10):
+                        da_isig = blk.create_data_array(
+                            "{}.{}".format(isig_name, idx),
+                            "neo.irregularlysampledsignal",
+                            data=cls.rquant(200, 1)
+                        )
+                        da_isig.definition = isig_definition
+                        da_isig.unit = "mV"
+
+                        da_isig.metadata = isig_md
+
+                        timedim = da_isig.append_range_dimension(isig_times)
+                        timedim.unit = "s"
+                        timedim.label = "time"
+                        chandim = da_isig.append_set_dimension()
+                        group.data_arrays.append(da_isig)
+                        siggroup.append(da_isig)
+                    allsignalgroups.append(siggroup)
+
+                # SpikeTrains with Waveforms
+                for n in range(4):
+                    stname = "{}-st{}".format(cls.rword(20), n)
+                    times = cls.rquant(400, 1, True)
+                    times_da = blk.create_data_array(
+                        "{}.times".format(stname),
+                        "neo.spiketrain.times",
+                        data=times
+                    )
+                    times_da.unit = "ms"
+                    mtag_st = blk.create_multi_tag(stname,
+                                                   "neo.spiketrain",
+                                                   times_da)
+                    group.multi_tags.append(mtag_st)
+                    mtag_st.definition = cls.rsentence(20, 30)
+                    mtag_st_md = group.metadata.create_section(
+                        mtag_st.name, mtag_st.name+".metadata"
+                    )
+                    mtag_st.metadata = mtag_st_md
+                    mtag_st_md.create_property(
+                        "t_stop", nixio.Value(max(times_da).item()+1)
+                    )
+
+                    waveforms = cls.rquant((40, 10, 35), 1)
+                    wfname = "{}.waveforms".format(mtag_st.name)
+                    wfda = blk.create_data_array(wfname, "neo.waveforms",
+                                                 data=waveforms)
+                    wfda.unit = "mV"
+                    mtag_st.create_feature(wfda, nixio.LinkType.Indexed)
+                    wfda.append_set_dimension()  # spike dimension
+                    wfda.append_set_dimension()  # channel dimension
+                    wftimedim = wfda.append_sampled_dimension(0.1)
+                    wftimedim.unit = "ms"
+                    wftimedim.label = "time"
+                    wfda.metadata = mtag_st_md.create_section(
+                        wfname, "neo.waveforms.metadata"
+                    )
+                    wfda.metadata.create_property("left_sweep", nixio.Value(20))
+                    allspiketrains.append(mtag_st)
+
+                # Epochs
+                for n in range(5):
+                    epname = "{}-ep{}".format(cls.rword(5), n)
+                    times = cls.rquant(5, 1, True)
+                    times_da = blk.create_data_array(
+                        "{}.times".format(epname),
+                        "neo.epoch.times",
+                        data=times
+                    )
+                    times_da.unit = "s"
+
+                    extents = cls.rquant(5, 1)
+                    extents_da = blk.create_data_array(
+                        "{}.durations".format(epname),
+                        "neo.epoch.durations",
+                        data=extents
+                    )
+                    extents_da.unit = "s"
+
+                    mtag_ep = blk.create_multi_tag(
+                        epname, "neo.epoch", times_da
+                    )
+                    group.multi_tags.append(mtag_ep)
+                    mtag_ep.definition = cls.rsentence(2)
+                    mtag_ep.extents = extents_da
+                    label_dim = mtag_ep.positions.append_set_dimension()
+                    label_dim.labels = cls.rsentence(5).split(" ")
+                    # reference all signals in the group
+                    for siggroup in allsignalgroups:
+                        mtag_ep.references.extend(siggroup)
+
+                # Events
+                for n in range(2):
+                    evname = "{}-ev{}".format(cls.rword(5), n)
+                    times = cls.rquant(5, 1, True)
+                    times_da = blk.create_data_array(
+                        "{}.times".format(evname),
+                        "neo.event.times",
+                        data=times
+                    )
+                    times_da.unit = "s"
+
+                    mtag_ev = blk.create_multi_tag(
+                        evname, "neo.event", times_da
+                    )
+                    group.multi_tags.append(mtag_ev)
+                    mtag_ev.definition = cls.rsentence(2)
+                    label_dim = mtag_ev.positions.append_set_dimension()
+                    label_dim.labels = cls.rsentence(5).split(" ")
+                    # reference all signals in the group
+                    for siggroup in allsignalgroups:
+                        mtag_ev.references.extend(siggroup)
+
+
+            # RCG
+            nixrcg = blk.create_source(cls.rword(10),
+                                       "neo.recordingchannelgroup")
+            nixrcg.metadata = nix_blocks[0].metadata.create_section(
+                nixrcg.name, "neo.recordingchannelgroup.metadata"
+            )
+            chantype = "neo.recordingchannel"
+            # 3 channels
+            for idx in [2, 5, 9]:
+                channame = cls.rword(20)
+                nixrc = nixrcg.create_source(channame, chantype)
+                nixrc.definition = cls.rsentence(13)
+                nixrc.metadata = nixrcg.metadata.create_section(
+                    nixrc.name, "neo.recordingchannel.metadata"
+                )
+                nixrc.metadata.create_property("index", nixio.Value(idx))
+                dims = tuple(map(nixio.Value, cls.rquant(3, 1)))
+                nixrc.metadata.create_property("coordinates", dims)
+                nixrc.metadata.create_property("coordinates.units",
+                                               nixio.Value("um"))
+
+            nunits = 2
+            stsperunit = np.array_split(allspiketrains, nunits)
+            for idx in range(nunits):
+                unitname = "{}-unit{}".format(cls.rword(5), idx)
+                nixunit = nixrcg.create_source(unitname, "neo.unit")
+                nixunit.definition = cls.rsentence(4, 10)
+                for st in stsperunit[idx]:
+                    st.sources.append(nixrcg)
+                    st.sources.append(nixunit)
+
+            # pick a few signal groups to reference this RCG
+            randsiggroups = np.random.choice(allsignalgroups, 5, False)
+            for siggroup in randsiggroups:
+                for sig in siggroup:
+                    sig.sources.append(nixrcg)
+        return nix_blocks
+
+    @classmethod
+    def delete_nix_file(cls):
+        del cls.io
+        os.remove(cls.filename)
+
     @staticmethod
     def rdate():
         return datetime(year=np.random.randint(1980, 2020),
@@ -374,6 +594,10 @@ class NixIOWriteTest(NixIOTest):
     def setUp(self):
         self.filename = "nixio_testfile_write.h5"
         self.io = NixIO(self.filename, "ow")
+
+    def tearDown(self):
+        del self.io
+        os.remove(self.filename)
 
     def test_block_write(self):
         """
@@ -642,6 +866,7 @@ class NixIOWriteTest(NixIOTest):
         nix_wf = nix_spkt.features[0].data
         self.assertAlmostEqual(nix_wf.metadata["left_sweep"], 0.005)
         np.testing.assert_almost_equal(nix_wf, wf_array.magnitude)
+        self.compare_blocks([blk], [nix_block])
 
     def test_basic_attr_write(self):
         """
@@ -1040,66 +1265,28 @@ class NixIOWriteTest(NixIOTest):
         for nix_label, neo_label in zip(nix_epc_labels, neo_epc_labels):
             self.assertEqual(nix_label, neo_label.decode())
 
-    def test_partial_write(self):
-        neo_block_a = Block(name=self.rword(),
-                            description=self.rsentence())
-
-        neo_block_b = Block(name=self.rword(),
-                            description=self.rsentence())
-        neo_blocks = [neo_block_a, neo_block_b]
-
-        for blk in neo_blocks:
-            for ind in range(5):
-                seg = Segment(name="segment_{}".format(ind),
-                              description="{} segment {}".format(blk.name, ind))
-                blk.segments.append(seg)
-                asig_data = self.rquant((100, 3), pq.mV)
-                asignal = AnalogSignal(asig_data,
-                                       name="some_sort_of_signal_{}".format(ind),
-                                       t_start=0*pq.s,
-                                       sampling_rate=10*pq.kHz)
-                seg.analogsignals.append(asignal)
-
-                isig_times = self.rquant(50, pq.ms, True)
-                isig_data = self.rquant((50, 10), pq.nA)
-                isignal = IrregularlySampledSignal(
-                    isig_times, isig_data,
-                    name="an_irregular_signal_{}".format(ind)
-                )
-                seg.irregularlysampledsignals.append(isignal)
-
-        self.io.write_all_blocks(neo_blocks)
-        nix_block = self.io.nix_file.blocks[0]
-        ndas = len(nix_block.data_arrays)
-        # change signal
-        asig = neo_blocks[0].segments[3].analogsignals[0]
-        asig[:, 0] = self.rquant(100, pq.mV)
-
-        self.io.write_all_blocks(neo_blocks)
-
-        nix_block = self.io.nix_file.blocks[0]
-        self.assertEqual(len(nix_block.data_arrays), ndas)
-
 
 class NixIOReadTest(NixIOTest):
 
-    def setUp(self):
-        self.filename = "nixio_testfile_read.h5"
-        self.io = NixIO(self.filename, "rw")
-        self.nixfile = self.io.nix_file
+    nix_blocks = None
+    original_methods = dict()
 
-    def test_block_read(self):
-        """
-        Read Block test
+    @classmethod
+    def setUpClass(cls):
+        cls.nix_blocks = cls.create_nix_file()
+        cls.original_methods["_read_cascade"] = cls.io._read_cascade
+        cls.original_methods["_update_maps"] = cls.io._update_maps
 
-        Simple Block with basic attributes.
-        """
-        nix_block = self.nixfile.create_block(self.rword(), "neo.block")
-        nix_block.definition = self.rsentence()
-        neo_blocks = self.io.read_all_blocks()
-        self.assertEqual(len(neo_blocks), 1)
-        self.compare_attr(neo_blocks[0], nix_block)
-        self.compare_blocks(neo_blocks, [nix_block])
+    @classmethod
+    def tearDownClass(cls):
+        cls.delete_nix_file()
+
+    def tearDown(self):
+        self.restore_methods()
+
+    def restore_methods(self):
+        for name, method in self.original_methods.items():
+            setattr(self.io, name, self.original_methods[name])
 
     def test_all_read(self):
         """
@@ -1108,15 +1295,13 @@ class NixIOReadTest(NixIOTest):
         Write all objects to a using nix directly, read them using the NixIO
         reader, and check for equality.
         """
-        nix_blocks = self._create_full_nix()
         neo_blocks = self.io.read_all_blocks(cascade=True, lazy=False)
-        self.compare_blocks(neo_blocks, nix_blocks)
+        self.compare_blocks(neo_blocks, self.nix_blocks)
 
     def test_lazyload_fullcascade_read(self):
         """
         Read everything lazily: Lazy integration test with all features
         """
-        nix_blocks = self._create_full_nix()
         neo_blocks = self.io.read_all_blocks(cascade=True, lazy=True)
         # data objects should be empty
         for block in neo_blocks:
@@ -1131,248 +1316,62 @@ class NixIOReadTest(NixIOTest):
                     self.assertEqual(len(event), 0)
                 for st in seg.spiketrains:
                     self.assertEqual(len(st), 0)
-        self.compare_blocks(neo_blocks, nix_blocks)
+        self.compare_blocks(neo_blocks, self.nix_blocks)
 
     def test_lazyload_lazycascade_read(self):
         """
         Read everything lazily with lazy cascade
         """
-        nix_blocks = self._create_full_nix()
         neo_blocks = self.io.read_all_blocks(cascade="lazy", lazy=True)
-        self.compare_blocks(neo_blocks, nix_blocks)
+        self.compare_blocks(neo_blocks, self.nix_blocks)
 
-    def test_fullload_lazycascade_read(self):
+    def test_lazycascade_read(self):
         """
         Read everything with lazy cascade
         """
-        nix_blocks = self._create_full_nix()
+        def getitem(self, index):
+            return self._data.__getitem__(index)
+        from neonix.io.nixio import LazyList
+        getitem_original = LazyList.__getitem__
+        LazyList.__getitem__ = getitem
         neo_blocks = self.io.read_all_blocks(cascade="lazy", lazy=False)
-        self.compare_blocks(neo_blocks, nix_blocks)
+        for block in neo_blocks:
+            self.assertIsInstance(block.segments, LazyList)
+            self.assertIsInstance(block.recordingchannelgroups, LazyList)
+            for seg in block.segments:
+                self.assertIsInstance(seg, string_types)
+            for rcg in block.recordingchannelgroups:
+                self.assertIsInstance(rcg, string_types)
+        LazyList.__getitem__ = getitem_original
 
-    def test_nocascade(self):
+    def test_load_lazy_cascade(self):
+        from neonix.io.nixio import LazyList
+        neo_blocks = self.io.read_all_blocks(cascade="lazy", lazy=False)
+        for block in neo_blocks:
+            self.assertIsInstance(block.segments, LazyList)
+            self.assertIsInstance(block.recordingchannelgroups, LazyList)
+            name = block.name
+            block = self.io.load_lazy_cascade("/" + name, lazy=False)
+            self.assertIsInstance(block.segments, list)
+            self.assertIsInstance(block.recordingchannelgroups, list)
+            for seg in block.segments:
+                self.assertIsInstance(seg.analogsignals, list)
+                self.assertIsInstance(seg.irregularlysampledsignals, list)
+                self.assertIsInstance(seg.epochs, list)
+                self.assertIsInstance(seg.events, list)
+                self.assertIsInstance(seg.spiketrains, list)
+
+    def test_nocascade_read(self):
         """
-        Read a Block without cascading
+        Read the root Blocks without cascading
         """
-        nix_block = self.nixfile.create_block(self.rword(), "neo.block")
-        nix_block.definition = self.rsentence()
-        for idx in range(5):
-            group = nix_block.create_group(self.rword(), "neo.segment")
-            group.definition = self.rsentence()
-        blockpath = "/" + nix_block.name
-        neo_block = self.io.read_block(blockpath, cascade=False, lazy=False)
-        self.assertEqual(len(neo_block.segments), 0)
-        self.compare_attr(neo_block, nix_block)
-
-    def _create_full_nix(self):
-        nix_block_a = self.nixfile.create_block(self.rword(10), "neo.block")
-        nix_block_a.definition = self.rsentence(5, 10)
-        nix_block_b = self.nixfile.create_block(self.rword(10), "neo.block")
-        nix_block_b.definition = self.rsentence(3, 3)
-
-        nix_block_a.metadata = self.nixfile.create_section(
-            nix_block_a.name, nix_block_a.name+".metadata"
-        )
-
-        nix_block_b.metadata = self.nixfile.create_section(
-            nix_block_b.name, nix_block_b.name+".metadata"
-        )
-
-        nix_blocks = [nix_block_a, nix_block_b]
-
-        for blk in nix_blocks:
-            allspiketrains = list()
-            allsignalgroups = list()
-            for ind in range(2):
-                group = blk.create_group(self.rword(), "neo.segment")
-                group.definition = self.rsentence(10, 15)
-
-                group_md = blk.metadata.create_section(group.name,
-                                                       group.name+".metadata")
-                group.metadata = group_md
-
-                for n in range(3):
-                    siggroup = list()
-                    asig_name = "{}_asig{}".format(self.rword(10), n)
-                    asig_definition = self.rsentence(5, 5)
-                    asig_md = group_md.create_section(asig_name,
-                                                      asig_name+".metadata")
-                    for idx in range(3):
-                        da_asig = blk.create_data_array(
-                            "{}.{}".format(asig_name, idx),
-                            "neo.analogsignal",
-                            data=self.rquant(100, 1)
-                        )
-                        da_asig.definition = asig_definition
-                        da_asig.unit = "mV"
-
-                        da_asig.metadata = asig_md
-
-                        timedim = da_asig.append_sampled_dimension(0.01)
-                        timedim.unit = "ms"
-                        timedim.label = "time"
-                        timedim.offset = 10
-                        chandim = da_asig.append_set_dimension()
-                        group.data_arrays.append(da_asig)
-                        siggroup.append(da_asig)
-                    allsignalgroups.append(siggroup)
-
-                for n in range(2):
-                    siggroup = list()
-                    isig_name = "{}_isig{}".format(self.rword(10), n)
-                    isig_definition = self.rsentence(12, 12)
-                    isig_md = group_md.create_section(isig_name,
-                                                      isig_name+".metadata")
-                    isig_times = self.rquant(200, 1, True)
-                    for idx in range(10):
-                        da_isig = blk.create_data_array(
-                            "{}.{}".format(isig_name, idx),
-                            "neo.irregularlysampledsignal",
-                            data=self.rquant(200, 1)
-                        )
-                        da_isig.definition = isig_definition
-                        da_isig.unit = "mV"
-
-                        da_isig.metadata = isig_md
-
-                        timedim = da_isig.append_range_dimension(isig_times)
-                        timedim.unit = "s"
-                        timedim.label = "time"
-                        chandim = da_isig.append_set_dimension()
-                        group.data_arrays.append(da_isig)
-                        siggroup.append(da_isig)
-                    allsignalgroups.append(siggroup)
-
-                # SpikeTrains with Waveforms
-                for n in range(4):
-                    stname = "{}-st{}".format(self.rword(20), n)
-                    times = self.rquant(400, 1, True)
-                    times_da = blk.create_data_array(
-                        "{}.times".format(stname),
-                        "neo.spiketrain.times",
-                        data=times
-                    )
-                    times_da.unit = "ms"
-                    mtag_st = blk.create_multi_tag(stname,
-                                                   "neo.spiketrain",
-                                                   times_da)
-                    group.multi_tags.append(mtag_st)
-                    mtag_st.definition = self.rsentence(20, 30)
-                    mtag_st_md = group.metadata.create_section(
-                        mtag_st.name, mtag_st.name+".metadata"
-                    )
-                    mtag_st.metadata = mtag_st_md
-                    mtag_st_md.create_property(
-                        "t_stop", nixio.Value(max(times_da).item()+1)
-                    )
-
-                    waveforms = self.rquant((40, 10, 35), 1)
-                    wfname = "{}.waveforms".format(mtag_st.name)
-                    wfda = blk.create_data_array(wfname, "neo.waveforms",
-                                                 data=waveforms)
-                    wfda.unit = "mV"
-                    mtag_st.create_feature(wfda, nixio.LinkType.Indexed)
-                    wfda.append_set_dimension()  # spike dimension
-                    wfda.append_set_dimension()  # channel dimension
-                    wftimedim = wfda.append_sampled_dimension(0.1)
-                    wftimedim.unit = "ms"
-                    wftimedim.label = "time"
-                    wfda.metadata = mtag_st_md.create_section(
-                        wfname, "neo.waveforms.metadata"
-                    )
-                    wfda.metadata.create_property("left_sweep", nixio.Value(20))
-                    allspiketrains.append(mtag_st)
-
-                # Epochs
-                for n in range(5):
-                    epname = "{}-ep{}".format(self.rword(5), n)
-                    times = self.rquant(5, 1, True)
-                    times_da = blk.create_data_array(
-                        "{}.times".format(epname),
-                        "neo.epoch.times",
-                        data=times
-                    )
-                    times_da.unit = "s"
-
-                    extents = self.rquant(5, 1)
-                    extents_da = blk.create_data_array(
-                        "{}.durations".format(epname),
-                        "neo.epoch.durations",
-                        data=extents
-                    )
-                    extents_da.unit = "s"
-
-                    mtag_ep = blk.create_multi_tag(
-                        epname, "neo.epoch", times_da
-                    )
-                    group.multi_tags.append(mtag_ep)
-                    mtag_ep.definition = self.rsentence(2)
-                    mtag_ep.extents = extents_da
-                    label_dim = mtag_ep.positions.append_set_dimension()
-                    label_dim.labels = self.rsentence(5).split(" ")
-                    # reference all signals in the group
-                    for siggroup in allsignalgroups:
-                        mtag_ep.references.extend(siggroup)
-
-                # Events
-                for n in range(2):
-                    evname = "{}-ev{}".format(self.rword(5), n)
-                    times = self.rquant(5, 1, True)
-                    times_da = blk.create_data_array(
-                        "{}.times".format(evname),
-                        "neo.event.times",
-                        data=times
-                    )
-                    times_da.unit = "s"
-
-                    mtag_ev = blk.create_multi_tag(
-                        evname, "neo.event", times_da
-                    )
-                    group.multi_tags.append(mtag_ev)
-                    mtag_ev.definition = self.rsentence(2)
-                    label_dim = mtag_ev.positions.append_set_dimension()
-                    label_dim.labels = self.rsentence(5).split(" ")
-                    # reference all signals in the group
-                    for siggroup in allsignalgroups:
-                        mtag_ev.references.extend(siggroup)
-
-
-            # RCG
-            nixrcg = blk.create_source(self.rword(10),
-                                                 "neo.recordingchannelgroup")
-            nixrcg.metadata = nix_blocks[0].metadata.create_section(
-                nixrcg.name, "neo.recordingchannelgroup.metadata"
-            )
-            chantype = "neo.recordingchannel"
-            # 3 channels
-            for idx in [2, 5, 9]:
-                channame = self.rword(20)
-                nixrc = nixrcg.create_source(channame, chantype)
-                nixrc.definition = self.rsentence(13)
-                nixrc.metadata = nixrcg.metadata.create_section(
-                    nixrc.name, "neo.recordingchannel.metadata"
-                )
-                nixrc.metadata.create_property("index", nixio.Value(idx))
-                dims = tuple(map(nixio.Value, self.rquant(3, 1)))
-                nixrc.metadata.create_property("coordinates", dims)
-                nixrc.metadata.create_property("coordinates.units",
-                                               nixio.Value("um"))
-
-            nunits = 2
-            stsperunit = np.array_split(allspiketrains, nunits)
-            for idx in range(nunits):
-                unitname = "{}-unit{}".format(self.rword(5), idx)
-                nixunit = nixrcg.create_source(unitname, "neo.unit")
-                nixunit.definition = self.rsentence(4, 10)
-                for st in stsperunit[idx]:
-                    st.sources.append(nixrcg)
-                    st.sources.append(nixunit)
-
-            # pick a few signal groups to reference this RCG
-            randsiggroups = np.random.choice(allsignalgroups, 5, False)
-            for siggroup in randsiggroups:
-                for sig in siggroup:
-                    sig.sources.append(nixrcg)
-        return nix_blocks
+        self.io._read_cascade = mock.Mock()
+        neo_blocks = self.io.read_all_blocks(cascade=False)
+        self.io._read_cascade.assert_not_called()
+        for block in neo_blocks:
+            self.assertEqual(len(block.segments), 0)
+            nix_block = self.io.nix_file.blocks[block.name]
+            self.compare_attr(block, nix_block)
 
 
 class NixIOHashTest(NixIOTest):
@@ -1473,3 +1472,90 @@ class NixIOHashTest(NixIOTest):
                     self.rword(): lambda: self.rquant((10, 10), pq.mV)}
         self._hash_test(SpikeTrain, argfuncs)
 
+
+class NixIOPartialWriteTest(NixIOTest):
+
+    neo_blocks = None
+    original_methods = dict()
+
+    @classmethod
+    def setUpClass(cls):
+        cls.create_nix_file()
+        cls.neo_blocks = cls.io.read_all_blocks()
+        cls.original_methods["_write_attr_annotations"] =\
+            cls.io._write_attr_annotations
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.delete_nix_file()
+
+    def tearDown(self):
+        self.restore_methods()
+
+    def restore_methods(self):
+        for name, method in self.original_methods.items():
+            setattr(self.io, name, self.original_methods[name])
+
+    def _mock_write_attr(self, objclass):
+        typestr = str(objclass.__name__).lower()
+        self.io._write_attr_annotations = mock.Mock(
+            wraps=self.io._write_attr_annotations,
+            side_effect=self.check_obj_type("neo.{}".format(typestr))
+        )
+        neo_blocks = self.neo_blocks
+        self.modify_objects(neo_blocks, excludes=[objclass])
+        self.io.write_all_blocks(neo_blocks)
+        self.restore_methods()
+
+    def check_obj_type(self, typestring):
+        neq = self.assertNotEqual
+
+        def side_effect_func(*args, **kwargs):
+            objclass = kwargs.get("nix_object", args[0])
+            neq(objclass.type, typestring)
+        return side_effect_func
+
+    @classmethod
+    def modify_objects(cls, objs, excludes=()):
+        excludes = tuple(excludes)
+        for obj in objs:
+            if not (excludes and isinstance(obj, excludes)):
+                obj.description = cls.rsentence()
+            for container in getattr(obj, "_child_containers", []):
+                children = getattr(obj, container)
+                cls.modify_objects(children, excludes)
+
+    def test_partial(self):
+        """
+        Partial write: All except specific type
+        """
+        for obj in NixIO.supported_objects:
+            self._mock_write_attr(obj)
+            self.compare_blocks(self.neo_blocks, self.io.nix_file.blocks)
+
+    def test_no_modifications(self):
+        """
+        Test that no writes are made when nothing is modified
+        """
+        def nixfile_hash():
+            with open(self.io.filename, "rb") as nixfile:
+                filehash = md5(nixfile.read()).hexdigest()
+            return filehash
+
+        self.io._write_attr_annotations = mock.Mock()
+
+        hash_pre = nixfile_hash()
+        self.io.write_all_blocks(self.neo_blocks)
+        hash_post = nixfile_hash()
+        self.assertEqual(hash_pre, hash_post)
+        self.io._write_attr_annotations.assert_not_called()
+        self.compare_blocks(self.neo_blocks, self.io.nix_file.blocks)
+
+        # change hashes to force write
+        for k, v in self.io._object_hashes.items():
+            self.io._object_hashes[k] = "a"
+        self.io.write_all_blocks(self.neo_blocks)
+        hash_post = nixfile_hash()
+        self.assertNotEqual(hash_pre, hash_post)
+
+        self.compare_blocks(self.neo_blocks, self.io.nix_file.blocks)
