@@ -1550,14 +1550,6 @@ class NixIOPartialWriteTest(NixIOTest):
         neq = self.assertNotEqual
 
         def side_effect_func(*args, **kwargs):
-            objclass = kwargs.get("nix_object", args[0])
-            neq(objclass.type, typestring)
-        return side_effect_func
-
-    def check_obj_type(self, typestring):
-        neq = self.assertNotEqual
-
-        def side_effect_func(*args, **kwargs):
             obj = kwargs.get("nixobj", args[0])
             if isinstance(obj, list):
                 for sig in obj:
