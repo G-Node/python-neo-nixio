@@ -67,7 +67,6 @@ Maps to nix.Source with `type = neo.recordingchannelgroup`.
     |-------------------------------------------|---------------------------------------|
     | RecordingChannelGroup.name(string)        | Source.name(string)                   |
     | RecordingChannelGroup.description(string) | Source.definition(string)             |
-    | RecordingChannelGroup.file_origin(string) | Source.metadata(**Section**) [[1]](#notes) |
 
   - Objects
     - For each channel in `RecordingChannelGroup`, determined by the `channel_indexes` list, a `nix.Source` is created with `type = neo.recordingchannel`.
@@ -90,7 +89,6 @@ Maps to a `nix.DataArray` with `type = neo.analogsignal`.
     |-------------------------------|--------------------------------------|
     | AnalogSignal.name(string)            | DataArray.name(string)                   |
     | AnalogSignal.description(string)     | DataArray.definition(string)             |
-    | AnalogSignal.file_origin(string)     | DataArray.metadata(**Section**) [[1]](#notes) |
 
   - Objects
     - AnalogSignal.signal(Quantity 2D):  
@@ -115,7 +113,6 @@ Maps to a `nix.DataArray` with `type = neo.irregularlysampledsignal`.
     |-------------------------------|--------------------------------------|
     | IrregularlySampledSignal.name(string)            | DataArray.name(string)                   |
     | IrregularlySampledSignal.description(string)     | DataArray.definition(string)             |
-    | IrregularlySampledSignal.file_origin(string)     | DataArray.metadata(**Section**) [[1]](#notes) |
 
   - Objects
     - IrregularlySampledSignal.signal(Quantity 2D):  
@@ -139,7 +136,6 @@ Maps to a `nix.MultiTag` with `type = neo.epoch`.
     |-------------------------------|--------------------------------------|
     | Epoch.name(string)            | MultiTag.name(string)                   |
     | Epoch.description(string)     | MultiTag.definition(string)             |
-    | Epoch.file_origin(string)     | MultiTag.metadata(**Section**) [[1]](#notes) |
 
   - Objects
     - Epoch.times(Quantity 1D) maps to `MultiTag.positions(DataArray)` with type `neo.epoch.times`.
@@ -159,7 +155,6 @@ Maps to a `nix.MultiTag` with `type = neo.event`.
     |-------------------------------|--------------------------------------|
     | Event.name(string)            | MultiTag.name(string)                   |
     | Event.description(string)     | MultiTag.definition(string)             |
-    | Event.file_origin(string)     | MultiTag.metadata(**Section**) [[1]](#notes) |
 
   - Objects
     - Event.times(Quantity 1D) maps to `MultiTag.positions(DataArray)` with type `neo.event.times`.
@@ -177,7 +172,6 @@ Maps to a `nix.MultiTag` with `type = neo.spiketrain`.
     |-------------------------------|--------------------------------------|
     | SpikeTrain.name(string)                | MultiTag.name(string)                   |
     | SpikeTrain.description(string)         | MultiTag.definition(string)             |
-    | SpikeTrain.file_origin(string)         | MultiTag.metadata(**Section**) [[1]](#notes) |
     | SpikeTrain.t_start(Quantity scalar)    | MultiTag.metadata(**Section**) [[1]](#notes) |
     | SpikeTrain.t_stop(Quantity scalar)     | MultiTag.metadata(**Section**) [[1]](#notes) |
     | SpikeTrain.left_sweep(Quantity scalar) | MultiTag.metadata(**Section**) [[1]](#notes) |
@@ -210,7 +204,6 @@ Maps to a `nix.Source` with `type = neo.unit`.
     |-------------------------------|--------------------------------------|
     | Unit.name(string)                | Source.name(string)                   |
     | Unit.description(string)         | Source.definition(string)             |
-    | Unit.file_origin(string)         | Source.metadata(**Section**) [[1]](#notes) |
 
   - The `nix.MultiTag` objects which represent the SpikeTrains referenced by the `neo.Unit`, reference the respective `nix.Source` object (the reference direction is reversed).
   - `nix.Source` objects that represent `neo.Unit`s are created on the corresponding `nix.Source` which represents the original `neo.RecordingChannelGroup`.
@@ -219,7 +212,7 @@ Maps to a `nix.Source` with `type = neo.unit`.
 
 ## Notes:
   1. The NIX objects each hold only one `metadata` attribute.
-  Neo attributes such as `file_datetime` and `file_origin` are mapped to properties within the same `nix.Section` to which the `metadata` attribute refers.
+  Neo attributes such as `file_datetime` are mapped to properties within the same `nix.Section` to which the `metadata` attribute refers.
   A metadata section is only created for a NIX object if necessary, i.e., it is not created if the Neo object attributes are not set or if the object has no children.
   The metadata section of every object is the child of the metadata section of the parent of the object.
   In the case of metadata for blocks, the sections are created at the root of the file.
