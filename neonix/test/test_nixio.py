@@ -27,6 +27,7 @@ from neo.core import (Block, Segment, RecordingChannelGroup, AnalogSignal,
                       IrregularlySampledSignal, Unit, SpikeTrain, Event, Epoch)
 
 from neonix.io.nixio import NixIO
+from neonix.io.nixio import nixtypes
 
 
 class NixIOTest(unittest.TestCase):
@@ -172,7 +173,7 @@ class NixIOTest(unittest.TestCase):
             timedim = da.dimensions[0]
             chandim = da.dimensions[1]
             if isinstance(neosig, AnalogSignal):
-                self.assertIsInstance(timedim, nixio.SampledDimension)
+                self.assertIsInstance(timedim, nixtypes["SampledDimension"])
                 self.assertEqual(
                     pq.Quantity(timedim.sampling_interval, timedim.unit),
                     neosig.sampling_period
@@ -182,12 +183,12 @@ class NixIOTest(unittest.TestCase):
                     neosig.t_start
                 )
             elif isinstance(neosig, IrregularlySampledSignal):
-                self.assertIsInstance(timedim, nixio.RangeDimension)
+                self.assertIsInstance(timedim, nixtypes["RangeDimension"])
                 np.testing.assert_almost_equal(neosig.times.magnitude,
                                                timedim.ticks)
                 self.assertEqual(timedim.unit,
                                  str(neosig.times.dimensionality))
-            self.assertIsInstance(chandim, nixio.SetDimension)
+            self.assertIsInstance(chandim, nixtypes["SetDimension"])
 
     def compare_eests_mtags(self, eestlist, mtaglist):
         self.assertEqual(len(eestlist), len(mtaglist))
@@ -247,9 +248,10 @@ class NixIOTest(unittest.TestCase):
             self.assertEqual(np.shape(neowf), np.shape(nixwf))
             self.assertEqual(nixwf.unit, str(neowf.units.dimensionality))
             np.testing.assert_almost_equal(neowf.magnitude, nixwf)
-            self.assertIsInstance(nixwf.dimensions[0], nixio.SetDimension)
-            self.assertIsInstance(nixwf.dimensions[1], nixio.SetDimension)
-            self.assertIsInstance(nixwf.dimensions[2], nixio.SampledDimension)
+            self.assertIsInstance(nixwf.dimensions[0], nixtypes["SetDimension"])
+            self.assertIsInstance(nixwf.dimensions[1], nixtypes["SetDimension"])
+            self.assertIsInstance(nixwf.dimensions[2],
+                                  nixtypes["SampledDimension"])
 
     def compare_attr(self, neoobj, nixobj):
         if neoobj.name:
