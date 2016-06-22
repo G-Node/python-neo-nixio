@@ -22,7 +22,7 @@ import quantities as pq
 import numpy as np
 
 from neo.io.baseio import BaseIO
-from neo.core import (Block, Segment, RecordingChannelGroup, AnalogSignal,
+from neo.core import (Block, Segment, ChannelIndex, AnalogSignal,
                       IrregularlySampledSignal, Epoch, Event, SpikeTrain, Unit)
 from neo.io.tools import LazyList
 
@@ -71,7 +71,7 @@ class NixIO(BaseIO):
     is_readable = True
     is_writable = True
 
-    supported_objects = [Block, Segment, RecordingChannelGroup,
+    supported_objects = [Block, Segment, ChannelIndex,
                          AnalogSignal, IrregularlySampledSignal,
                          Epoch, Event, SpikeTrain, Unit]
     readable_objects = [Block]
@@ -88,7 +88,7 @@ class NixIO(BaseIO):
         "events": "multi_tags",
         "epochs": "multi_tags",
         "spiketrains": "multi_tags",
-        "recordingchannelgroups": "sources",
+        "channel_indexes": "sources",
         "units": "sources"
     }
 
@@ -156,7 +156,7 @@ class NixIO(BaseIO):
         neo_segment.block = neo_parent
         return neo_segment
 
-    def read_recordingchannelgroup(self, path, cascade=True, lazy=False):
+    def read_channelindex(self, path, cascade=True, lazy=False):
         nix_source = self._get_object_at(path)
         neo_rcg = self._source_rcg_to_neo(nix_source)
         neo_rcg.path = path
@@ -229,7 +229,7 @@ class NixIO(BaseIO):
         self._update_maps(neo_unit, lazy)
         nix_parent = self._get_parent(path)
         neo_parent = self._get_mapped_object(nix_parent)
-        neo_unit.recordingchannelgroup = neo_parent
+        neo_unit.channel_index = neo_parent
         return neo_unit
 
     def _block_to_neo(self, nix_block):
@@ -248,7 +248,7 @@ class NixIO(BaseIO):
         neo_attrs = self._nix_attr_to_neo(nix_source)
         rec_channels = list(self._nix_attr_to_neo(c)
                             for c in nix_source.sources
-                            if c.type == "neo.recordingchannel")
+                            if c.type == "neo.channelindex")
         neo_attrs["channel_names"] = np.array([c["name"] for c in rec_channels],
                                               dtype="S")
         neo_attrs["channel_indexes"] = np.array([c["index"]
@@ -257,7 +257,7 @@ class NixIO(BaseIO):
             coord_units = rec_channels[0]["coordinates.units"]
             coord_values = list(c["coordinates"] for c in rec_channels)
             neo_attrs["coordinates"] = pq.Quantity(coord_values, coord_units)
-        rcg = RecordingChannelGroup(**neo_attrs)
+        rcg = ChannelIndex(**neo_attrs)
         self._object_map[nix_source.id] = rcg
         return rcg
 
@@ -378,7 +378,10 @@ class NixIO(BaseIO):
             nixcontainer = self._container_map[neocontainer]
             if not hasattr(nix_obj, nixcontainer):
                 continue
-            neotype = neocontainer[:-1]
+            if neocontainer == "channel_indexes":
+                neotype = "channelindex"
+            else:
+                neotype = neocontainer[:-1]
             chpaths = list(path + "/" + neocontainer + "/" + c.name
                            for c in getattr(nix_obj, nixcontainer)
                            if c.type == "neo." + neotype)
@@ -393,7 +396,7 @@ class NixIO(BaseIO):
                 children = LazyList(self, lazy, chpaths)
             setattr(neo_obj, neocontainer, children)
 
-        if isinstance(neo_obj, RecordingChannelGroup):
+        if isinstance(neo_obj, ChannelIndex):
             # set references to signals
             parent_block_path = "/" + path.split("/")[1]
             parent_block = self._get_object_at(parent_block_path)
@@ -406,7 +409,7 @@ class NixIO(BaseIO):
                     neo_obj.analogsignals.append(sig)
                 elif isinstance(sig, IrregularlySampledSignal):
                     neo_obj.irregularlysampledsignals.append(sig)
-                sig.recordingchannelgroup = neo_obj
+                sig.channel_index = neo_obj
 
         elif isinstance(neo_obj, Unit):
             # set references to spiketrains
@@ -486,9 +489,9 @@ class NixIO(BaseIO):
             nixobj = parentobj.create_block(attr["name"], "neo.block")
         elif attr["type"] == "segment":
             nixobj = parentobj.create_group(attr["name"], "neo.segment")
-        elif attr["type"] == "recordingchannelgroup":
+        elif attr["type"] == "channelindex":
             nixobj = parentobj.create_source(attr["name"],
-                                               "neo.recordingchannelgroup")
+                                               "neo.channelindex")
         elif attr["type"] in ("analogsignal", "irregularlysampledsignal"):
             blockpath = "/" + loc.split("/")[1]
             parentblock = self._get_object_at(blockpath)
@@ -539,15 +542,15 @@ class NixIO(BaseIO):
         """
         self._write_object(seg, loc)
 
-    def write_recordingchannelgroup(self, rcg, loc=""):
+    def write_channelindex(self, chx, loc=""):
         """
-        Convert the provided ``rcg`` (RecordingChannelGroup) to a NIX Source
+        Convert the provided ``chx`` (ChannelIndex) to a NIX Source
         and write it to the NIX file at the location defined by ``loc``.
 
-        :param rcg: The Neo RecordingChannelGroup to be written
+        :param chx: The Neo ChannelIndex to be written
         :param loc: Path to the parent of the new RCG
         """
-        self._write_object(rcg, loc)
+        self._write_object(chx, loc)
 
     def write_analogsignal(self, anasig, loc=""):
         """
@@ -615,37 +618,37 @@ class NixIO(BaseIO):
         """
         self._write_object(ut, loc)
 
-    def write_recordingchannels(self, rcg, loc):
+    def write_channelindexes(self, chx, loc):
         """
-        Create NIX Source objects to represent recording channels based on the
-        provided ``rcg`` (RecordingChannelGroup) write them to the NIX file at
+        Create NIX Source objects to represent channels based on the
+        provided ``chx`` (ChannelIndex) write them to the NIX file at
         the parent RCG.
 
-        :param rcg: The Neo RecordingChannelGroup
+        :param chx: The Neo ChannelIndex
         :param loc: Path to the RCG
         """
-        nixsource = self._get_mapped_object(rcg)
-        for idx, channel in enumerate(rcg.channel_indexes):
-            if len(rcg.channel_names):
-                channame = rcg.channel_names[idx]
+        nixsource = self._get_mapped_object(chx)
+        for idx, channel in enumerate(chx.channel_indexes):
+            if len(chx.channel_names):
+                channame = chx.channel_names[idx]
                 if ((not isinstance(channame, str)) and
                         isinstance(channame, bytes)):
                     channame = channame.decode()
             else:
-                channame = "{}.RecordingChannel{}".format(
-                    rcg.name, idx
+                channame = "{}.ChannelIndex{}".format(
+                    chx.name, idx
                 )
             if channame in nixsource.sources:
                 nixchan = nixsource.sources[channame]
             else:
                 nixchan = nixsource.create_source(channame,
-                                                  "neo.recordingchannel")
+                                                  "neo.channelindex")
             nixchan.definition = nixsource.definition
-            chanpath = loc + "/recordingchannels/" + channame
+            chanpath = loc + "/channelindex/" + channame
             chanmd = self._get_or_init_metadata(nixchan, chanpath)
             chanmd["index"] = self._to_value(int(channel))
-            if hasattr(rcg, "coordinates"):
-                coords = rcg.coordinates[idx]
+            if hasattr(chx, "coordinates"):
+                coords = chx.coordinates[idx]
                 coordunits = str(coords[0].dimensionality)
                 nixcoordunits = self._to_value(coordunits)
                 nixcoords = tuple(
@@ -658,15 +661,18 @@ class NixIO(BaseIO):
                 chanmd["coordinates.units"] = nixcoordunits
 
     def _write_cascade(self, neoobj, path=""):
-        if isinstance(neoobj, RecordingChannelGroup):
+        if isinstance(neoobj, ChannelIndex):
             containers = ["units"]
-            self.write_recordingchannels(neoobj, path)
+            self.write_channelindexes(neoobj, path)
         elif isinstance(neoobj, Unit):
             containers = []
         else:
             containers = getattr(neoobj, "_child_containers", [])
         for neocontainer in containers:
-            neotype = neocontainer[:-1]
+            if neocontainer == "channel_indexes":
+                neotype = "channelindex"
+            else:
+                neotype = neocontainer[:-1]
             children = getattr(neoobj, neocontainer)
             write_func = getattr(self, "write_" + neotype)
             for ch in children:
@@ -677,9 +683,9 @@ class NixIO(BaseIO):
         Create references between NIX objects according to the supplied Neo
         Block.
         MultiTags reference DataArrays of the same Group.
-        DataArrays reference RecordingChannelGroups as sources, based on Neo
+        DataArrays reference ChannelIndexs as sources, based on Neo
          RCG -> Signal relationships.
-        MultiTags (SpikeTrains) reference RecordingChannelGroups and Units as
+        MultiTags (SpikeTrains) reference ChannelIndexs and Units as
          sources, based on Neo RCG -> Unit -> SpikeTrain relationships.
 
         :param block: A Neo Block that has already been converted and mapped to
@@ -692,7 +698,7 @@ class NixIO(BaseIO):
                 if mtag.type in ("neo.epoch", "neo.event"):
                     mtag.references.extend([sig for sig in group_signals
                                             if sig not in mtag.references])
-        for rcg in block.recordingchannelgroups:
+        for rcg in block.channel_indexes:
             rcgsource = self._get_mapped_object(rcg)
             das = self._get_mapped_objects(rcg.analogsignals +
                                            rcg.irregularlysampledsignals)
@@ -937,7 +943,7 @@ class NixIO(BaseIO):
             objects.name = cls._generate_name(objects)
         if isinstance(objects, Block):
             block = objects
-            allchildren = block.segments + block.recordingchannelgroups
+            allchildren = block.segments + block.channel_indexes
             cls.resolve_name_conflicts(allchildren)
             allchildren = list()
             for seg in block.segments:
@@ -954,7 +960,7 @@ class NixIO(BaseIO):
                                        seg.events +
                                        seg.epochs +
                                        seg.spiketrains)
-        elif isinstance(objects, RecordingChannelGroup):
+        elif isinstance(objects, ChannelIndex):
             rcg = objects
             cls.resolve_name_conflicts(rcg.units)
 
@@ -1173,7 +1179,7 @@ class NixIO(BaseIO):
         if isinstance(obj, (Block, Segment)):
             strupdate(obj.rec_datetime)
             strupdate(obj.file_datetime)
-        elif isinstance(obj, RecordingChannelGroup):
+        elif isinstance(obj, ChannelIndex):
             for idx in obj.channel_indexes:
                 strupdate(idx)
             for n in obj.channel_names:
