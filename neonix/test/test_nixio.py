@@ -590,7 +590,6 @@ class NixIOTest(unittest.TestCase):
         return blk
 
 
-# @unittest.skip
 class NixIOWriteTest(NixIOTest):
 
     def setUp(self):
@@ -1311,7 +1310,6 @@ class NixIOWriteTest(NixIOTest):
         self.assertEqual(val, section["val"])
 
 
-# @unittest.skip
 class NixIOReadTest(NixIOTest):
 
     nix_blocks = None
@@ -1420,7 +1418,6 @@ class NixIOReadTest(NixIOTest):
             self.compare_attr(block, nix_block)
 
 
-# @unittest.skip
 class NixIOHashTest(NixIOTest):
 
     def setUp(self):
@@ -1520,7 +1517,6 @@ class NixIOHashTest(NixIOTest):
         self._hash_test(SpikeTrain, argfuncs)
 
 
-# @unittest.skip
 class NixIOPartialWriteTest(NixIOTest):
 
     neo_blocks = None

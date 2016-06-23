@@ -41,7 +41,7 @@ install:
     - make install
     - cd ..
     # nixpy
-    - git clone --depth 1 https://github.com/G-Node/nixpy.git nixpy
+    - git clone -b pycore --depth 1 https://github.com/G-Node/nixpy.git nixpy
     - cd nixpy
     - python setup.py build
     - cd ..
