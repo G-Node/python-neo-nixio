@@ -1605,3 +1605,9 @@ class NixIOPartialWriteTest(NixIOTest):
         # self.assertNotEqual(hash_pre, hash_post)
 
         self.compare_blocks(self.neo_blocks, self.io.nix_file.blocks)
+
+
+class CommonTests(BaseTestIO, unittest.TestCase):
+
+    ioclass = NixIO
+
