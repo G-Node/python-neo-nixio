@@ -814,7 +814,7 @@ class NixIOWriteTest(NixIOTest):
 
         chx = blk.channel_indexes[0]
         nixchxs = [src for src in nixblk.sources
-                   if src.type == "neo.channelindexes"]
+                   if src.type == "neo.channelindex"]
         self.compare_attr(chx, nixchxs[0])
 
     def test_metadata_structure_write(self):
@@ -945,7 +945,7 @@ class NixIOWriteTest(NixIOTest):
                           if mtag.type == "neo.spiketrain"]
         self.compare_attr(spiketrain, nixspiketrains[0])
         nixchxs = [src for src in nixblk.sources
-                   if src.type == "neo.channelindexes"]
+                   if src.type == "neo.channelindex"]
         self.compare_attr(chx, nixchxs[0])
 
     def test_all_write(self):

@@ -650,7 +650,7 @@ class NixIO(BaseIO):
             chanpath = loc + "/channelindex/" + channame
             chanmd = self._get_or_init_metadata(nixchan, chanpath)
             chanmd["index"] = self._to_value(int(channel))
-            if hasattr(chx, "coordinates"):
+            if chx.coordinates:
                 coords = chx.coordinates[idx]
                 coordunits = str(coords[0].dimensionality)
                 nixcoordunits = self._to_value(coordunits)
@@ -1187,7 +1187,7 @@ class NixIO(BaseIO):
                 strupdate(idx)
             for n in obj.channel_names:
                 strupdate(n)
-            if hasattr(obj, "coordinates") and obj.coordinates:
+            if obj.coordinates is not None:
                 for coord in obj.coordinates:
                     for c in coord:
                         strupdate(c)
