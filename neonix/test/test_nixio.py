@@ -282,9 +282,14 @@ class NixIOTest(unittest.TestCase):
                 os.makedirs(dirloc)
         else:
             filename = "nixio_testfile.h5"
+
+        exists = os.path.exists(filename)
         cls.filename = filename
         nixfile = NixIO(cls.filename, "rw")
         cls.io = nixfile
+
+        if exists:
+            return cls.io.nix_file.blocks
 
         nix_block_a = nixfile.nix_file.create_block(cls.rword(10), "neo.block")
         nix_block_a.definition = cls.rsentence(5, 10)
@@ -499,7 +504,7 @@ class NixIOTest(unittest.TestCase):
     @classmethod
     def delete_nix_file(cls):
         del cls.io
-        os.remove(cls.filename)
+        # os.remove(cls.filename)
 
     @staticmethod
     def rdate():
@@ -598,7 +603,7 @@ class NixIOWriteTest(NixIOTest):
 
     def tearDown(self):
         del self.io
-        os.remove(self.filename)
+        # os.remove(self.filename)
 
     def test_block_write(self):
         """
@@ -1324,7 +1329,8 @@ class NixIOReadTest(NixIOTest):
 
     @classmethod
     def tearDownClass(cls):
-        cls.delete_nix_file()
+        # cls.delete_nix_file()
+        pass
 
     def tearDown(self):
         self.restore_methods()
@@ -1534,7 +1540,8 @@ class NixIOPartialWriteTest(NixIOTest):
 
     @classmethod
     def tearDownClass(cls):
-        cls.delete_nix_file()
+        # cls.delete_nix_file()
+        pass
 
     def tearDown(self):
         self.restore_methods()

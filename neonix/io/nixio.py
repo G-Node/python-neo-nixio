@@ -460,7 +460,11 @@ class NixIO(BaseIO):
         if isinstance(obj, Block):
             containerstr = "/"
         else:
-            containerstr = "/" + type(obj).__name__.lower() + "s/"
+            objtype = type(obj).__name__.lower()
+            if objtype == "channelindex":
+                containerstr = "/channel_indexes/"
+            else:
+                containerstr = "/" + type(obj).__name__.lower() + "s/"
         self.resolve_name_conflicts(obj)
         objpath = loc + containerstr + obj.name
         oldhash = self._object_hashes.get(objpath)
