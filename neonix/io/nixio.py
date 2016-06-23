@@ -251,8 +251,7 @@ class NixIO(BaseIO):
                             if c.type == "neo.channelindex")
         neo_attrs["channel_names"] = np.array([c["name"] for c in rec_channels],
                                               dtype="S")
-        neo_attrs["channel_indexes"] = np.array([c["index"]
-                                                 for c in rec_channels])
+        neo_attrs["index"] = np.array([c["index"] for c in rec_channels])
         if "coordinates" in rec_channels[0]:
             coord_units = rec_channels[0]["coordinates.units"]
             coord_values = list(c["coordinates"] for c in rec_channels)
@@ -628,7 +627,7 @@ class NixIO(BaseIO):
         :param loc: Path to the RCG
         """
         nixsource = self._get_mapped_object(chx)
-        for idx, channel in enumerate(chx.channel_indexes):
+        for idx, channel in enumerate(chx.index):
             if len(chx.channel_names):
                 channame = chx.channel_names[idx]
                 if ((not isinstance(channame, str)) and
@@ -1180,11 +1179,11 @@ class NixIO(BaseIO):
             strupdate(obj.rec_datetime)
             strupdate(obj.file_datetime)
         elif isinstance(obj, ChannelIndex):
-            for idx in obj.channel_indexes:
+            for idx in obj.index:
                 strupdate(idx)
             for n in obj.channel_names:
                 strupdate(n)
-            if hasattr(obj, "coordinates"):
+            if hasattr(obj, "coordinates") and obj.coordinates:
                 for coord in obj.coordinates:
                     for c in coord:
                         strupdate(c)
