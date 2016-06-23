@@ -426,6 +426,8 @@ class NixIO(BaseIO):
             neotype = parts[-2][:-1]
         else:
             neotype = "block"
+        if neotype == "channel_indexe":
+            neotype = "channelindex"
         read_func = getattr(self, "read_" + neotype)
         return read_func(path, cascade, lazy)
 
@@ -650,7 +652,7 @@ class NixIO(BaseIO):
             chanpath = loc + "/channelindex/" + channame
             chanmd = self._get_or_init_metadata(nixchan, chanpath)
             chanmd["index"] = self._to_value(int(channel))
-            if chx.coordinates:
+            if chx.coordinates is not None:
                 coords = chx.coordinates[idx]
                 coordunits = str(coords[0].dimensionality)
                 nixcoordunits = self._to_value(coordunits)

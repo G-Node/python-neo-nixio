@@ -283,13 +283,9 @@ class NixIOTest(unittest.TestCase):
         else:
             filename = "nixio_testfile.h5"
 
-        exists = os.path.exists(filename)
         cls.filename = filename
-        nixfile = NixIO(cls.filename, "rw")
+        nixfile = NixIO(cls.filename, "ow")
         cls.io = nixfile
-
-        if exists:
-            return cls.io.nix_file.blocks
 
         nix_block_a = nixfile.nix_file.create_block(cls.rword(10), "neo.block")
         nix_block_a.definition = cls.rsentence(5, 10)
@@ -504,7 +500,7 @@ class NixIOTest(unittest.TestCase):
     @classmethod
     def delete_nix_file(cls):
         del cls.io
-        # os.remove(cls.filename)
+        os.remove(cls.filename)
 
     @staticmethod
     def rdate():
@@ -603,7 +599,7 @@ class NixIOWriteTest(NixIOTest):
 
     def tearDown(self):
         del self.io
-        # os.remove(self.filename)
+        os.remove(self.filename)
 
     def test_block_write(self):
         """
@@ -1315,7 +1311,7 @@ class NixIOWriteTest(NixIOTest):
         self.assertEqual(val, section["val"])
 
 
-@unittest.skip
+# @unittest.skip
 class NixIOReadTest(NixIOTest):
 
     nix_blocks = None
@@ -1329,8 +1325,7 @@ class NixIOReadTest(NixIOTest):
 
     @classmethod
     def tearDownClass(cls):
-        # cls.delete_nix_file()
-        pass
+        cls.delete_nix_file()
 
     def tearDown(self):
         self.restore_methods()
@@ -1425,7 +1420,7 @@ class NixIOReadTest(NixIOTest):
             self.compare_attr(block, nix_block)
 
 
-@unittest.skip
+# @unittest.skip
 class NixIOHashTest(NixIOTest):
 
     def setUp(self):
@@ -1525,7 +1520,7 @@ class NixIOHashTest(NixIOTest):
         self._hash_test(SpikeTrain, argfuncs)
 
 
-@unittest.skip
+# @unittest.skip
 class NixIOPartialWriteTest(NixIOTest):
 
     neo_blocks = None
@@ -1540,8 +1535,7 @@ class NixIOPartialWriteTest(NixIOTest):
 
     @classmethod
     def tearDownClass(cls):
-        # cls.delete_nix_file()
-        pass
+        cls.delete_nix_file()
 
     def tearDown(self):
         self.restore_methods()
@@ -1617,6 +1611,7 @@ class NixIOPartialWriteTest(NixIOTest):
         # self.assertNotEqual(hash_pre, hash_post)
 
         self.compare_blocks(self.neo_blocks, self.io.nix_file.blocks)
+
 
 @unittest.skip
 class CommonTests(BaseTestIO, unittest.TestCase):
