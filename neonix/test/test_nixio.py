@@ -23,8 +23,9 @@ import numpy as np
 import quantities as pq
 
 import nixio
-from neo.core import (Block, Segment, RecordingChannelGroup, AnalogSignal,
+from neo.core import (Block, Segment, ChannelIndex, AnalogSignal,
                       IrregularlySampledSignal, Unit, SpikeTrain, Event, Epoch)
+from neo.test.iotest.common_io_test import BaseTestIO
 
 from neonix.io.nixio import NixIO
 from neonix.io.nixio import nixtypes
@@ -42,7 +43,7 @@ class NixIOTest(unittest.TestCase):
             for idx, neoseg in enumerate(neoblock.segments):
                 nixgrp = nixblock.groups[neoseg.name]
                 self.compare_segment_group(neoseg, nixgrp)
-            for idx, neorcg in enumerate(neoblock.recordingchannelgroups):
+            for idx, neorcg in enumerate(neoblock.channel_indexes):
                 if neorcg.name:
                     nixsrc = nixblock.sources[neorcg.name]
                 else:
@@ -53,7 +54,7 @@ class NixIOTest(unittest.TestCase):
     def compare_rcg_source(self, neorcg, nixsrc):
         self.compare_attr(neorcg, nixsrc)
         nix_channels = list(src for src in nixsrc.sources
-                            if src.type == "neo.recordingchannel")
+                            if src.type == "neo.channelindex")
         self.assertEqual(len(neorcg.channel_indexes), len(nix_channels))
         for nixchan in nix_channels:
             nixchanidx = nixchan.metadata["index"]
@@ -83,7 +84,7 @@ class NixIOTest(unittest.TestCase):
         :param neoblock: A Neo block
         :param nixblock: The corresponding NIX block
         """
-        for idx, neorcg in enumerate(neoblock.recordingchannelgroups):
+        for idx, neorcg in enumerate(neoblock.channel_indexes):
             if neorcg.name:
                 nixrcg = nixblock.sources[neorcg.name]
             else:
@@ -459,18 +460,18 @@ class NixIOTest(unittest.TestCase):
 
             # RCG
             nixrcg = blk.create_source(cls.rword(10),
-                                       "neo.recordingchannelgroup")
+                                       "neo.channelindex")
             nixrcg.metadata = nix_blocks[0].metadata.create_section(
-                nixrcg.name, "neo.recordingchannelgroup.metadata"
+                nixrcg.name, "neo.channelindex.metadata"
             )
-            chantype = "neo.recordingchannel"
+            chantype = "neo.channelindex"
             # 3 channels
             for idx in [2, 5, 9]:
                 channame = cls.rword(20)
                 nixrc = nixrcg.create_source(channame, chantype)
                 nixrc.definition = cls.rsentence(13)
                 nixrc.metadata = nixrcg.metadata.create_section(
-                    nixrc.name, "neo.recordingchannel.metadata"
+                    nixrc.name, "neo.channelindex.metadata"
                 )
                 nixrc.metadata.create_property("index", nixio.Value(idx))
                 dims = tuple(map(nixio.Value, cls.rquant(3, 1)))
@@ -577,9 +578,9 @@ class NixIOTest(unittest.TestCase):
         spiketrain.annotate(**cls.rdict(6))
         seg.spiketrains.append(spiketrain)
 
-        rcg = RecordingChannelGroup(channel_indexes=[1, 2])
+        rcg = ChannelIndex(channel_indexes=[1, 2])
         rcg.annotate(**cls.rdict(5))
-        blk.recordingchannelgroups.append(rcg)
+        blk.channel_indexes.append(rcg)
 
         unit = Unit()
         unit.annotate(**cls.rdict(2))
@@ -621,11 +622,11 @@ class NixIOWriteTest(NixIOTest):
                           description=self.rsentence())
         neo_segment = Segment(name=self.rword(),
                               description=self.rsentence(100))
-        neo_rcg = RecordingChannelGroup(name=self.rword(30),
-                                        description=self.rsentence(4),
-                                        channel_indexes=[])
+        neo_rcg = ChannelIndex(name=self.rword(30),
+                               description=self.rsentence(4),
+                               channel_indexes=[])
         neo_block.segments.append(neo_segment)
-        neo_block.recordingchannelgroups.append(neo_rcg)
+        neo_block.channel_indexes.append(neo_rcg)
         self.io.write_block(neo_block)
 
         nix_block = self.io.nix_file.blocks[0]
@@ -641,7 +642,7 @@ class NixIOWriteTest(NixIOTest):
         self.compare_attr(neo_segment, nix_group)
 
         # rcg -> source base attr
-        self.assertEqual(nix_source.type, "neo.recordingchannelgroup")
+        self.assertEqual(nix_source.type, "neo.channelindexes")
         self.compare_attr(neo_rcg, nix_source)
 
     def test_container_len_neq_write(self):
@@ -722,8 +723,8 @@ class NixIOWriteTest(NixIOTest):
                     seg.spiketrains.append(SpikeTrain(times=times, t_stop=pq.s,
                                                       units=pq.s))
             for rcgidx in range(nrcg):
-                rcg = RecordingChannelGroup(channel_indexes=[1, 2])
-                blk.recordingchannelgroups.append(rcg)
+                rcg = ChannelIndex(channel_indexes=[1, 2])
+                blk.channel_indexes.append(rcg)
                 for unidx in range(nunits):
                     unit = Unit()
                     rcg.units.append(unit)
@@ -804,9 +805,9 @@ class NixIOWriteTest(NixIOTest):
                           if mtag.type == "neo.spiketrain"]
         self.compare_attr(spiketrain, nixspiketrains[0])
 
-        rcg = blk.recordingchannelgroups[0]
+        rcg = blk.channel_indexes[0]
         nixrcgs = [src for src in nixblk.sources
-                   if src.type == "neo.recordingchannelgroup"]
+                   if src.type == "neo.channelindexes"]
         self.compare_attr(rcg, nixrcgs[0])
 
     def test_metadata_structure_write(self):
@@ -905,12 +906,12 @@ class NixIOWriteTest(NixIOTest):
                                 times=times, t_stop=pq.s, units=pq.s)
         seg.spiketrains.append(spiketrain)
 
-        rcg = RecordingChannelGroup(
+        rcg = ChannelIndex(
             name=self.rsentence(3, 10),
             description=self.rsentence(10, 8),
             channel_indexes=[1, 2]
         )
-        blk.recordingchannelgroups.append(rcg)
+        blk.channel_indexes.append(rcg)
 
         unit = Unit(name=self.rword(40),
                     description=self.rsentence(30))
@@ -937,7 +938,7 @@ class NixIOWriteTest(NixIOTest):
                           if mtag.type == "neo.spiketrain"]
         self.compare_attr(spiketrain, nixspiketrains[0])
         nixrcgs = [src for src in nixblk.sources
-                   if src.type == "neo.recordingchannelgroup"]
+                   if src.type == "neo.channelindexes"]
         self.compare_attr(rcg, nixrcgs[0])
 
     def test_all_write(self):
@@ -983,21 +984,21 @@ class NixIOWriteTest(NixIOTest):
 
         # group 3 channels from the analog signal in the first segment of the
         # first block
-        rcg_a = RecordingChannelGroup(
+        rcg_a = ChannelIndex(
             name="RCG_1",
             channel_names=np.array(["ch1", "ch4", "ch6"]),
             channel_indexes=np.array([0, 3, 5]))
         rcg_a.analogsignals.append(neo_block_a.segments[0].analogsignals[0])
-        neo_block_a.recordingchannelgroups.append(rcg_a)
+        neo_block_a.channel_indexes.append(rcg_a)
 
         # RCG with units and an ISS reference
-        octotrode_rcg = RecordingChannelGroup(name="octotrode A",
-                                              channel_indexes=range(3))
+        octotrode_rcg = ChannelIndex(name="octotrode A",
+                                     channel_indexes=range(3))
 
         octotrode_rcg.coordinates = [(1*pq.cm, 2*pq.cm, 3*pq.cm),
                                      (1*pq.cm, 2*pq.cm, 4*pq.cm),
                                      (1*pq.cm, 2*pq.cm, 5*pq.cm)]
-        neo_block_b.recordingchannelgroups.append(octotrode_rcg)
+        neo_block_b.channel_indexes.append(octotrode_rcg)
         for ind in range(5):
             octo_unit = Unit(name="unit_{}".format(ind),
                              description="after a long and hard spike sorting")
@@ -1007,9 +1008,9 @@ class NixIOWriteTest(NixIOTest):
         )
 
         # RCG and Unit as a spiketrain container
-        spiketrain_container_rcg = RecordingChannelGroup(name="PyramRCG",
-                                                         channel_indexes=[1])
-        neo_block_b.recordingchannelgroups.append(spiketrain_container_rcg)
+        spiketrain_container_rcg = ChannelIndex(name="PyramRCG",
+                                                channel_indexes=[1])
+        neo_block_b.channel_indexes.append(spiketrain_container_rcg)
 
         pyram_unit = Unit(name="Pyramidal neuron")
         train0 = SpikeTrain(times=[0.01, 3.3, 9.3], units="sec", t_stop=10)
@@ -1153,7 +1154,7 @@ class NixIOWriteTest(NixIOTest):
         nix_octotrode = nix_blocks[1].sources["octotrode A"]
         self.compare_attr(octotrode_rcg, nix_octotrode)
         nix_channels = list(src for src in nix_octotrode.sources
-                            if src.type == "neo.recordingchannel")
+                            if src.type == "neo.channelindex")
         self.assertEqual(len(nix_channels),
                          len(octotrode_rcg.channel_indexes))
         nix_channel_indexes = [c.metadata["index"] for c in nix_channels]
@@ -1178,7 +1179,7 @@ class NixIOWriteTest(NixIOTest):
         nix_pyram_rcg = nix_blocks[1].sources["PyramRCG"]
         self.compare_attr(spiketrain_container_rcg, nix_pyram_rcg)
         nix_channels = list(src for src in nix_pyram_rcg.sources
-                            if src.type == "neo.recordingchannel")
+                            if src.type == "neo.channelindex")
         self.assertEqual(len(nix_channels),
                          len(spiketrain_container_rcg.channel_indexes))
         nix_channel_indexes = [c.metadata["index"] for c in nix_channels]
@@ -1378,10 +1379,10 @@ class NixIOReadTest(NixIOTest):
         neo_blocks = self.io.read_all_blocks(cascade="lazy", lazy=False)
         for block in neo_blocks:
             self.assertIsInstance(block.segments, LazyList)
-            self.assertIsInstance(block.recordingchannelgroups, LazyList)
+            self.assertIsInstance(block.channel_indexes, LazyList)
             for seg in block.segments:
                 self.assertIsInstance(seg, string_types)
-            for rcg in block.recordingchannelgroups:
+            for rcg in block.channel_indexes:
                 self.assertIsInstance(rcg, string_types)
         LazyList.__getitem__ = getitem_original
 
@@ -1390,11 +1391,11 @@ class NixIOReadTest(NixIOTest):
         neo_blocks = self.io.read_all_blocks(cascade="lazy", lazy=False)
         for block in neo_blocks:
             self.assertIsInstance(block.segments, LazyList)
-            self.assertIsInstance(block.recordingchannelgroups, LazyList)
+            self.assertIsInstance(block.channel_indexes, LazyList)
             name = block.name
             block = self.io.load_lazy_cascade("/" + name, lazy=False)
             self.assertIsInstance(block.segments, list)
-            self.assertIsInstance(block.recordingchannelgroups, list)
+            self.assertIsInstance(block.channel_indexes, list)
             for seg in block.segments:
                 self.assertIsInstance(seg.analogsignals, list)
                 self.assertIsInstance(seg.irregularlysampledsignals, list)
@@ -1465,7 +1466,7 @@ class NixIOHashTest(NixIOTest):
                     # annotations
                     self.rword(): self.rword,
                     self.rword(): lambda: self.rquant((10, 10), pq.mV)}
-        self._hash_test(RecordingChannelGroup, argfuncs)
+        self._hash_test(ChannelIndex, argfuncs)
 
     def test_analogsignal_hash(self):
         argfuncs = {"name": self.rword,
