@@ -1461,10 +1461,9 @@ class NixIOHashTest(NixIOTest):
                     "description": self.rsentence,
                     "index": lambda: np.random.random(10).tolist(),
                     "channel_names": lambda: self.rsentence(10).split(" "),
-                    # CHX does not store coordinates
-                    # "coordinates": lambda: [(np.random.random() * pq.cm,
-                    #                          np.random.random() * pq.cm,
-                    #                          np.random.random() * pq.cm)]*10,
+                    "coordinates": lambda: [(np.random.random() * pq.cm,
+                                             np.random.random() * pq.cm,
+                                             np.random.random() * pq.cm)]*10,
                     # annotations
                     self.rword(): self.rword,
                     self.rword(): lambda: self.rquant((10, 10), pq.mV)}
@@ -1609,7 +1608,6 @@ class NixIOPartialWriteTest(NixIOTest):
         self.compare_blocks(self.neo_blocks, self.io.nix_file.blocks)
 
 
-@unittest.skip
 class CommonTests(BaseTestIO, unittest.TestCase):
 
     ioclass = NixIO
