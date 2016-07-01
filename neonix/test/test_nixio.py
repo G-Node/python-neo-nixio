@@ -1417,6 +1417,11 @@ class NixIOReadTest(NixIOTest):
             nix_block = self.io.nix_file.blocks[block.name]
             self.compare_attr(block, nix_block)
 
+    def test_lazy_load_subschema(self):
+        blk = self.io.nix_file.blocks[0]
+        segpath = "/" + blk.name + "/segments/" + blk.groups[0].name
+        self.io.load_lazy_cascade(segpath, lazy=True)
+
 
 class NixIOHashTest(NixIOTest):
 
