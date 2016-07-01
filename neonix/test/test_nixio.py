@@ -1420,7 +1420,13 @@ class NixIOReadTest(NixIOTest):
     def test_lazy_load_subschema(self):
         blk = self.io.nix_file.blocks[0]
         segpath = "/" + blk.name + "/segments/" + blk.groups[0].name
-        self.io.load_lazy_cascade(segpath, lazy=True)
+        segment = self.io.load_lazy_cascade(segpath, lazy=True)
+        self.assertIsInstance(segment, Segment)
+        self.assertEqual(segment.name, blk.groups[0].name)
+        self.assertIs(segment.block, None)
+        self.assertEqual(len(segment.analogsignals[0]), 0)
+        segment = self.io.load_lazy_cascade(segpath, lazy=False)
+        self.assertEqual(np.shape(segment.analogsignals[0]), (100, 3))
 
 
 class NixIOHashTest(NixIOTest):
