@@ -153,7 +153,8 @@ class NixIO(BaseIO):
         self._update_maps(neo_segment, lazy)
         nix_parent = self._get_parent(path)
         neo_parent = self._get_mapped_object(nix_parent)
-        neo_segment.block = neo_parent
+        if neo_parent:
+            neo_segment.block = neo_parent
         return neo_segment
 
     def read_channelindex(self, path, cascade=True, lazy=False):
@@ -437,7 +438,7 @@ class NixIO(BaseIO):
     def load_lazy_cascade(self, path, lazy):
         """
         Loads the object at the location specified by the path and all children.
-        Data is loaded is lazy is False.
+        Data is loaded if lazy is False.
 
         :param path: Location of object in file
         :param lazy: Do not load data if True
@@ -549,13 +550,45 @@ class NixIO(BaseIO):
 
     def write_channelindex(self, chx, loc=""):
         """
-        Convert the provided ``chx`` (ChannelIndex) to a NIX Source
-        and write it to the NIX file at the location defined by ``loc``.
+        Create NIX Source objects to represent channels based on the
+        provided ``chx`` (ChannelIndex) write them to the NIX file at
+        the parent RCG.
 
-        :param chx: The Neo ChannelIndex to be written
-        :param loc: Path to the parent of the new RCG
+        :param chx: The Neo ChannelIndex
+        :param loc: Path to the RCG
         """
-        self._write_object(chx, loc)
+        nixsource = self._get_mapped_object(chx)
+        for idx, channel in enumerate(chx.index):
+            if len(chx.channel_names):
+                channame = chx.channel_names[idx]
+                if ((not isinstance(channame, str)) and
+                        isinstance(channame, bytes)):
+                    channame = channame.decode()
+            else:
+                channame = "{}.ChannelIndex{}".format(
+                    chx.name, idx
+                )
+            if channame in nixsource.sources:
+                nixchan = nixsource.sources[channame]
+            else:
+                nixchan = nixsource.create_source(channame,
+                                                  "neo.channelindex")
+            nixchan.definition = nixsource.definition
+            chanpath = loc + "/channelindex/" + channame
+            chanmd = self._get_or_init_metadata(nixchan, chanpath)
+            chanmd["index"] = self._to_value(int(channel))
+            if chx.coordinates is not None:
+                coords = chx.coordinates[idx]
+                coordunits = str(coords[0].dimensionality)
+                nixcoordunits = self._to_value(coordunits)
+                nixcoords = tuple(
+                    self._to_value(c.rescale(coordunits).magnitude.item())
+                    for c in coords
+                )
+                if "coordinates" in chanmd:
+                    del chanmd["coordinates"]
+                chanmd.create_property("coordinates", nixcoords)
+                chanmd["coordinates.units"] = nixcoordunits
 
     def write_analogsignal(self, anasig, loc=""):
         """
@@ -623,52 +656,10 @@ class NixIO(BaseIO):
         """
         self._write_object(ut, loc)
 
-    def write_channelindexes(self, chx, loc):
-        """
-        Create NIX Source objects to represent channels based on the
-        provided ``chx`` (ChannelIndex) write them to the NIX file at
-        the parent RCG.
-
-        :param chx: The Neo ChannelIndex
-        :param loc: Path to the RCG
-        """
-        nixsource = self._get_mapped_object(chx)
-        for idx, channel in enumerate(chx.index):
-            if len(chx.channel_names):
-                channame = chx.channel_names[idx]
-                if ((not isinstance(channame, str)) and
-                        isinstance(channame, bytes)):
-                    channame = channame.decode()
-            else:
-                channame = "{}.ChannelIndex{}".format(
-                    chx.name, idx
-                )
-            if channame in nixsource.sources:
-                nixchan = nixsource.sources[channame]
-            else:
-                nixchan = nixsource.create_source(channame,
-                                                  "neo.channelindex")
-            nixchan.definition = nixsource.definition
-            chanpath = loc + "/channelindex/" + channame
-            chanmd = self._get_or_init_metadata(nixchan, chanpath)
-            chanmd["index"] = self._to_value(int(channel))
-            if chx.coordinates is not None:
-                coords = chx.coordinates[idx]
-                coordunits = str(coords[0].dimensionality)
-                nixcoordunits = self._to_value(coordunits)
-                nixcoords = tuple(
-                    self._to_value(c.rescale(coordunits).magnitude.item())
-                    for c in coords
-                )
-                if "coordinates" in chanmd:
-                    del chanmd["coordinates"]
-                chanmd.create_property("coordinates", nixcoords)
-                chanmd["coordinates.units"] = nixcoordunits
-
     def _write_cascade(self, neoobj, path=""):
         if isinstance(neoobj, ChannelIndex):
             containers = ["units"]
-            self.write_channelindexes(neoobj, path)
+            self.write_channelindex(neoobj, path)
         elif isinstance(neoobj, Unit):
             containers = []
         else:
@@ -799,8 +790,9 @@ class NixIO(BaseIO):
             else:
                 return self._object_map[id(obj)]
         except KeyError:
-            raise KeyError("Failed to find mapped object for {}. "
-                           "Object not yet converted.".format(obj))
+            # raise KeyError("Failed to find mapped object for {}. "
+            #                "Object not yet converted.".format(obj))
+            return None
 
     def _write_attr_annotations(self, nixobj, attr, path):
         if isinstance(nixobj, list):
