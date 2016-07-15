@@ -1325,8 +1325,12 @@ class NixIOReadTest(NixIOTest):
     def tearDownClass(cls):
         cls.delete_nix_file()
 
+    def setUp(self):
+        self.io = NixIO(self.filename, "ro")
+
     def tearDown(self):
         self.restore_methods()
+        del self.io
 
     def restore_methods(self):
         for name, method in self.original_methods.items():
@@ -1543,8 +1547,12 @@ class NixIOPartialWriteTest(NixIOTest):
     def tearDownClass(cls):
         cls.delete_nix_file()
 
+    def setUp(self):
+        self.io = NixIO(self.filename, "ow")
+
     def tearDown(self):
         self.restore_methods()
+        del self.io
 
     def restore_methods(self):
         for name, method in self.original_methods.items():
