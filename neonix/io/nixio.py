@@ -109,9 +109,9 @@ class NixIO(BaseIO):
         elif mode == "ow":
             filemode = nixio.FileMode.Overwrite
         else:
-            ValueError("Invalid mode specified '{}'. "
-                       "Valid modes: 'ro' (ReadOnly)', 'rw' (ReadWrite), "
-                       "'ow' (Overwrite).".format(mode))
+            raise ValueError("Invalid mode specified '{}'. "
+                             "Valid modes: 'ro' (ReadOnly)', 'rw' (ReadWrite), "
+                             "'ow' (Overwrite).".format(mode))
         self.nix_file = nixio.File.open(self.filename, filemode, backend="hdf5")
         self._object_map = dict()
         self._lazy_loaded = list()
