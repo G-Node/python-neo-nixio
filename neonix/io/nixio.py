@@ -92,8 +92,6 @@ class NixIO(BaseIO):
         "units": "sources"
     }
 
-    _read_blocks = 0
-
     def __init__(self, filename, mode="ro"):
         """
         Initialise IO instance and NIX file.
@@ -117,9 +115,6 @@ class NixIO(BaseIO):
         self._lazy_loaded = list()
         self._object_hashes = dict()
         self._read_blocks = 0
-
-    def __del__(self):
-        self.nix_file.close()
 
     def read_all_blocks(self, cascade=True, lazy=False):
         blocks = list()
@@ -1113,7 +1108,7 @@ class NixIO(BaseIO):
             neo_attrs["file_datetime"] = datetime.fromtimestamp(
                 neo_attrs["file_datetime"]
             )
-        neo_attrs["file_origin"] = os.path.basename(self.filename)
+        # neo_attrs["file_origin"] = os.path.basename(self.filename)
         return neo_attrs
 
     @staticmethod
