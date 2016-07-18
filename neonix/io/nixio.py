@@ -533,6 +533,16 @@ class NixIO(BaseIO):
         self._write_object(bl, loc)
         self._create_references(bl)
 
+    def write_channelindex(self, chx, loc=""):
+        """
+        Convert the provided ``chx`` (ChannelIndex) to a NIX Source and write it
+        to the NIX file at the location defined by ``loc``.
+
+        :param chx: The Neo ChannelIndex to be written
+        :param loc: Path to the parent of the new CHX
+        """
+        self._write_object(chx, loc)
+
     def write_segment(self, seg, loc=""):
         """
         Convert the provided ``seg`` to a NIX Group and write it to the NIX
@@ -543,14 +553,14 @@ class NixIO(BaseIO):
         """
         self._write_object(seg, loc)
 
-    def write_channelindex(self, chx, loc=""):
+    def write_indices(self, chx, loc=""):
         """
-        Create NIX Source objects to represent channels based on the
+        Create NIX Source objects to represent individual indices based on the
         provided ``chx`` (ChannelIndex) write them to the NIX file at
-        the parent RCG.
+        the parent ChannelIndex object.
 
         :param chx: The Neo ChannelIndex
-        :param loc: Path to the RCG
+        :param loc: Path to the CHX
         """
         nixsource = self._get_mapped_object(chx)
         for idx, channel in enumerate(chx.index):
@@ -654,7 +664,7 @@ class NixIO(BaseIO):
     def _write_cascade(self, neoobj, path=""):
         if isinstance(neoobj, ChannelIndex):
             containers = ["units"]
-            self.write_channelindex(neoobj, path)
+            self.write_indices(neoobj, path)
         elif isinstance(neoobj, Unit):
             containers = []
         else:
