@@ -114,7 +114,7 @@ class NixIO(BaseIO):
         self._object_map = dict()
         self._lazy_loaded = list()
         self._object_hashes = dict()
-        self._read_blocks = 0
+        self._block_read_counter = 0
 
     def read_all_blocks(self, cascade=True, lazy=False):
         blocks = list()
@@ -125,9 +125,10 @@ class NixIO(BaseIO):
     def read_block(self, path="/", cascade=True, lazy=False):
         if path == "/":
             try:
-                nix_block = self.nix_file.blocks[self._read_blocks]
+                # Use yield?
+                nix_block = self.nix_file.blocks[self._block_read_counter]
                 path += nix_block.name
-                self._read_blocks += 1
+                self._block_read_counter += 1
             except KeyError:
                 return None
         else:
