@@ -1133,7 +1133,12 @@ class NixIO(BaseIO):
         """
         grouppaths = list(".".join(p.split(".")[:-1])
                           for p in paths)
-        return list(set(grouppaths))
+        # deduplicating paths
+        uniquepaths = []
+        for path in grouppaths:
+            if path not in uniquepaths:
+                uniquepaths.append(path)
+        return uniquepaths
 
     @staticmethod
     def _get_referers(nix_obj, obj_list):
