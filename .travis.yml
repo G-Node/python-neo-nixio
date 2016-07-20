@@ -13,10 +13,10 @@ env:
     global:
         - CC=gcc-4.8
         - CXX=g++-4.8
-        - NIX_LIBDIR=$PWD/nix/inst/lib
-        - NIX_INCDIR=$PWD/nix/inst/include
-        - export PKG_CONFIG_PATH=$NIX_LIBDIR/pkgconfig
-        - export PYTHONPATH=$PYTHONPATH:$PWD/neo:$PWD/nixpy
+        # - NIX_LIBDIR=$PWD/nix/inst/lib
+        # - NIX_INCDIR=$PWD/nix/inst/include
+        # - export PKG_CONFIG_PATH=$NIX_LIBDIR/pkgconfig
+        # - export PYTHONPATH=$PYTHONPATH:$PWD/neo:$PWD/nixpy
 
 addons:
   apt:
@@ -34,22 +34,22 @@ addons:
 install:
     - pip install numpy quantities coveralls six h5py
     # nix
-    - git clone --depth 1 https://github.com/G-Node/nix.git nix
-    - cd nix
-    - cmake -DCMAKE_INSTALL_PREFIX=./inst -DBUILD_TESTING=OFF .
-    - make
-    - make install
-    - cd ..
+    # - git clone --depth 1 https://github.com/G-Node/nix.git nix
+    # - cd nix
+    # - cmake -DCMAKE_INSTALL_PREFIX=./inst -DBUILD_TESTING=OFF .
+    # - make
+    # - make install
+    # - cd ..
     # nixpy
     - git clone -b pycore --depth 1 https://github.com/G-Node/nixpy.git nixpy
     - cd nixpy
-    - python setup.py build
+    # - python setup.py build
     - cd ..
     # neo
-    - git clone -b apibreak --depth 1 https://github.com/NeuralEnsemble/python-neo neo
-    - cd neo
-    - python setup.py build
-    - cd ..
+    - git clone --depth 1 https://github.com/NeuralEnsemble/python-neo neo
+    # - cd neo
+    # - python setup.py build
+    # - cd ..
 
 script:
     - python setup.py build
