@@ -110,7 +110,7 @@ class NixIO(BaseIO):
             raise ValueError("Invalid mode specified '{}'. "
                              "Valid modes: 'ro' (ReadOnly)', 'rw' (ReadWrite), "
                              "'ow' (Overwrite).".format(mode))
-        self.nix_file = nixio.File.open(self.filename, filemode, backend="hdf5")
+        self.nix_file = nixio.File.open(self.filename, filemode, backend="h5py")
         self._object_map = dict()
         self._lazy_loaded = list()
         self._object_hashes = dict()
