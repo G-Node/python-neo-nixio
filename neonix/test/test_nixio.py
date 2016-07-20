@@ -1074,10 +1074,10 @@ class NixIOWriteTest(NixIOTest):
                     self.compare_attr(neoseg.analogsignals[0],
                                       nixasig)
                     self.assertEqual(nixasig.unit, "mV")
-                    self.assertIs(nixasig.dimensions[0].dimension_type,
-                                  nixio.DimensionType.Sample)
-                    self.assertIs(nixasig.dimensions[1].dimension_type,
-                                  nixio.DimensionType.Set)
+                    self.assertEqual(nixasig.dimensions[0].dimension_type,
+                                     nixio.DimensionType.Sample)
+                    self.assertEqual(nixasig.dimensions[1].dimension_type,
+                                     nixio.DimensionType.Set)
                     self.assertEqual(nixasig.dimensions[0].unit, "s")
                     self.assertEqual(nixasig.dimensions[0].label, "time")
                     self.assertEqual(nixasig.dimensions[0].offset, 0)
@@ -1093,10 +1093,10 @@ class NixIOWriteTest(NixIOTest):
                     self.compare_attr(neoseg.irregularlysampledsignals[0],
                                       nixisig)
                     self.assertEqual(nixisig.unit, "nA")
-                    self.assertIs(nixisig.dimensions[0].dimension_type,
-                                  nixio.DimensionType.Range)
-                    self.assertIs(nixisig.dimensions[1].dimension_type,
-                                  nixio.DimensionType.Set)
+                    self.assertEqual(nixisig.dimensions[0].dimension_type,
+                                     nixio.DimensionType.Range)
+                    self.assertEqual(nixisig.dimensions[1].dimension_type,
+                                     nixio.DimensionType.Set)
                     self.assertEqual(nixisig.dimensions[0].unit, "ms")
                     self.assertEqual(nixisig.dimensions[0].label, "time")
 
@@ -1138,12 +1138,12 @@ class NixIOWriteTest(NixIOTest):
                     self.assertAlmostEqual(nix_waveforms[spk, chan, t],
                                            neo_waveforms[spk, chan, t])
 
-        self.assertIs(nix_waveforms.dimensions[0].dimension_type,
-                      nixio.DimensionType.Set)
-        self.assertIs(nix_waveforms.dimensions[1].dimension_type,
-                      nixio.DimensionType.Set)
-        self.assertIs(nix_waveforms.dimensions[2].dimension_type,
-                      nixio.DimensionType.Sample)
+        self.assertEqual(nix_waveforms.dimensions[0].dimension_type,
+                         nixio.DimensionType.Set)
+        self.assertEqual(nix_waveforms.dimensions[1].dimension_type,
+                         nixio.DimensionType.Set)
+        self.assertEqual(nix_waveforms.dimensions[2].dimension_type,
+                         nixio.DimensionType.Sample)
 
         # no time dimension specified when creating - defaults to 1 s
         wf_time_dim = nix_waveforms.dimensions[2].unit
