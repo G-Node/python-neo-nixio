@@ -155,7 +155,7 @@ class NixIO(BaseIO):
 
     def read_channelindex(self, path, cascade=True, lazy=False):
         nix_source = self._get_object_at(path)
-        neo_rcg = self._source_rcg_to_neo(nix_source)
+        neo_rcg = self._source_chx_to_neo(nix_source)
         neo_rcg.path = path
         if cascade:
             self._read_cascade(nix_source, path, cascade, lazy)
@@ -241,17 +241,17 @@ class NixIO(BaseIO):
         self._object_map[nix_group.id] = neo_segment
         return neo_segment
 
-    def _source_rcg_to_neo(self, nix_source):
+    def _source_chx_to_neo(self, nix_source):
         neo_attrs = self._nix_attr_to_neo(nix_source)
-        rec_channels = list(self._nix_attr_to_neo(c)
-                            for c in nix_source.sources
-                            if c.type == "neo.channelindex")
-        neo_attrs["channel_names"] = np.array([c["name"] for c in rec_channels],
+        chx = list(self._nix_attr_to_neo(c)
+                   for c in nix_source.sources
+                   if c.type == "neo.channelindex")
+        neo_attrs["channel_names"] = np.array([c["name"] for c in chx],
                                               dtype="S")
-        neo_attrs["index"] = np.array([c["index"] for c in rec_channels])
-        if "coordinates" in rec_channels[0]:
-            coord_units = rec_channels[0]["coordinates.units"]
-            coord_values = list(c["coordinates"] for c in rec_channels)
+        neo_attrs["index"] = np.array([c["index"] for c in chx])
+        if "coordinates" in chx[0]:
+            coord_units = chx[0]["coordinates.units"]
+            coord_values = list(c["coordinates"] for c in chx)
             neo_attrs["coordinates"] = pq.Quantity(coord_values, coord_units)
         rcg = ChannelIndex(**neo_attrs)
         self._object_map[nix_source.id] = rcg
@@ -570,6 +570,8 @@ class NixIO(BaseIO):
                 if ((not isinstance(channame, str)) and
                         isinstance(channame, bytes)):
                     channame = channame.decode()
+                else:
+                    channame = str(channame)
             else:
                 channame = "{}.ChannelIndex{}".format(
                     chx.name, idx
