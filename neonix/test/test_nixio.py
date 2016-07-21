@@ -1521,9 +1521,9 @@ class NixIOHashTest(NixIOTest):
     def test_spiketrain_hash(self):
         argfuncs = {"name": self.rword,
                     "description": self.rsentence,
-                    "times": lambda: self.rquant(10, pq.ms),
+                    "times": lambda: self.rquant(10, pq.ms, True),
                     "t_start": lambda: -np.random.random() * pq.sec,
-                    "t_stop": lambda: np.random.random() * pq.sec,
+                    "t_stop": lambda: np.random.random() * 100 * pq.sec,
                     "waveforms": lambda: self.rquant((10, 10, 20), pq.mV),
                     # annotations
                     self.rword(): self.rword,
