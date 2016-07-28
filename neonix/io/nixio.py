@@ -33,6 +33,14 @@ except ImportError:  # pragma: no cover
                       "The NixIO requires the Python bindings for NIX.")
 
 
+def stringify(value):
+    if value is None:
+        return value
+    if isinstance(value, bytes):
+        value = value.decode()
+    return str(value)
+
+
 def nix_type_dict():
     pycore = nixio.pycore
 
@@ -275,7 +283,7 @@ class NixIO(BaseIO):
         """
         nix_da_group = sorted(nix_da_group, key=lambda d: d.name)
         neo_attrs = self._nix_attr_to_neo(nix_da_group[0])
-        neo_attrs["name"] = nix_da_group[0].metadata.name
+        neo_attrs["name"] = stringify(nix_da_group[0].metadata.name)
         neo_type = nix_da_group[0].type
 
         unit = nix_da_group[0].unit
@@ -566,16 +574,9 @@ class NixIO(BaseIO):
         nixsource = self._get_mapped_object(chx)
         for idx, channel in enumerate(chx.index):
             if len(chx.channel_names):
-                channame = chx.channel_names[idx]
-                if ((not isinstance(channame, str)) and
-                        isinstance(channame, bytes)):
-                    channame = channame.decode()
-                else:
-                    channame = str(channame)
+                channame = stringify(chx.channel_names[idx])
             else:
-                channame = "{}.ChannelIndex{}".format(
-                    chx.name, idx
-                )
+                channame = "{}.ChannelIndex{}".format(chx.name, idx)
             if channame in nixsource.sources:
                 nixchan = nixsource.sources[channame]
             else:
@@ -587,7 +588,7 @@ class NixIO(BaseIO):
             chanmd["index"] = self._to_value(int(channel))
             if chx.coordinates is not None:
                 coords = chx.coordinates[idx]
-                coordunits = str(coords[0].dimensionality)
+                coordunits = stringify(coords[0].dimensionality)
                 nixcoordunits = self._to_value(coordunits)
                 nixcoords = tuple(
                     self._to_value(c.rescale(coordunits).magnitude.item())
@@ -1093,16 +1094,16 @@ class NixIO(BaseIO):
         units = quantity.units.dimensionality
         if simplify:
             units = units.simplified
-        units = str(units)
+        units = stringify(units)
         if units == "dimensionless":
             units = None
         return units
 
     def _nix_attr_to_neo(self, nix_obj):
         neo_attrs = dict()
-        neo_attrs["name"] = nix_obj.name
+        neo_attrs["name"] = stringify(nix_obj.name)
 
-        neo_attrs["description"] = nix_obj.definition
+        neo_attrs["description"] = stringify(nix_obj.definition)
         if nix_obj.metadata:
             for prop in nix_obj.metadata.props:
                 values = prop.values
