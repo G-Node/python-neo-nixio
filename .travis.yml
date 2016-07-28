@@ -21,7 +21,7 @@ addons:
 install:
     - pip install numpy quantities coveralls six h5py
     - git clone -b pycore --depth 1 https://github.com/achilleas-k/nixpy.git nixpy
-    - git clone --depth 1 https://github.com/NeuralEnsemble/python-neo neo
+    - git clone -b master --depth 1 https://github.com/NeuralEnsemble/python-neo neo
 
 script:
     - python setup.py build
