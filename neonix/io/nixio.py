@@ -1099,7 +1099,8 @@ class NixIO(BaseIO):
             units = None
         return units
 
-    def _nix_attr_to_neo(self, nix_obj):
+    @staticmethod
+    def _nix_attr_to_neo(nix_obj):
         neo_attrs = dict()
         neo_attrs["name"] = stringify(nix_obj.name)
 
