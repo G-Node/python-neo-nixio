@@ -281,7 +281,7 @@ class NixIOTest(unittest.TestCase):
             if not os.path.exists(dirloc):
                 os.makedirs(dirloc)
         else:
-            filename = "nixio_testfile.h5"
+            filename = "nixio_partialwrite_testfile.h5"
 
         cls.filename = filename
         nixfile = NixIO(cls.filename, "ow")
@@ -496,11 +496,6 @@ class NixIOTest(unittest.TestCase):
                 for sig in siggroup:
                     sig.sources.append(nixchx)
         return nix_blocks
-
-    @classmethod
-    def delete_nix_file(cls):
-        del cls.io
-        os.remove(cls.filename)
 
     @staticmethod
     def rdate():
@@ -1317,13 +1312,15 @@ class NixIOReadTest(NixIOTest):
 
     @classmethod
     def setUpClass(cls):
-        cls.nix_blocks = cls.create_nix_file()
+        cls.filename = "nixio_testfile.h5"
+        nixfile = NixIO(cls.filename, "ro")
+        cls.io = nixfile
         cls.original_methods["_read_cascade"] = cls.io._read_cascade
         cls.original_methods["_update_maps"] = cls.io._update_maps
 
     @classmethod
     def tearDownClass(cls):
-        cls.delete_nix_file()
+        del cls.io
 
     def setUp(self):
         self.io = NixIO(self.filename, "ro")
@@ -1545,7 +1542,7 @@ class NixIOPartialWriteTest(NixIOTest):
 
     @classmethod
     def tearDownClass(cls):
-        cls.delete_nix_file()
+        del cls.io
 
     def tearDown(self):
         self.restore_methods()
