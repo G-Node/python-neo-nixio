@@ -1310,28 +1310,14 @@ class NixIOReadTest(NixIOTest):
     nix_blocks = None
     original_methods = dict()
 
-    @classmethod
-    def setUpClass(cls):
-        cls.filename = "nixio_testfile.h5"
-        nixfile = NixIO(cls.filename, "ro")
-        cls.io = nixfile
-        cls.original_methods["_read_cascade"] = cls.io._read_cascade
-        cls.original_methods["_update_maps"] = cls.io._update_maps
-
-    @classmethod
-    def tearDownClass(cls):
-        del cls.io
-
     def setUp(self):
+        self.filename = "nixio_testfile.h5"
         self.io = NixIO(self.filename, "ro")
+        self.original_methods["_read_cascade"] = self.io._read_cascade
+        self.original_methods["_update_maps"] = self.io._update_maps
 
     def tearDown(self):
-        self.restore_methods()
         del self.io
-
-    def restore_methods(self):
-        for name, method in self.original_methods.items():
-            setattr(self.io, name, self.original_methods[name])
 
     def test_all_read(self):
         """
@@ -1341,13 +1327,15 @@ class NixIOReadTest(NixIOTest):
         reader, and check for equality.
         """
         neo_blocks = self.io.read_all_blocks(cascade=True, lazy=False)
-        self.compare_blocks(neo_blocks, self.nix_blocks)
+        nix_blocks = self.io.nix_file.blocks
+        self.compare_blocks(neo_blocks, nix_blocks)
 
     def test_lazyload_fullcascade_read(self):
         """
         Read everything lazily: Lazy integration test with all features
         """
         neo_blocks = self.io.read_all_blocks(cascade=True, lazy=True)
+        nix_blocks = self.io.nix_file.blocks
         # data objects should be empty
         for block in neo_blocks:
             for seg in block.segments:
@@ -1361,14 +1349,15 @@ class NixIOReadTest(NixIOTest):
                     self.assertEqual(len(event), 0)
                 for st in seg.spiketrains:
                     self.assertEqual(len(st), 0)
-        self.compare_blocks(neo_blocks, self.nix_blocks)
+        self.compare_blocks(neo_blocks, nix_blocks)
 
     def test_lazyload_lazycascade_read(self):
         """
         Read everything lazily with lazy cascade
         """
         neo_blocks = self.io.read_all_blocks(cascade="lazy", lazy=True)
-        self.compare_blocks(neo_blocks, self.nix_blocks)
+        nix_blocks = self.io.nix_file.blocks
+        self.compare_blocks(neo_blocks, nix_blocks)
 
     def test_lazycascade_read(self):
         """
