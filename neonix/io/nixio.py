@@ -28,7 +28,7 @@ from neo.io.tools import LazyList
 
 try:
     import nixio
-except ImportError:  # pragma: no cover
+except ImportError:
     raise ImportError("Failed to import NIX. "
                       "The NixIO requires the Python bindings for NIX.")
 
