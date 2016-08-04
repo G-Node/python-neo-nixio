@@ -16,7 +16,6 @@ from collections import Iterable
 import itertools
 from six import string_types
 from hashlib import md5
-import warnings
 
 import quantities as pq
 import numpy as np
@@ -30,7 +29,8 @@ try:
     import nixio
 except ImportError:
     raise ImportError("Failed to import NIX. "
-                      "The NixIO requires the Python bindings for NIX.")
+                      "The NixIO requires the Python bindings for NIX "
+                      "(nixio on PyPi).")
 
 
 def stringify(value):
@@ -477,6 +477,12 @@ class NixIO(BaseIO):
         self.resolve_name_conflicts(obj)
         objpath = loc + containerstr + obj.name
         oldhash = self._object_hashes.get(objpath)
+        if oldhash is None:
+            oldobj = self.get(objpath, cascade=False, lazy=False)
+            if oldobj is not None:
+                oldhash = self._hash_object(oldobj)
+            else:
+                oldhash = None
         newhash = self._hash_object(obj)
         if oldhash != newhash:
             attr = self._neo_attr_to_nix(obj)
@@ -756,6 +762,9 @@ class NixIO(BaseIO):
         identified by the second-to-last part of the path string, a list of
         (DataArray) objects is returned.
 
+        If the path is valid but no object exists at that path, the method
+        returns None.
+
         Example path: /block_1/segments/segment_a/events/event_a1
 
         :param path: Path string
@@ -767,7 +776,10 @@ class NixIO(BaseIO):
         if parts[0]:
             ValueError("Invalid object path: {}".format(path))
         if len(parts) == 2:  # root block
-            return self.nix_file.blocks[parts[1]]
+            if parts[1] in self.nix_file.blocks:
+                return self.nix_file.blocks[parts[1]]
+            else:
+                return None
         parent_obj = self._get_parent(path)
         container_name = self._container_map[parts[-2]]
         parent_container = getattr(parent_obj, container_name)
@@ -781,7 +793,10 @@ class NixIO(BaseIO):
                 else:
                     break
         else:
-            obj = parent_container[objname]
+            if objname in parent_container:
+                obj = parent_container[objname]
+            else:
+                obj = None
         return obj
 
     def _get_parent(self, path):
@@ -1006,13 +1021,12 @@ class NixIO(BaseIO):
             attr["timeunits"] = cls._get_units(neoobj.times, True)
         if hasattr(neoobj, "t_start"):
             attr["t_start"] =\
-                neoobj.t_start.rescale(attr["timeunits"]).item()
+                neoobj.t_start.magnitude.item()
         if hasattr(neoobj, "t_stop"):
             attr["t_stop"] =\
-                neoobj.t_stop.rescale(attr["timeunits"]).item()
+                neoobj.t_stop.magnitude.item()
         if hasattr(neoobj, "sampling_period"):
-            attr["sampling_interval"] =\
-                neoobj.sampling_period.rescale(attr["timeunits"]).item()
+            attr["sampling_interval"] = neoobj.sampling_period.magnitude.item()
         if hasattr(neoobj, "durations"):
             attr["extents"] = neoobj.durations
             attr["extentunits"] = cls._get_units(neoobj.durations)
@@ -1024,18 +1038,15 @@ class NixIO(BaseIO):
                                           neoobj.waveforms))
             attr["waveformunits"] = cls._get_units(neoobj.waveforms)
         if hasattr(neoobj, "left_sweep") and neoobj.left_sweep is not None:
-            attr["left_sweep"] = neoobj.left_sweep.\
-                rescale(attr["timeunits"]).magnitude
+            attr["left_sweep"] = neoobj.left_sweep.magnitude
         return attr
 
-    @classmethod
-    def _add_annotations(cls, annotations, metadata):
+    def _add_annotations(self, annotations, metadata):
         for k, v in annotations.items():
-            v = cls._to_value(v)
+            v = self._to_value(v)
             metadata[k] = v
 
-    @staticmethod
-    def _to_value(v):
+    def _to_value(self, v):
         """
         Helper function for converting arbitrary variables to types compatible
         with nixio.Value().
@@ -1045,8 +1056,8 @@ class NixIO(BaseIO):
         """
         if isinstance(v, pq.Quantity):
             # v = nixio.Value((v.magnitude.item(), str(v.dimensionality)))
-            warnings.warn("Quantities in annotations are not currently "
-                          "supported when writing to NIX. Units are dropped.")
+            self.logger.warn("Quantities in annotations are not currently "
+                             "supported when writing to NIX. Units are dropped.")
             v = nixio.Value(v.magnitude.item())
         elif isinstance(v, datetime):
             v = nixio.Value(calculate_timestamp(v))
@@ -1058,9 +1069,9 @@ class NixIO(BaseIO):
             vv = list()
             for item in v:
                 if isinstance(item, Iterable):
-                    warnings.warn("Multidimensional arrays and nested "
-                                  "containers are not currently supported "
-                                  "when writing to NIX.")
+                    self.logger.warn("Multidimensional arrays and nested "
+                                     "containers are not currently supported "
+                                     "when writing to NIX.")
                     return None
                 if type(item).__module__ == "numpy":
                     item = nixio.Value(item.item())
