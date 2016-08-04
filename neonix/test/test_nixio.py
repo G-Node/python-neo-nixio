@@ -601,7 +601,7 @@ class NixIOWriteTest(NixIOTest):
 
     def write_and_compare(self, blocks):
         self.writer.write_all_blocks(blocks)
-        self.compare_blocks(blocks, self.reader.blocks)
+        self.compare_blocks(self.writer.read_all_blocks(), self.reader.blocks)
 
     def test_block_write(self):
         block = Block(name=self.rword(),
@@ -630,6 +630,82 @@ class NixIOWriteTest(NixIOTest):
 
         chx.annotate(**self.rdict(3))
         self.write_and_compare([block])
+
+    def test_signals_write(self):
+        block = Block()
+        seg = Segment()
+        block.segments.append(seg)
+
+        asig = AnalogSignal(signal=self.rquant((10, 3), pq.mV),
+                            sampling_rate=pq.Quantity(10, "Hz"))
+        seg.analogsignals.append(asig)
+        self.write_and_compare([block])
+
+        anotherblock = Block("ir signal block")
+        seg = Segment("ir signal seg")
+        anotherblock.segments.append(seg)
+        irsig = IrregularlySampledSignal(
+            signal=np.random.random((20, 3)),
+            times=self.rquant(20, pq.ms, True),
+            units=pq.A
+        )
+        seg.irregularlysampledsignals.append(irsig)
+        self.write_and_compare([anotherblock])
+
+        block.segments[0].analogsignals.append(
+            AnalogSignal(signal=[10.0, 1.0, 3.0], units=pq.S,
+                         sampling_period=pq.Quantity(3, "s"),
+                         dtype=np.double, name="signal42",
+                         description="this is an analogsignal",
+                         t_start=45 * pq.ms),
+        )
+        self.write_and_compare([block, anotherblock])
+
+        block.segments[0].irregularlysampledsignals.append(
+            IrregularlySampledSignal(times=np.random.random(10),
+                                     signal=np.random.random((10, 3)),
+                                     units="mV", time_units="s",
+                                     dtype=np.float,
+                                     name="some sort of signal",
+                                     description="the signal is described")
+        )
+        self.write_and_compare([block, anotherblock])
+
+    def test_epoch_write(self):
+        block = Block()
+        seg = Segment()
+        block.segments.append(seg)
+
+        epoch = Epoch(times=[1, 1, 10, 3]*pq.ms, durations=[3, 3, 3, 1]*pq.ms,
+                      labels=np.array(["one", "two", "three", "four"]),
+                      name="test epoch", description="an epoch for testing")
+
+        seg.epochs.append(epoch)
+        self.write_and_compare([block])
+
+    def test_metadata_structure_write(self):
+        neoblk = self.create_all_annotated()
+        self.io.write_block(neoblk)
+        blk = self.io.nix_file.blocks[0]
+
+        blkmd = blk.metadata
+        self.assertEqual(blk.name, blkmd.name)
+
+        grp = blk.groups[0]  # segment
+        self.assertIn(grp.name, blkmd.sections)
+
+        grpmd = blkmd.sections[grp.name]
+        for da in grp.data_arrays:  # signals
+            name = ".".join(da.name.split(".")[:-1])
+            self.assertIn(name, grpmd.sections)
+        for mtag in grp.multi_tags:  # spiketrains, events, and epochs
+            self.assertIn(mtag.name, grpmd.sections)
+
+        srcchx = blk.sources[0]  # chx
+        self.assertIn(srcchx.name, blkmd.sections)
+
+        for srcunit in blk.sources:  # units
+            self.assertIn(srcunit.name, blkmd.sections)
 
     def test_anonymous_objects_write(self):
         """
