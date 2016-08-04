@@ -842,7 +842,6 @@ class NixIOWriteTest(NixIOTest):
         self.assertEqual(val, section["val"])
 
 
-@unittest.skip
 class NixIOReadTest(NixIOTest):
 
     nix_blocks = None
@@ -858,20 +857,11 @@ class NixIOReadTest(NixIOTest):
         del self.io
 
     def test_all_read(self):
-        """
-        Read everything: Integration test with all features
-
-        Write all objects to a using nix directly, read them using the NixIO
-        reader, and check for equality.
-        """
         neo_blocks = self.io.read_all_blocks(cascade=True, lazy=False)
         nix_blocks = self.io.nix_file.blocks
         self.compare_blocks(neo_blocks, nix_blocks)
 
     def test_lazyload_fullcascade_read(self):
-        """
-        Read everything lazily: Lazy integration test with all features
-        """
         neo_blocks = self.io.read_all_blocks(cascade=True, lazy=True)
         nix_blocks = self.io.nix_file.blocks
         # data objects should be empty
@@ -890,17 +880,11 @@ class NixIOReadTest(NixIOTest):
         self.compare_blocks(neo_blocks, nix_blocks)
 
     def test_lazyload_lazycascade_read(self):
-        """
-        Read everything lazily with lazy cascade
-        """
         neo_blocks = self.io.read_all_blocks(cascade="lazy", lazy=True)
         nix_blocks = self.io.nix_file.blocks
         self.compare_blocks(neo_blocks, nix_blocks)
 
     def test_lazycascade_read(self):
-        """
-        Read everything with lazy cascade
-        """
         def getitem(self, index):
             return self._data.__getitem__(index)
         from neonix.io.nixio import LazyList
@@ -934,9 +918,6 @@ class NixIOReadTest(NixIOTest):
                 self.assertIsInstance(seg.spiketrains, list)
 
     def test_nocascade_read(self):
-        """
-        Read the root Blocks without cascading
-        """
         self.io._read_cascade = mock.Mock()
         neo_blocks = self.io.read_all_blocks(cascade=False)
         self.io._read_cascade.assert_not_called()
@@ -957,7 +938,6 @@ class NixIOReadTest(NixIOTest):
         self.assertEqual(np.shape(segment.analogsignals[0]), (100, 3))
 
 
-@unittest.skip
 class NixIOHashTest(NixIOTest):
 
     def setUp(self):
@@ -1113,17 +1093,11 @@ class NixIOPartialWriteTest(NixIOTest):
                 cls.modify_objects(children, excludes)
 
     def test_partial(self):
-        """
-        Partial write: All except specific type
-        """
         for objclass in NixIO.supported_objects:
             self._mock_write_attr(objclass)
             self.compare_blocks(self.neo_blocks, self.io.nix_file.blocks)
 
     def test_no_modifications(self):
-        """
-        Test that no writes are made when nothing is modified
-        """
         self.io._write_attr_annotations = mock.Mock()
 
         self.io.write_all_blocks(self.neo_blocks)
