@@ -367,8 +367,10 @@ class NixIO(BaseIO):
                     eest.sampling_period = pq.Quantity(
                         wftime.sampling_interval, wftime.unit
                     )
-                    eest.left_sweep = pq.Quantity(wfda.metadata["left_sweep"],
-                                                  wftime.unit)
+                    if "left_sweep" in wfda.metadata:
+                        eest.left_sweep = pq.Quantity(
+                            wfda.metadata["left_sweep"], wftime.unit
+                        )
         else:
             return None
         self._object_map[nix_mtag.id] = eest
@@ -1023,7 +1025,7 @@ class NixIO(BaseIO):
             attr["waveformunits"] = cls._get_units(neoobj.waveforms)
         if hasattr(neoobj, "left_sweep") and neoobj.left_sweep is not None:
             attr["left_sweep"] = neoobj.left_sweep.\
-                rescale(attr["timeunits"]).magnitude.item()
+                rescale(attr["timeunits"]).magnitude
         return attr
 
     @classmethod
@@ -1227,7 +1229,7 @@ class NixIO(BaseIO):
             if obj.waveforms is not None:
                 dupdate(obj.waveforms)
             dupdate(obj.sampling_rate)
-            if obj.left_sweep:
+            if obj.left_sweep is not None:
                 strupdate(obj.left_sweep)
 
         # type

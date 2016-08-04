@@ -683,6 +683,40 @@ class NixIOWriteTest(NixIOTest):
         seg.epochs.append(epoch)
         self.write_and_compare([block])
 
+    def test_event_write(self):
+        block = Block()
+        seg = Segment()
+        block.segments.append(seg)
+
+        event = Event(times=np.arange(0, 30, 10)*pq.s,
+                      labels=np.array(["0", "1", "2"]),
+                      name="event name",
+                      description="event description")
+        seg.events.append(event)
+        self.write_and_compare([block])
+
+    def test_spiketrain_write(self):
+        block = Block()
+        seg = Segment()
+        block.segments.append(seg)
+
+        spiketrain = SpikeTrain(times=[3, 4, 5]*pq.s, t_stop=10.0,
+                                name="spikes!", description="sssssspikes")
+        seg.spiketrains.append(spiketrain)
+        self.write_and_compare([block])
+
+        waveforms = self.rquant((20, 5, 10), pq.mV)
+        spiketrain = SpikeTrain(times=[1, 1.1, 1.2]*pq.ms, t_stop=1.5*pq.s,
+                                name="spikes with wf",
+                                description="spikes for waveform test",
+                                waveforms=waveforms)
+
+        seg.spiketrains.append(spiketrain)
+        self.write_and_compare([block])
+
+        spiketrain.left_sweep = np.random.random(10)*pq.ms
+        self.write_and_compare([block])
+
     def test_metadata_structure_write(self):
         neoblk = self.create_all_annotated()
         self.io.write_block(neoblk)
