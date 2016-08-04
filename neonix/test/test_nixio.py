@@ -275,13 +275,8 @@ class NixIOTest(unittest.TestCase):
                 self.assertEqual(nixmd[k], v)
 
     @classmethod
-    def create_nix_file(cls, filename=None):
-        if filename:
-            dirloc = os.path.dirname(filename)
-            if not os.path.exists(dirloc):
-                os.makedirs(dirloc)
-        else:
-            filename = "nixio_partialwrite_testfile.h5"
+    def create_full_nix_file(cls):
+        filename = "nixio_partialwrite_testfile.h5"
 
         cls.filename = filename
         nixfile = NixIO(cls.filename, "ow")
@@ -303,9 +298,7 @@ class NixIOTest(unittest.TestCase):
         nix_blocks = [nix_block_a, nix_block_b]
 
         for blk in nix_blocks:
-            allspiketrains = list()
-            allsignalgroups = list()
-            for ind in range(2):
+            for ind in range(3):
                 group = blk.create_group(cls.rword(), "neo.segment")
                 group.definition = cls.rsentence(10, 15)
 
@@ -313,188 +306,197 @@ class NixIOTest(unittest.TestCase):
                                                        group.name+".metadata")
                 group.metadata = group_md
 
-                for n in range(3):
-                    siggroup = list()
-                    asig_name = "{}_asig{}".format(cls.rword(10), n)
-                    asig_definition = cls.rsentence(5, 5)
-                    asig_md = group_md.create_section(asig_name,
-                                                      asig_name+".metadata")
-                    for idx in range(3):
-                        da_asig = blk.create_data_array(
-                            "{}.{}".format(asig_name, idx),
-                            "neo.analogsignal",
-                            data=cls.rquant(100, 1)
-                        )
-                        da_asig.definition = asig_definition
-                        da_asig.unit = "mV"
+        blk = nix_blocks[0]
+        group = blk.groups[0]
+        allspiketrains = list()
+        allsignalgroups = list()
 
-                        da_asig.metadata = asig_md
-
-                        timedim = da_asig.append_sampled_dimension(0.01)
-                        timedim.unit = "ms"
-                        timedim.label = "time"
-                        timedim.offset = 10
-                        chandim = da_asig.append_set_dimension()
-                        group.data_arrays.append(da_asig)
-                        siggroup.append(da_asig)
-                    allsignalgroups.append(siggroup)
-
-                for n in range(2):
-                    siggroup = list()
-                    isig_name = "{}_isig{}".format(cls.rword(10), n)
-                    isig_definition = cls.rsentence(12, 12)
-                    isig_md = group_md.create_section(isig_name,
-                                                      isig_name+".metadata")
-                    isig_times = cls.rquant(200, 1, True)
-                    for idx in range(10):
-                        da_isig = blk.create_data_array(
-                            "{}.{}".format(isig_name, idx),
-                            "neo.irregularlysampledsignal",
-                            data=cls.rquant(200, 1)
-                        )
-                        da_isig.definition = isig_definition
-                        da_isig.unit = "mV"
-
-                        da_isig.metadata = isig_md
-
-                        timedim = da_isig.append_range_dimension(isig_times)
-                        timedim.unit = "s"
-                        timedim.label = "time"
-                        chandim = da_isig.append_set_dimension()
-                        group.data_arrays.append(da_isig)
-                        siggroup.append(da_isig)
-                    allsignalgroups.append(siggroup)
-
-                # SpikeTrains with Waveforms
-                for n in range(4):
-                    stname = "{}-st{}".format(cls.rword(20), n)
-                    times = cls.rquant(400, 1, True)
-                    times_da = blk.create_data_array(
-                        "{}.times".format(stname),
-                        "neo.spiketrain.times",
-                        data=times
-                    )
-                    times_da.unit = "ms"
-                    mtag_st = blk.create_multi_tag(stname,
-                                                   "neo.spiketrain",
-                                                   times_da)
-                    group.multi_tags.append(mtag_st)
-                    mtag_st.definition = cls.rsentence(20, 30)
-                    mtag_st_md = group.metadata.create_section(
-                        mtag_st.name, mtag_st.name+".metadata"
-                    )
-                    mtag_st.metadata = mtag_st_md
-                    mtag_st_md.create_property(
-                        "t_stop", nixio.Value(max(times_da).item()+1)
-                    )
-
-                    waveforms = cls.rquant((10, 8, 5), 1)
-                    wfname = "{}.waveforms".format(mtag_st.name)
-                    wfda = blk.create_data_array(wfname, "neo.waveforms",
-                                                 data=waveforms)
-                    wfda.unit = "mV"
-                    mtag_st.create_feature(wfda, nixio.LinkType.Indexed)
-                    wfda.append_set_dimension()  # spike dimension
-                    wfda.append_set_dimension()  # channel dimension
-                    wftimedim = wfda.append_sampled_dimension(0.1)
-                    wftimedim.unit = "ms"
-                    wftimedim.label = "time"
-                    wfda.metadata = mtag_st_md.create_section(
-                        wfname, "neo.waveforms.metadata"
-                    )
-                    wfda.metadata.create_property("left_sweep", nixio.Value(20))
-                    allspiketrains.append(mtag_st)
-
-                # Epochs
-                for n in range(3):
-                    epname = "{}-ep{}".format(cls.rword(5), n)
-                    times = cls.rquant(5, 1, True)
-                    times_da = blk.create_data_array(
-                        "{}.times".format(epname),
-                        "neo.epoch.times",
-                        data=times
-                    )
-                    times_da.unit = "s"
-
-                    extents = cls.rquant(5, 1)
-                    extents_da = blk.create_data_array(
-                        "{}.durations".format(epname),
-                        "neo.epoch.durations",
-                        data=extents
-                    )
-                    extents_da.unit = "s"
-
-                    mtag_ep = blk.create_multi_tag(
-                        epname, "neo.epoch", times_da
-                    )
-                    group.multi_tags.append(mtag_ep)
-                    mtag_ep.definition = cls.rsentence(2)
-                    mtag_ep.extents = extents_da
-                    label_dim = mtag_ep.positions.append_set_dimension()
-                    label_dim.labels = cls.rsentence(5).split(" ")
-                    # reference all signals in the group
-                    for siggroup in allsignalgroups:
-                        mtag_ep.references.extend(siggroup)
-
-                # Events
-                for n in range(2):
-                    evname = "{}-ev{}".format(cls.rword(5), n)
-                    times = cls.rquant(5, 1, True)
-                    times_da = blk.create_data_array(
-                        "{}.times".format(evname),
-                        "neo.event.times",
-                        data=times
-                    )
-                    times_da.unit = "s"
-
-                    mtag_ev = blk.create_multi_tag(
-                        evname, "neo.event", times_da
-                    )
-                    group.multi_tags.append(mtag_ev)
-                    mtag_ev.definition = cls.rsentence(2)
-                    label_dim = mtag_ev.positions.append_set_dimension()
-                    label_dim.labels = cls.rsentence(5).split(" ")
-                    # reference all signals in the group
-                    for siggroup in allsignalgroups:
-                        mtag_ev.references.extend(siggroup)
-
-
-            # CHX
-            nixchx = blk.create_source(cls.rword(10),
-                                       "neo.channelindex")
-            nixchx.metadata = nix_blocks[0].metadata.create_section(
-                nixchx.name, "neo.channelindex.metadata"
-            )
-            chantype = "neo.channelindex"
-            # 3 channels
-            for idx in [2, 5, 9]:
-                channame = cls.rword(20)
-                nixrc = nixchx.create_source(channame, chantype)
-                nixrc.definition = cls.rsentence(13)
-                nixrc.metadata = nixchx.metadata.create_section(
-                    nixrc.name, "neo.channelindex.metadata"
+        # analogsignals
+        for n in range(3):
+            siggroup = list()
+            asig_name = "{}_asig{}".format(cls.rword(10), n)
+            asig_definition = cls.rsentence(5, 5)
+            asig_md = group.metadata.create_section(asig_name,
+                                                    asig_name+".metadata")
+            for idx in range(3):
+                da_asig = blk.create_data_array(
+                    "{}.{}".format(asig_name, idx),
+                    "neo.analogsignal",
+                    data=cls.rquant(100, 1)
                 )
-                nixrc.metadata.create_property("index", nixio.Value(idx))
-                dims = tuple(map(nixio.Value, cls.rquant(3, 1)))
-                nixrc.metadata.create_property("coordinates", dims)
-                nixrc.metadata.create_property("coordinates.units",
-                                               nixio.Value("um"))
+                da_asig.definition = asig_definition
+                da_asig.unit = "mV"
 
-            nunits = 1
-            stsperunit = np.array_split(allspiketrains, nunits)
-            for idx in range(nunits):
-                unitname = "{}-unit{}".format(cls.rword(5), idx)
-                nixunit = nixchx.create_source(unitname, "neo.unit")
-                nixunit.definition = cls.rsentence(4, 10)
-                for st in stsperunit[idx]:
-                    st.sources.append(nixchx)
-                    st.sources.append(nixunit)
+                da_asig.metadata = asig_md
 
-            # pick a few signal groups to reference this CHX
-            randsiggroups = np.random.choice(allsignalgroups, 5, False)
-            for siggroup in randsiggroups:
-                for sig in siggroup:
-                    sig.sources.append(nixchx)
+                timedim = da_asig.append_sampled_dimension(0.01)
+                timedim.unit = "ms"
+                timedim.label = "time"
+                timedim.offset = 10
+                chandim = da_asig.append_set_dimension()
+                group.data_arrays.append(da_asig)
+                siggroup.append(da_asig)
+            allsignalgroups.append(siggroup)
+
+        # irregularlysampledsignals
+        for n in range(2):
+            siggroup = list()
+            isig_name = "{}_isig{}".format(cls.rword(10), n)
+            isig_definition = cls.rsentence(12, 12)
+            isig_md = group.metadata.create_section(isig_name,
+                                                    isig_name+".metadata")
+            isig_times = cls.rquant(200, 1, True)
+            for idx in range(10):
+                da_isig = blk.create_data_array(
+                    "{}.{}".format(isig_name, idx),
+                    "neo.irregularlysampledsignal",
+                    data=cls.rquant(200, 1)
+                )
+                da_isig.definition = isig_definition
+                da_isig.unit = "mV"
+
+                da_isig.metadata = isig_md
+
+                timedim = da_isig.append_range_dimension(isig_times)
+                timedim.unit = "s"
+                timedim.label = "time"
+                chandim = da_isig.append_set_dimension()
+                group.data_arrays.append(da_isig)
+                siggroup.append(da_isig)
+            allsignalgroups.append(siggroup)
+
+        # SpikeTrains with Waveforms
+        for n in range(4):
+            stname = "{}-st{}".format(cls.rword(20), n)
+            times = cls.rquant(400, 1, True)
+            times_da = blk.create_data_array(
+                "{}.times".format(stname),
+                "neo.spiketrain.times",
+                data=times
+            )
+            times_da.unit = "ms"
+            mtag_st = blk.create_multi_tag(stname,
+                                           "neo.spiketrain",
+                                           times_da)
+            group.multi_tags.append(mtag_st)
+            mtag_st.definition = cls.rsentence(20, 30)
+            mtag_st_md = group.metadata.create_section(
+                mtag_st.name, mtag_st.name+".metadata"
+            )
+            mtag_st.metadata = mtag_st_md
+            mtag_st_md.create_property(
+                "t_stop", nixio.Value(max(times_da).item()+1)
+            )
+
+            waveforms = cls.rquant((10, 8, 5), 1)
+            wfname = "{}.waveforms".format(mtag_st.name)
+            wfda = blk.create_data_array(wfname, "neo.waveforms",
+                                         data=waveforms)
+            wfda.unit = "mV"
+            mtag_st.create_feature(wfda, nixio.LinkType.Indexed)
+            wfda.append_set_dimension()  # spike dimension
+            wfda.append_set_dimension()  # channel dimension
+            wftimedim = wfda.append_sampled_dimension(0.1)
+            wftimedim.unit = "ms"
+            wftimedim.label = "time"
+            wfda.metadata = mtag_st_md.create_section(
+                wfname, "neo.waveforms.metadata"
+            )
+            wfda.metadata.create_property("left_sweep",
+                                          [nixio.Value(20)]*5)
+            allspiketrains.append(mtag_st)
+
+        # Epochs
+        for n in range(3):
+            epname = "{}-ep{}".format(cls.rword(5), n)
+            times = cls.rquant(5, 1, True)
+            times_da = blk.create_data_array(
+                "{}.times".format(epname),
+                "neo.epoch.times",
+                data=times
+            )
+            times_da.unit = "s"
+
+            extents = cls.rquant(5, 1)
+            extents_da = blk.create_data_array(
+                "{}.durations".format(epname),
+                "neo.epoch.durations",
+                data=extents
+            )
+            extents_da.unit = "s"
+
+            mtag_ep = blk.create_multi_tag(
+                epname, "neo.epoch", times_da
+            )
+            group.multi_tags.append(mtag_ep)
+            mtag_ep.definition = cls.rsentence(2)
+            mtag_ep.extents = extents_da
+            label_dim = mtag_ep.positions.append_set_dimension()
+            label_dim.labels = cls.rsentence(5).split(" ")
+            # reference all signals in the group
+            for siggroup in allsignalgroups:
+                mtag_ep.references.extend(siggroup)
+
+        # Events
+        for n in range(2):
+            evname = "{}-ev{}".format(cls.rword(5), n)
+            times = cls.rquant(5, 1, True)
+            times_da = blk.create_data_array(
+                "{}.times".format(evname),
+                "neo.event.times",
+                data=times
+            )
+            times_da.unit = "s"
+
+            mtag_ev = blk.create_multi_tag(
+                evname, "neo.event", times_da
+            )
+            group.multi_tags.append(mtag_ev)
+            mtag_ev.definition = cls.rsentence(2)
+            label_dim = mtag_ev.positions.append_set_dimension()
+            label_dim.labels = cls.rsentence(5).split(" ")
+            # reference all signals in the group
+            for siggroup in allsignalgroups:
+                mtag_ev.references.extend(siggroup)
+
+
+        # CHX
+        nixchx = blk.create_source(cls.rword(10),
+                                   "neo.channelindex")
+        nixchx.metadata = nix_blocks[0].metadata.create_section(
+            nixchx.name, "neo.channelindex.metadata"
+        )
+        chantype = "neo.channelindex"
+        # 3 channels
+        for idx in [2, 5, 9]:
+            channame = cls.rword(20)
+            nixrc = nixchx.create_source(channame, chantype)
+            nixrc.definition = cls.rsentence(13)
+            nixrc.metadata = nixchx.metadata.create_section(
+                nixrc.name, "neo.channelindex.metadata"
+            )
+            nixrc.metadata.create_property("index", nixio.Value(idx))
+            dims = tuple(map(nixio.Value, cls.rquant(3, 1)))
+            nixrc.metadata.create_property("coordinates", dims)
+            nixrc.metadata.create_property("coordinates.units",
+                                           nixio.Value("um"))
+
+        nunits = 1
+        stsperunit = np.array_split(allspiketrains, nunits)
+        for idx in range(nunits):
+            unitname = "{}-unit{}".format(cls.rword(5), idx)
+            nixunit = nixchx.create_source(unitname, "neo.unit")
+            nixunit.definition = cls.rsentence(4, 10)
+            for st in stsperunit[idx]:
+                st.sources.append(nixchx)
+                st.sources.append(nixunit)
+
+        # pick a few signal groups to reference this CHX
+        randsiggroups = np.random.choice(allsignalgroups, 5, False)
+        for siggroup in randsiggroups:
+            for sig in siggroup:
+                sig.sources.append(nixchx)
+
         return nix_blocks
 
     @staticmethod
@@ -1062,7 +1064,7 @@ class NixIOPartialWriteTest(NixIOTest):
 
     @classmethod
     def setUpClass(cls):
-        cls.create_nix_file()
+        cls.create_full_nix_file()
         cls.neo_blocks = cls.io.read_all_blocks()
         cls.original_methods["_write_attr_annotations"] =\
             cls.io._write_attr_annotations
