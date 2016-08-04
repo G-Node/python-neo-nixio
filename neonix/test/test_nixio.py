@@ -1056,7 +1056,6 @@ class NixIOHashTest(NixIOTest):
         self._hash_test(SpikeTrain, argfuncs)
 
 
-@unittest.skip
 class NixIOPartialWriteTest(NixIOTest):
 
     neo_blocks = None
