@@ -478,10 +478,10 @@ class NixIO(BaseIO):
         objpath = loc + containerstr + obj.name
         oldhash = self._object_hashes.get(objpath)
         if oldhash is None:
-            oldobj = self.get(objpath, cascade=False, lazy=False)
-            if oldobj is not None:
+            try:
+                oldobj = self.get(objpath, cascade=False, lazy=False)
                 oldhash = self._hash_object(oldobj)
-            else:
+            except (KeyError, IndexError):
                 oldhash = None
         newhash = self._hash_object(obj)
         if oldhash != newhash:
@@ -762,9 +762,6 @@ class NixIO(BaseIO):
         identified by the second-to-last part of the path string, a list of
         (DataArray) objects is returned.
 
-        If the path is valid but no object exists at that path, the method
-        returns None.
-
         Example path: /block_1/segments/segment_a/events/event_a1
 
         :param path: Path string
@@ -776,10 +773,7 @@ class NixIO(BaseIO):
         if parts[0]:
             ValueError("Invalid object path: {}".format(path))
         if len(parts) == 2:  # root block
-            if parts[1] in self.nix_file.blocks:
-                return self.nix_file.blocks[parts[1]]
-            else:
-                return None
+            return self.nix_file.blocks[parts[1]]
         parent_obj = self._get_parent(path)
         container_name = self._container_map[parts[-2]]
         parent_container = getattr(parent_obj, container_name)
@@ -793,10 +787,7 @@ class NixIO(BaseIO):
                 else:
                     break
         else:
-            if objname in parent_container:
-                obj = parent_container[objname]
-            else:
-                obj = None
+            obj = parent_container[objname]
         return obj
 
     def _get_parent(self, path):
