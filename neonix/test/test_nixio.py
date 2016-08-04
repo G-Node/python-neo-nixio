@@ -276,11 +276,10 @@ class NixIOTest(unittest.TestCase):
 
     @classmethod
     def create_full_nix_file(cls):
-        filename = "nixio_partialwrite_testfile.h5"
+        filename = "nixio_testfile.h5"
 
         cls.filename = filename
         nixfile = NixIO(cls.filename, "ow")
-        cls.io = nixfile
 
         nix_block_a = nixfile.nix_file.create_block(cls.rword(10), "neo.block")
         nix_block_a.definition = cls.rsentence(5, 10)
@@ -497,7 +496,7 @@ class NixIOTest(unittest.TestCase):
             for sig in siggroup:
                 sig.sources.append(nixchx)
 
-        return nix_blocks
+        return nixfile
 
     @staticmethod
     def rdate():
@@ -847,8 +846,11 @@ class NixIOReadTest(NixIOTest):
     nix_blocks = None
     original_methods = dict()
 
+    @classmethod
+    def setUpClass(cls):
+        cls.create_full_nix_file()
+
     def setUp(self):
-        self.filename = "nixio_testfile.h5"
         self.io = NixIO(self.filename, "ro")
         self.original_methods["_read_cascade"] = self.io._read_cascade
         self.original_methods["_update_maps"] = self.io._update_maps
@@ -1043,17 +1045,17 @@ class NixIOPartialWriteTest(NixIOTest):
 
     @classmethod
     def setUpClass(cls):
-        cls.create_full_nix_file()
+        cls.io = cls.create_full_nix_file()
         cls.neo_blocks = cls.io.read_all_blocks()
         cls.original_methods["_write_attr_annotations"] =\
             cls.io._write_attr_annotations
 
-    @classmethod
-    def tearDownClass(cls):
-        del cls.io
+    def setUp(self):
+        self.io = NixIO(self.filename, "rw")
 
     def tearDown(self):
         self.restore_methods()
+        del self.io
 
     def restore_methods(self):
         for name, method in self.original_methods.items():
@@ -1102,13 +1104,6 @@ class NixIOPartialWriteTest(NixIOTest):
 
         self.io.write_all_blocks(self.neo_blocks)
         self.io._write_attr_annotations.assert_not_called()
-        self.compare_blocks(self.neo_blocks, self.io.nix_file.blocks)
-
-        # change hashes to force write
-        for k, v in self.io._object_hashes.items():
-            self.io._object_hashes[k] = "a"
-        self.io.write_all_blocks(self.neo_blocks)
-
         self.compare_blocks(self.neo_blocks, self.io.nix_file.blocks)
 
 
