@@ -179,10 +179,10 @@ class NixIOTest(unittest.TestCase):
                     pq.Quantity(timedim.sampling_interval, timedim.unit),
                     neosig.sampling_period
                 )
-                self.assertEqual(
-                    pq.Quantity(timedim.offset, timedim.unit),
-                    neosig.t_start
-                )
+                self.assertEqual(timedim.offset, neosig.t_start.magnitude)
+                if "t_start.units" in da.metadata.props:
+                    self.assertEqual(da.metadata["t_start.units"],
+                                     str(neosig.t_start.dimensionality))
             elif isinstance(neosig, IrregularlySampledSignal):
                 self.assertIsInstance(timedim, nixtypes["RangeDimension"])
                 np.testing.assert_almost_equal(neosig.times.magnitude,
