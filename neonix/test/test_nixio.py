@@ -1115,6 +1115,19 @@ class NixIOPartialWriteTest(NixIOTest):
         self.io._write_attr_annotations.assert_not_called()
         self.compare_blocks(self.neo_blocks, self.io.nix_file.blocks)
 
+        # clearing hashes and checking again
+        for k in self.io._object_hashes.keys():
+            self.io._object_hashes[k] = None
+        self.io.write_all_blocks(self.neo_blocks)
+        self.io._write_attr_annotations.assert_not_called()
+
+        # changing hashes to force rewrite
+        for k in self.io._object_hashes.keys():
+            self.io._object_hashes[k] = "_"
+        self.io.write_all_blocks(self.neo_blocks)
+        callcount = self.io._write_attr_annotations.call_count
+        self.assertEqual(callcount, len(self.io._object_hashes))
+
 
 class CommonTests(BaseTestIO, unittest.TestCase):
 
