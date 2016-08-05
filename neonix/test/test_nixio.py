@@ -275,22 +275,19 @@ class NixIOTest(unittest.TestCase):
                 self.assertEqual(nixmd[k], v)
 
     @classmethod
-    def create_full_nix_file(cls):
-        filename = "nixio_testfile.h5"
+    def create_full_nix_file(cls, filename):
+        nixfile = nixio.File.open(filename, nixio.FileMode.Overwrite)
 
-        cls.filename = filename
-        nixfile = NixIO(cls.filename, "ow")
-
-        nix_block_a = nixfile.nix_file.create_block(cls.rword(10), "neo.block")
+        nix_block_a = nixfile.create_block(cls.rword(10), "neo.block")
         nix_block_a.definition = cls.rsentence(5, 10)
-        nix_block_b = nixfile.nix_file.create_block(cls.rword(10), "neo.block")
+        nix_block_b = nixfile.create_block(cls.rword(10), "neo.block")
         nix_block_b.definition = cls.rsentence(3, 3)
 
-        nix_block_a.metadata = nixfile.nix_file.create_section(
+        nix_block_a.metadata = nixfile.create_section(
             nix_block_a.name, nix_block_a.name+".metadata"
         )
 
-        nix_block_b.metadata = nixfile.nix_file.create_section(
+        nix_block_b.metadata = nixfile.create_section(
             nix_block_b.name, nix_block_b.name+".metadata"
         )
 
@@ -843,17 +840,23 @@ class NixIOWriteTest(NixIOTest):
 
 class NixIOReadTest(NixIOTest):
 
+    filename = "testfile_readtest.h5"
+    nixfile = None
     nix_blocks = None
     original_methods = dict()
 
     @classmethod
     def setUpClass(cls):
-        cls.create_full_nix_file()
+        cls.nixfile = cls.create_full_nix_file(cls.filename)
 
     def setUp(self):
         self.io = NixIO(self.filename, "ro")
         self.original_methods["_read_cascade"] = self.io._read_cascade
         self.original_methods["_update_maps"] = self.io._update_maps
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.nixfile.close()
 
     def tearDown(self):
         del self.io
@@ -1040,18 +1043,24 @@ class NixIOHashTest(NixIOTest):
 
 class NixIOPartialWriteTest(NixIOTest):
 
+    filename = "testfile_partialwrite.h5"
+    nixfile = None
     neo_blocks = None
     original_methods = dict()
 
     @classmethod
     def setUpClass(cls):
-        cls.io = cls.create_full_nix_file()
-        cls.neo_blocks = cls.io.read_all_blocks()
-        cls.original_methods["_write_attr_annotations"] =\
-            cls.io._write_attr_annotations
+        cls.nixfile = cls.create_full_nix_file(cls.filename)
 
     def setUp(self):
         self.io = NixIO(self.filename, "rw")
+        self.neo_blocks = self.io.read_all_blocks()
+        self.original_methods["_write_attr_annotations"] =\
+            self.io._write_attr_annotations
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.nixfile.close()
 
     def tearDown(self):
         self.restore_methods()
