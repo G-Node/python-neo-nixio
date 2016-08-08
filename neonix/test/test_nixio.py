@@ -16,7 +16,6 @@ except ImportError:
     import mock
 import string
 import itertools
-from hashlib import md5
 from six import string_types
 
 import numpy as np
@@ -1127,6 +1126,7 @@ class NixIOPartialWriteTest(NixIOTest):
         self.io.write_all_blocks(self.neo_blocks)
         callcount = self.io._write_attr_annotations.call_count
         self.assertEqual(callcount, len(self.io._object_hashes))
+        self.compare_blocks(self.neo_blocks, self.io.nix_file.blocks)
 
 
 class CommonTests(BaseTestIO, unittest.TestCase):

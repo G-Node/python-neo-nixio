@@ -301,8 +301,12 @@ class NixIO(BaseIO):
                 sampling_period = pq.Quantity(1, timedim.unit)
                 t_start = pq.Quantity(0, timedim.unit)
             else:
+                if "sampling_interval.units" in metadata.props:
+                    sample_units = metadata["sampling_interval.units"]
+                else:
+                    sample_units = timedim.unit
                 sampling_period = pq.Quantity(timedim.sampling_interval,
-                                              timedim.unit)
+                                              sample_units)
                 if "t_start.units" in metadata.props:
                     tsunits = metadata["t_start.units"]
                 else:
@@ -358,7 +362,38 @@ class NixIO(BaseIO):
                                   dtype="S")
             eest = Event(times=times, labels=labels, **neo_attrs)
         elif neo_type == "neo.spiketrain":
-            eest = SpikeTrain(times=times, **neo_attrs)
+            if "t_start" in neo_attrs:
+                if "t_start.units" in neo_attrs:
+                    t_start_units = neo_attrs["t_start.units"]
+                    del neo_attrs["t_start.units"]
+                else:
+                    t_start_units = time_unit
+                t_start = pq.Quantity(neo_attrs["t_start"], t_start_units)
+                del neo_attrs["t_start"]
+            else:
+                t_start = None
+            if "t_stop" in neo_attrs:
+                if "t_stop.units" in neo_attrs:
+                    t_stop_units = neo_attrs["t_stop.units"]
+                    del neo_attrs["t_stop.units"]
+                else:
+                    t_stop_units = time_unit
+                t_stop = pq.Quantity(neo_attrs["t_stop"], t_stop_units)
+                del neo_attrs["t_stop"]
+            else:
+                t_stop = None
+            if "sampling_interval.units" in neo_attrs:
+                interval_units = neo_attrs["sampling_interval.units"]
+                del neo_attrs["sampling_interval.units"]
+            else:
+                interval_units = None
+            if "left_sweep.units" in neo_attrs:
+                left_sweep_units = neo_attrs["left_sweep.units"]
+                del neo_attrs["left_sweep.units"]
+            else:
+                left_sweep_units = None
+            eest = SpikeTrain(times=times, t_start=t_start,
+                              t_stop=t_stop, **neo_attrs)
             if len(nix_mtag.features):
                 wfda = nix_mtag.features[0].data
                 wftime = self._get_time_dimension(wfda)
@@ -368,12 +403,16 @@ class NixIO(BaseIO):
                     eest.left_sweep = pq.Quantity(0, wftime.unit)
                 else:
                     eest.waveforms = pq.Quantity(wfda, wfda.unit)
+                    if interval_units is None:
+                        interval_units = wftime.unit
                     eest.sampling_period = pq.Quantity(
-                        wftime.sampling_interval, wftime.unit
+                        wftime.sampling_interval, interval_units
                     )
+                    if left_sweep_units is None:
+                        left_sweep_units = wftime.unit
                     if "left_sweep" in wfda.metadata:
                         eest.left_sweep = pq.Quantity(
-                            wfda.metadata["left_sweep"], wftime.unit
+                            wfda.metadata["left_sweep"], left_sweep_units
                         )
         else:
             return None
@@ -853,7 +892,7 @@ class NixIO(BaseIO):
                 timedim.offset = attr["t_start"]
                 obj.append_set_dimension()
         else:
-            nixobj.positions.unit = attr["times.units"]
+            nixobj.positions.unit = attr["data.units"]
             blockpath = "/" + path.split("/")[1]
             parentblock = self._get_object_at(blockpath)
             if "extents" in attr:
