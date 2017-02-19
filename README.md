@@ -5,6 +5,6 @@
 
 NIX IO for python-neo.
 
-## Tests
+This repository was originally used to develop the NIX IO for python-neo. Since the IO was merged into the Neo repository, further development and bug fixes are made on the [G-Node python-neo fork](https://github.com/G-Node/python-neo).
 
-To run all tests, run `python setup.py test` from the project root.
+This repository is no longer used.
